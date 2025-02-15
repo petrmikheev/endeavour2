@@ -1,0 +1,3 @@
+[submodule "rtl/VexiiRiscv"]
+	path = rtl/VexiiRiscv
+	url = https://github.com/SpinalHDL/VexiiRiscv.git
