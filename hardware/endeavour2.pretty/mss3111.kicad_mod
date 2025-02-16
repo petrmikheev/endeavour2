@@ -110,15 +110,15 @@
 		(remove_unused_layers no)
 		(uuid "7072b420-9990-4d8f-a6b8-3c72e84d3433")
 	)
-	(model "${KICAD7_3DMODEL_DIR}/Button_Switch_THT.3dshapes/SW_Slide_SPDT_Angled_CK_OS102011MA1Q.wrl"
+	(model "/home/petya/endeavour2/hardware/endeavour2.pretty/3d/MSS 3111 D-R.STEP"
 		(offset
-			(xyz 0 3 0)
+			(xyz -2.2 -0.9 2.5)
 		)
 		(scale
-			(xyz 1.6 1.6 1.6)
+			(xyz 1 1 1)
 		)
 		(rotate
-			(xyz 0 0 90)
+			(xyz 180 0 0)
 		)
 	)
 )

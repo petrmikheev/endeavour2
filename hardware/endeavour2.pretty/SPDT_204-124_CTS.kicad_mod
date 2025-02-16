@@ -1242,4 +1242,48 @@
 		(layers "F.Cu" "F.Paste" "F.Mask")
 		(uuid "9b25aaa9-73e5-4f6b-8db1-e1ee74eb7a1d")
 	)
+	(model "/home/petya/endeavour2/hardware/endeavour2.pretty/3d/204-211.step"
+		(offset
+			(xyz 0.8 7.6 7.8)
+		)
+		(scale
+			(xyz 1 1 1)
+		)
+		(rotate
+			(xyz 0 0 90)
+		)
+	)
+	(model "/home/petya/endeavour2/hardware/endeavour2.pretty/3d/204-211.step"
+		(offset
+			(xyz 0.8 2.5 7.8)
+		)
+		(scale
+			(xyz 1 1 1)
+		)
+		(rotate
+			(xyz 0 0 90)
+		)
+	)
+	(model "/home/petya/endeavour2/hardware/endeavour2.pretty/3d/204-211.step"
+		(offset
+			(xyz 0.8 -2.5 7.8)
+		)
+		(scale
+			(xyz 1 1 1)
+		)
+		(rotate
+			(xyz 0 0 90)
+		)
+	)
+	(model "/home/petya/endeavour2/hardware/endeavour2.pretty/3d/204-211.step"
+		(offset
+			(xyz 0.8 -7.6 7.8)
+		)
+		(scale
+			(xyz 1 1 1)
+		)
+		(rotate
+			(xyz 0 0 90)
+		)
+	)
 )
