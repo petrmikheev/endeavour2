@@ -2002,6 +2002,151 @@
 				)
 			)
 		)
+		(symbol "Device:D_TVS"
+			(pin_numbers hide)
+			(pin_names
+				(offset 1.016) hide)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(property "Reference" "D"
+				(at 0 2.54 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" "D_TVS"
+				(at 0 -2.54 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Datasheet" "~"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Description" "Bidirectional transient-voltage-suppression diode"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_keywords" "diode TVS thyrector"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_fp_filters" "TO-???* *_Diode_* *SingleDiode* D_*"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(symbol "D_TVS_0_1"
+				(polyline
+					(pts
+						(xy 1.27 0) (xy -1.27 0)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 0.508 1.27) (xy 0 1.27) (xy 0 -1.27) (xy -0.508 -1.27)
+					)
+					(stroke
+						(width 0.254)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -2.54 1.27) (xy -2.54 -1.27) (xy 2.54 1.27) (xy 2.54 -1.27) (xy -2.54 1.27)
+					)
+					(stroke
+						(width 0.254)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(symbol "D_TVS_1_1"
+				(pin passive line
+					(at -3.81 0 0)
+					(length 2.54)
+					(name "A1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 3.81 0 180)
+					(length 2.54)
+					(name "A2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+		)
 		(symbol "Device:R"
 			(pin_numbers hide)
 			(pin_names
@@ -10105,6 +10250,12 @@
 		(uuid "098f25c1-dd28-4e4d-810b-c400d708ab55")
 	)
 	(junction
+		(at 130.175 121.92)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "0af287a3-4344-4842-954c-c3089a4517c6")
+	)
+	(junction
 		(at 112.395 173.99)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -10159,6 +10310,12 @@
 		(uuid "4bf32000-ed06-4e52-9f74-d29b55668716")
 	)
 	(junction
+		(at 127 119.38)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "52458ebc-e18d-4eb8-91f2-7d05c3b36c05")
+	)
+	(junction
 		(at 43.18 91.44)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -10189,10 +10346,22 @@
 		(uuid "741b11dc-7ff2-4ff1-b2b0-da891086d675")
 	)
 	(junction
+		(at 129.54 171.45)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "74202feb-041c-485a-93ca-9b2461f62b31")
+	)
+	(junction
 		(at 38.1 125.73)
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "74711c72-e070-425d-a8ba-22f8d8f68dd0")
+	)
+	(junction
+		(at 132.715 173.99)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "74cecf5e-d00f-4a08-af54-31ed9490e960")
 	)
 	(junction
 		(at 202.565 56.515)
@@ -10339,6 +10508,18 @@
 		(uuid "ed44fc47-c017-4920-aa5b-36ba93cf07ec")
 	)
 	(junction
+		(at 128.905 138.43)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "f37c5242-23ff-45b4-b7b5-50b14d6cdf14")
+	)
+	(junction
+		(at 131.445 189.865)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "f9789151-0c54-4d12-a3ab-36595ae654b0")
+	)
+	(junction
 		(at 102.235 182.88)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -10410,7 +10591,7 @@
 	)
 	(wire
 		(pts
-			(xy 112.395 173.99) (xy 128.905 173.99)
+			(xy 112.395 173.99) (xy 132.715 173.99)
 		)
 		(stroke
 			(width 0)
@@ -10437,6 +10618,16 @@
 			(type default)
 		)
 		(uuid "01c85c05-11b4-4c66-b43d-f04673a90b71")
+	)
+	(wire
+		(pts
+			(xy 132.715 173.99) (xy 132.715 179.705)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "035a0176-1c6c-4d6d-bf29-c6781b98f69f")
 	)
 	(wire
 		(pts
@@ -10617,6 +10808,16 @@
 			(type default)
 		)
 		(uuid "1fabfd94-231a-4767-89a2-598583021fd1")
+	)
+	(wire
+		(pts
+			(xy 130.175 136.525) (xy 130.175 138.43)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "24a52bab-e671-456c-88b1-95ddfe6302d2")
 	)
 	(wire
 		(pts
@@ -10827,6 +11028,16 @@
 			(type default)
 		)
 		(uuid "34e13561-fb92-4347-9010-f3dc6c2866dd")
+	)
+	(wire
+		(pts
+			(xy 129.54 171.45) (xy 129.54 179.705)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "357a8642-d580-47fc-99f2-1f061c5dbf68")
 	)
 	(wire
 		(pts
@@ -11060,6 +11271,16 @@
 	)
 	(wire
 		(pts
+			(xy 127 119.38) (xy 132.08 119.38)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "49136b83-9e92-4337-a440-2c277301f15b")
+	)
+	(wire
+		(pts
 			(xy 274.32 109.22) (xy 274.32 118.11)
 		)
 		(stroke
@@ -11097,6 +11318,16 @@
 			(type default)
 		)
 		(uuid "4f60af7e-e883-471c-adf6-268e9b39711b")
+	)
+	(wire
+		(pts
+			(xy 130.175 121.92) (xy 130.175 128.905)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "5120ddab-4ca0-44a5-9502-d7cc8e22060c")
 	)
 	(wire
 		(pts
@@ -11210,6 +11441,26 @@
 	)
 	(wire
 		(pts
+			(xy 130.175 138.43) (xy 128.905 138.43)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "5dd4d80e-f598-4e2c-a5fc-92980f4177fd")
+	)
+	(wire
+		(pts
+			(xy 127 136.525) (xy 127 138.43)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "5f206afe-1da5-4b0f-ad2d-ba29016fc0fb")
+	)
+	(wire
+		(pts
 			(xy 231.775 110.49) (xy 228.6 110.49)
 		)
 		(stroke
@@ -11237,6 +11488,16 @@
 			(type default)
 		)
 		(uuid "64304746-0311-4541-b772-53bd408b740c")
+	)
+	(wire
+		(pts
+			(xy 129.54 171.45) (xy 134.62 171.45)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "66fd6801-1e1f-41e1-8c1b-2cd9ed5adb10")
 	)
 	(wire
 		(pts
@@ -11310,6 +11571,16 @@
 	)
 	(wire
 		(pts
+			(xy 129.54 187.325) (xy 129.54 189.865)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "70b09db4-6d47-4ec7-a309-4adee8ae0a3a")
+	)
+	(wire
+		(pts
 			(xy 274.32 118.11) (xy 272.415 118.11)
 		)
 		(stroke
@@ -11370,6 +11641,16 @@
 	)
 	(wire
 		(pts
+			(xy 127 119.38) (xy 127 128.905)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "7613eb71-349a-4bde-bb56-a1733a899d11")
+	)
+	(wire
+		(pts
 			(xy 107.315 147.32) (xy 107.315 142.24)
 		)
 		(stroke
@@ -11427,6 +11708,16 @@
 			(type default)
 		)
 		(uuid "7a11de2b-aa3e-4780-ae31-b9b206c0f376")
+	)
+	(wire
+		(pts
+			(xy 132.715 187.325) (xy 132.715 189.865)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "7c3cddd5-98a3-4195-a35e-055ff4879b44")
 	)
 	(wire
 		(pts
@@ -11540,6 +11831,16 @@
 	)
 	(wire
 		(pts
+			(xy 132.715 173.99) (xy 134.62 173.99)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "8cc60e28-bb28-4773-b494-8a473f642833")
+	)
+	(wire
+		(pts
 			(xy 219.075 102.87) (xy 231.775 102.87)
 		)
 		(stroke
@@ -11560,7 +11861,7 @@
 	)
 	(wire
 		(pts
-			(xy 120.015 119.38) (xy 128.905 119.38)
+			(xy 120.015 119.38) (xy 127 119.38)
 		)
 		(stroke
 			(width 0)
@@ -11857,6 +12158,16 @@
 			(type default)
 		)
 		(uuid "ab759ebd-40c9-4000-aeb6-3d3b1a91c26f")
+	)
+	(wire
+		(pts
+			(xy 127 138.43) (xy 128.905 138.43)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "ab8b64e6-e5d8-4dd9-82f7-637761f8e697")
 	)
 	(wire
 		(pts
@@ -12230,7 +12541,7 @@
 	)
 	(wire
 		(pts
-			(xy 112.395 121.92) (xy 128.905 121.92)
+			(xy 112.395 121.92) (xy 130.175 121.92)
 		)
 		(stroke
 			(width 0)
@@ -12307,6 +12618,16 @@
 			(type default)
 		)
 		(uuid "d445d733-b6fc-49df-9c15-dfc2c569b96f")
+	)
+	(wire
+		(pts
+			(xy 132.715 189.865) (xy 131.445 189.865)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "d4499de7-f062-455b-9103-5acd9a970b9a")
 	)
 	(wire
 		(pts
@@ -12420,6 +12741,16 @@
 	)
 	(wire
 		(pts
+			(xy 130.175 121.92) (xy 132.08 121.92)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "db80a5c1-50b2-4eab-816e-5b06b431f79a")
+	)
+	(wire
+		(pts
 			(xy 211.455 113.03) (xy 211.455 115.57)
 		)
 		(stroke
@@ -12520,7 +12851,7 @@
 	)
 	(wire
 		(pts
-			(xy 120.015 171.45) (xy 128.905 171.45)
+			(xy 120.015 171.45) (xy 129.54 171.45)
 		)
 		(stroke
 			(width 0)
@@ -12720,6 +13051,16 @@
 	)
 	(wire
 		(pts
+			(xy 129.54 189.865) (xy 131.445 189.865)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "fd975273-ab72-4970-8dc4-35d2c35308d3")
+	)
+	(wire
+		(pts
 			(xy 48.895 144.78) (xy 51.435 144.78)
 		)
 		(stroke
@@ -12782,7 +13123,7 @@
 	)
 	(global_label "USB1_D-"
 		(shape bidirectional)
-		(at 128.905 121.92 0)
+		(at 132.08 121.92 0)
 		(fields_autoplaced yes)
 		(effects
 			(font
@@ -12792,7 +13133,7 @@
 		)
 		(uuid "0503d927-1e6e-490a-9ff7-2d10ae61d6e8")
 		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 139.2455 121.92 0)
+			(at 142.4205 121.92 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -12826,7 +13167,7 @@
 	)
 	(global_label "USB1_D+"
 		(shape bidirectional)
-		(at 128.905 119.38 0)
+		(at 132.08 119.38 0)
 		(fields_autoplaced yes)
 		(effects
 			(font
@@ -12836,7 +13177,7 @@
 		)
 		(uuid "1190fdc3-d82d-4f53-97e9-6e77e663332b")
 		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 139.2455 119.38 0)
+			(at 142.4205 119.38 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -13266,7 +13607,7 @@
 	)
 	(global_label "USB2_D+"
 		(shape bidirectional)
-		(at 128.905 171.45 0)
+		(at 134.62 171.45 0)
 		(fields_autoplaced yes)
 		(effects
 			(font
@@ -13276,7 +13617,7 @@
 		)
 		(uuid "ad74223c-f2a0-4714-870a-5e4bd6b92d77")
 		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 139.2455 171.45 0)
+			(at 144.9605 171.45 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -13596,7 +13937,7 @@
 	)
 	(global_label "USB2_D-"
 		(shape bidirectional)
-		(at 128.905 173.99 0)
+		(at 134.62 173.99 0)
 		(fields_autoplaced yes)
 		(effects
 			(font
@@ -13606,7 +13947,7 @@
 		)
 		(uuid "fe4826e6-2533-4c94-bdb0-3240628802f7")
 		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 139.2455 173.99 0)
+			(at 144.9605 173.99 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -16771,6 +17112,76 @@
 		)
 	)
 	(symbol
+		(lib_id "Device:D_TVS")
+		(at 132.715 183.515 90)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "65f79871-0789-4212-925a-7bf88a46275e")
+		(property "Reference" "D15"
+			(at 135.255 182.2449 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(property "Value" "D_TVS"
+			(at 135.255 184.7849 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(property "Footprint" "Diode_SMD:D_0603_1608Metric"
+			(at 132.715 183.515 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 132.715 183.515 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Bidirectional transient-voltage-suppression diode"
+			(at 132.715 183.515 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "a6d485f0-843f-4746-9fa3-b23bbfaf0ee7")
+		)
+		(pin "2"
+			(uuid "414a6973-e858-432c-a69e-cb3ce07e06d7")
+		)
+		(instances
+			(project "endeavour2"
+				(path "/3f72371b-702d-4dab-a6c7-f93a430e8a08/0c365708-7ad9-492c-9d1c-e8989320e541"
+					(reference "D15")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "endeavour2:Ti60F256")
 		(at 24.13 168.275 0)
 		(unit 11)
@@ -18095,6 +18506,142 @@
 		)
 	)
 	(symbol
+		(lib_id "power:GND")
+		(at 128.905 138.43 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "7c6dafbc-8cb0-42b3-8492-701f66c02b1b")
+		(property "Reference" "#PWR0115"
+			(at 128.905 144.78 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "GND"
+			(at 128.905 143.51 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 128.905 138.43 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 128.905 138.43 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" ""
+			(at 128.905 138.43 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "e6696878-0171-4550-a713-6c97536fcebe")
+		)
+		(instances
+			(project "endeavour2"
+				(path "/3f72371b-702d-4dab-a6c7-f93a430e8a08/0c365708-7ad9-492c-9d1c-e8989320e541"
+					(reference "#PWR0115")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:D_TVS")
+		(at 130.175 132.715 90)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "7e5dc609-1648-4561-b3e9-2a82311a79e4")
+		(property "Reference" "D13"
+			(at 132.715 131.4449 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(property "Value" "D_TVS"
+			(at 132.715 133.9849 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(property "Footprint" "Diode_SMD:D_0603_1608Metric"
+			(at 130.175 132.715 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 130.175 132.715 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Bidirectional transient-voltage-suppression diode"
+			(at 130.175 132.715 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "5033a2a2-453e-4ae0-b9fe-a9b218033021")
+		)
+		(pin "2"
+			(uuid "305df8f5-f9db-4871-828b-96821e37720f")
+		)
+		(instances
+			(project "endeavour2"
+				(path "/3f72371b-702d-4dab-a6c7-f93a430e8a08/0c365708-7ad9-492c-9d1c-e8989320e541"
+					(reference "D13")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "Device:R")
 		(at 87.63 97.79 0)
 		(unit 1)
@@ -18158,6 +18705,72 @@
 			(project "endeavour2"
 				(path "/3f72371b-702d-4dab-a6c7-f93a430e8a08/0c365708-7ad9-492c-9d1c-e8989320e541"
 					(reference "R31")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:GND")
+		(at 131.445 189.865 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "812739bb-ed3e-4df5-a8ff-1681b8fdef1c")
+		(property "Reference" "#PWR0114"
+			(at 131.445 196.215 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "GND"
+			(at 131.445 194.945 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 131.445 189.865 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 131.445 189.865 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" ""
+			(at 131.445 189.865 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "a577f2f0-97dc-4739-b147-ac76c11a94b1")
+		)
+		(instances
+			(project "endeavour2"
+				(path "/3f72371b-702d-4dab-a6c7-f93a430e8a08/0c365708-7ad9-492c-9d1c-e8989320e541"
+					(reference "#PWR0114")
 					(unit 1)
 				)
 			)
@@ -18974,6 +19587,75 @@
 			(project "endeavour2"
 				(path "/3f72371b-702d-4dab-a6c7-f93a430e8a08/0c365708-7ad9-492c-9d1c-e8989320e541"
 					(reference "#PWR054")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:D_TVS")
+		(at 127 132.715 90)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "a244f229-1ce0-48f2-85c9-c4850f195cd8")
+		(property "Reference" "D12"
+			(at 121.92 131.445 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(property "Value" "D_TVS"
+			(at 120.015 133.985 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(property "Footprint" "Diode_SMD:D_0603_1608Metric"
+			(at 127 132.715 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 127 132.715 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Bidirectional transient-voltage-suppression diode"
+			(at 127 132.715 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "368526bd-b884-4a60-a3ff-43bb3b570e99")
+		)
+		(pin "2"
+			(uuid "c1503a33-c6d1-42da-8085-083a8cf3263a")
+		)
+		(instances
+			(project "endeavour2"
+				(path "/3f72371b-702d-4dab-a6c7-f93a430e8a08/0c365708-7ad9-492c-9d1c-e8989320e541"
+					(reference "D12")
 					(unit 1)
 				)
 			)
@@ -20972,6 +21654,75 @@
 			(project ""
 				(path "/3f72371b-702d-4dab-a6c7-f93a430e8a08/0c365708-7ad9-492c-9d1c-e8989320e541"
 					(reference "SW7")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:D_TVS")
+		(at 129.54 183.515 90)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "d65079e9-edf4-483c-8257-a57b117118c1")
+		(property "Reference" "D14"
+			(at 124.46 182.245 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(property "Value" "D_TVS"
+			(at 122.555 184.785 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(property "Footprint" "Diode_SMD:D_0603_1608Metric"
+			(at 129.54 183.515 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 129.54 183.515 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Bidirectional transient-voltage-suppression diode"
+			(at 129.54 183.515 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "24e11a00-2f91-4367-b92d-7bf3acc8e2bf")
+		)
+		(pin "2"
+			(uuid "694e1410-a25a-40a8-85cd-eb21ae8fb579")
+		)
+		(instances
+			(project "endeavour2"
+				(path "/3f72371b-702d-4dab-a6c7-f93a430e8a08/0c365708-7ad9-492c-9d1c-e8989320e541"
+					(reference "D14")
 					(unit 1)
 				)
 			)
