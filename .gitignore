@@ -1,7 +1,17 @@
 hardware/*/endeavour2-backups
 hardware/*/#auto_saved_files#
+hardware/*/fp-info-cache
 rtl/endeavour2a/work_*
 rtl/endeavour2a/outflow
+rtl/endeavour2a/endeavour2a.f
+rtl/endeavour2a/ip/Ddr3Controller/ddr3*
+rtl/endeavour2a/ip/Ddr3Controller/Ddr3*
+rtl/endeavour2a/ip/Ddr3Controller/ipm
+rtl/project
+rtl/target
+rtl/verilog/EndeavourSoc.v*
+rtl/simWorkspace
+software/.clangd
 ~*
 *.log
 *.lock

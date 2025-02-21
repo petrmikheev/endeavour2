@@ -1,0 +1,57 @@
+{
+    "args": [
+        "-o",
+        "Ddr3Controller",
+        "--base_path",
+        "/home/petya/endeavour2/rtl/endeavour2a/ip",
+        "--vlnv",
+        {
+            "vendor": "efinixinc.com",
+            "library": "memory_controller",
+            "name": "efx_ddr3_soft_controller",
+            "version": "5.13"
+        }
+    ],
+    "conf": {
+        "data_width": "1",
+        "freq": "400",
+        "col": "10",
+        "row": "16",
+        "bank": "3",
+        "burst_length": "8",
+        "read_burst_type": "1'b0",
+        "cas_latency": "6",
+        "dll_reset": "1",
+        "precharge_pd": "1'b1",
+        "dll_enable": "1'b1",
+        "output_drive_strength": "1'b0",
+        "al": "0",
+        "qoff": "1'b1",
+        "rtt": "3",
+        "asr": "1'b0",
+        "srt": "1'b0",
+        "dynamic_odt": "0",
+        "mpr_rf": "0",
+        "mpr": "1'b0",
+        "tREFI": "7800",
+        "arbiter_init": "1",
+        "arbiter_count": "8",
+        "write_leveling": "1'b0",
+        "tdqs": "1'b0",
+        "DDR3_DATA_RATE": "1",
+        "DDR3_MODE": "1",
+        "READ_ENABLE_PIPELINE": "8",
+        "PLL_OUT_SEL": "4"
+    },
+    "output": {
+        "external_source_source": [
+            "Ddr3Controller/Ddr3Controller.v",
+            "Ddr3Controller/Ddr3Controller_tmpl.vhd",
+            "Ddr3Controller/Ddr3Controller_tmpl.v",
+            "Ddr3Controller/Ddr3Controller_define.vh"
+        ],
+        "external_script_generator": []
+    },
+    "sw_version": "2024.2.294",
+    "generated_date": "2025-03-16T09:59:55.226222+00:00"
+}
