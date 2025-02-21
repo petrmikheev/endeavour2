@@ -9352,6 +9352,12 @@
 		(uuid "f2bea97b-cade-4320-a8c7-467e726be15e")
 	)
 	(junction
+		(at 128.27 64.135)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "f6a98591-8908-4ec8-8b2a-bdef36619680")
+	)
+	(junction
 		(at 168.91 41.275)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -9534,10 +9540,6 @@
 	(no_connect
 		(at 106.045 171.45)
 		(uuid "be654813-05db-46dd-a8b8-2fd8dc4d2a03")
-	)
-	(no_connect
-		(at 130.81 66.675)
-		(uuid "c2d57d0e-c143-4ab1-ba58-368160941dd5")
 	)
 	(no_connect
 		(at 203.2 82.55)
@@ -10269,6 +10271,16 @@
 	)
 	(wire
 		(pts
+			(xy 130.81 66.675) (xy 128.27 66.675)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "50f37c9f-ceb7-471a-9f48-0e2b38804253")
+	)
+	(wire
+		(pts
 			(xy 232.41 140.335) (xy 245.11 140.335)
 		)
 		(stroke
@@ -10779,6 +10791,16 @@
 	)
 	(wire
 		(pts
+			(xy 128.27 64.135) (xy 120.65 64.135)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "91e1cc7e-cef2-421c-9045-9e7f8e6fcc59")
+	)
+	(wire
+		(pts
 			(xy 37.465 178.435) (xy 37.465 181.61)
 		)
 		(stroke
@@ -10909,7 +10931,7 @@
 	)
 	(wire
 		(pts
-			(xy 130.81 64.135) (xy 120.65 64.135)
+			(xy 130.81 64.135) (xy 128.27 64.135)
 		)
 		(stroke
 			(width 0)
@@ -11316,6 +11338,16 @@
 			(type default)
 		)
 		(uuid "caabcf60-1faa-4a62-bef0-b4e3a74ff960")
+	)
+	(wire
+		(pts
+			(xy 128.27 66.675) (xy 128.27 64.135)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "cafcc61d-8e06-4e56-be9e-aae11403301a")
 	)
 	(wire
 		(pts
@@ -12229,7 +12261,7 @@
 			)
 		)
 	)
-	(global_label "SD_VDD_SEL_3V3"
+	(global_label "SD_VCCIO_SEL_3V3"
 		(shape input)
 		(at 203.2 99.695 0)
 		(fields_autoplaced yes)

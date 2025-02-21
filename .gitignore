@@ -1,3 +1,7 @@
 hardware/*/endeavour2-backups
 hardware/*/#auto_saved_files#
+rtl/endeavour2a/work_*
+rtl/endeavour2a/outflow
 ~*
+*.log
+*.lock

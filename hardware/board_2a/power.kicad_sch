@@ -7303,6 +7303,12 @@
 		(uuid "75e56042-e707-4011-a931-335471960d2f")
 	)
 	(junction
+		(at 132.715 27.305)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "7633433c-22eb-47ee-8ff4-574b003fec8f")
+	)
+	(junction
 		(at 35.56 59.055)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -7541,6 +7547,12 @@
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "b5825526-24f5-420a-a009-9c2ffb9b95eb")
+	)
+	(junction
+		(at 132.715 34.925)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "b6667591-86cc-499f-ad1c-b3c2097fc966")
 	)
 	(junction
 		(at 35.56 74.295)
@@ -9160,6 +9172,16 @@
 	)
 	(wire
 		(pts
+			(xy 132.715 34.925) (xy 139.7 34.925)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "7b9804c8-a2a0-4ce1-a271-2247fc618ab4")
+	)
+	(wire
+		(pts
 			(xy 94.615 85.09) (xy 94.615 89.535)
 		)
 		(stroke
@@ -10010,6 +10032,16 @@
 	)
 	(wire
 		(pts
+			(xy 132.715 27.305) (xy 139.7 27.305)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "c1ea893f-50a5-46ae-b132-e217fe19b66a")
+	)
+	(wire
+		(pts
 			(xy 87.63 133.35) (xy 107.315 133.35)
 		)
 		(stroke
@@ -10804,7 +10836,7 @@
 			)
 		)
 	)
-	(global_label "SD_VDD"
+	(global_label "SD_VCCIO"
 		(shape input)
 		(at 35.56 99.06 180)
 		(fields_autoplaced yes)
@@ -11218,7 +11250,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "4.7uF"
+		(property "Value" "1uF"
 			(at 133.35 33.655 0)
 			(effects
 				(font
@@ -11295,7 +11327,7 @@
 				)
 			)
 		)
-		(property "Footprint" "Inductor_SMD:L_0603_1608Metric"
+		(property "Footprint" "Inductor_SMD:L_1008_2520Metric"
 			(at 238.76 81.28 0)
 			(effects
 				(font
@@ -11559,8 +11591,8 @@
 				)
 			)
 		)
-		(property "Value" "20K"
-			(at 240.03 137.795 0)
+		(property "Value" "40.2K"
+			(at 238.76 137.795 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -11952,6 +11984,75 @@
 	)
 	(symbol
 		(lib_id "Device:C")
+		(at 139.7 31.115 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "1c67bc5b-7fa4-4a4e-9066-aad9878e2ad1")
+		(property "Reference" "C60"
+			(at 140.97 28.575 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "0.1uF"
+			(at 140.335 33.655 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "Capacitor_SMD:C_0603_1608Metric"
+			(at 140.6652 34.925 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 139.7 31.115 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Unpolarized capacitor"
+			(at 139.7 31.115 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "d1877519-54d3-477c-a3f7-f354e552e883")
+		)
+		(pin "2"
+			(uuid "9cae399f-9370-418f-8b32-d5686616056c")
+		)
+		(instances
+			(project "endeavour2"
+				(path "/3f72371b-702d-4dab-a6c7-f93a430e8a08/04a0083b-c019-4ec4-9f0e-50dd3ee28f0c"
+					(reference "C60")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:C")
 		(at 38.1 129.54 0)
 		(unit 1)
 		(exclude_from_sim no)
@@ -12102,7 +12203,7 @@
 				)
 			)
 		)
-		(property "Value" "73.3K"
+		(property "Value" "73.2K"
 			(at 102.87 128.27 0)
 			(effects
 				(font
@@ -12806,7 +12907,7 @@
 				)
 			)
 		)
-		(property "Footprint" "Inductor_SMD:L_0603_1608Metric"
+		(property "Footprint" "Inductor_SMD:L_1008_2520Metric"
 			(at 238.125 123.825 0)
 			(effects
 				(font
@@ -13012,7 +13113,7 @@
 				)
 			)
 		)
-		(property "Footprint" "Inductor_SMD:L_0603_1608Metric"
+		(property "Footprint" "Inductor_SMD:L_1008_2520Metric"
 			(at 102.235 123.19 0)
 			(effects
 				(font
@@ -13627,8 +13728,8 @@
 				)
 			)
 		)
-		(property "Value" "40K"
-			(at 241.3 41.91 0)
+		(property "Value" "40.2K"
+			(at 240.03 42.545 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -15398,7 +15499,7 @@
 				)
 			)
 		)
-		(property "Value" "11.7K"
+		(property "Value" "23.2K"
 			(at 238.76 128.905 0)
 			(effects
 				(font
@@ -16283,8 +16384,8 @@
 				)
 			)
 		)
-		(property "Value" "45K"
-			(at 104.14 171.45 0)
+		(property "Value" "45.3K"
+			(at 102.87 172.085 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -16359,7 +16460,7 @@
 				)
 			)
 		)
-		(property "Footprint" "Inductor_SMD:L_0603_1608Metric"
+		(property "Footprint" "Inductor_SMD:L_1008_2520Metric"
 			(at 239.395 36.83 0)
 			(effects
 				(font
@@ -16419,7 +16520,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "0.1uF"
+		(property "Value" "4.7uF"
 			(at 97.79 26.67 0)
 			(effects
 				(font
@@ -17183,8 +17284,8 @@
 				)
 			)
 		)
-		(property "Value" "25K"
-			(at 240.665 86.36 0)
+		(property "Value" "24.9K"
+			(at 239.395 86.995 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -17477,7 +17578,7 @@
 				)
 			)
 		)
-		(property "Footprint" "Inductor_SMD:L_0603_1608Metric"
+		(property "Footprint" "Inductor_SMD:L_1008_2520Metric"
 			(at 102.235 166.37 0)
 			(effects
 				(font
@@ -17672,7 +17773,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "0.1uF"
+		(property "Value" "4.7uF"
 			(at 125.095 26.035 0)
 			(effects
 				(font
@@ -17876,7 +17977,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "10uF"
+		(property "Value" "0.1uF"
 			(at 75.565 34.29 0)
 			(effects
 				(font

@@ -13693,6 +13693,28 @@
 			)
 		)
 	)
+	(global_label "SND_SHDN"
+		(shape input)
+		(at 139.7 55.88 0)
+		(fields_autoplaced yes)
+		(effects
+			(font
+				(size 0.762 0.762)
+			)
+			(justify left)
+		)
+		(uuid "8ce986e8-09a2-423f-9671-7893e17fd550")
+		(property "Intersheetrefs" "${INTERSHEET_REFS}"
+			(at 147.4423 55.88 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
+	)
 	(global_label "DDR_UDQS-"
 		(shape input)
 		(at 111.76 163.83 0)
@@ -14767,28 +14789,6 @@
 					(size 1.27 1.27)
 				)
 				(justify right)
-				(hide yes)
-			)
-		)
-	)
-	(global_label "ESP32_EN"
-		(shape input)
-		(at 139.7 55.88 0)
-		(fields_autoplaced yes)
-		(effects
-			(font
-				(size 0.762 0.762)
-			)
-			(justify left)
-		)
-		(uuid "e7281620-0470-4888-84d4-a1d71f18541c")
-		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 147.1882 55.88 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
 				(hide yes)
 			)
 		)
