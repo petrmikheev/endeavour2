@@ -44,11 +44,13 @@ module Ddr3Adapter
   reg [2:0] wr_beat, rd_beat;
   reg [1:0] rd_cmd_counter;
   reg rd_buf_has_data;
+  reg rd_has_data;
 
   assign native_wr_datamask = 16'h0000;
   assign native_wr_en = wr_en;
   assign native_wr_addr_en = wr_en;
-  assign native_rd_en = ~rd_buf_has_data;
+  assign native_rd_en = ~rd_buf_has_data & (~rd_has_data | tl_d_ready);
+  wire native_rd_fire = native_rd_valid & native_rd_en;
 
   assign tl_d_denied  = 1'b0;
   assign tl_d_corrupt = 1'b0;
@@ -65,14 +67,13 @@ module Ddr3Adapter
   wire rds_full = rds_in == (rds_out ^ {1'b1, {FIFO_WIDTH{1'b0}}});
   wire wrs_full = wrs_in == (wrs_out ^ {1'b1, {FIFO_WIDTH{1'b0}}});
   wire wr_ack_pending = (wr_ack_counter[FIFO_WIDTH+2:2] != wrs_out) & (rd_beat == 0);
-  wire rd_data_ready = rd_buf_has_data | rd_beat[0];
 
   wire a_ready_write = ~native_wr_busy & ~wrs_full;
   wire a_ready_read  = ~native_rd_busy & ~rds_full & (rd_cmd_counter == 0);
 
   assign tl_a_ready = (tl_a_opcode[2] ? a_ready_read : a_ready_write) & calibration_done;
 
-  assign tl_d_valid = wr_ack_pending | rd_data_ready;
+  assign tl_d_valid = wr_ack_pending | rd_has_data;
   assign tl_d_opcode = wr_ack_pending ? 3'd0 : 3'd1;
   assign tl_d_source = wr_ack_pending ? wrs_fifo[wrs_out] : rds_fifo[rds_out];
 
@@ -89,6 +90,7 @@ module Ddr3Adapter
       wrs_in <= 0;
       wrs_out <= 0;
       rd_buf_has_data <= 0;
+      rd_has_data <= 0;
     end else if (calibration_done) begin
       wr_en <= 0;
       native_rd_addr_en <= 0;
@@ -121,18 +123,20 @@ module Ddr3Adapter
       if (native_wr_ack) wr_ack_counter <= wr_ack_counter + 1'b1;
       if (tl_d_ready) begin
         if (wr_ack_pending) wrs_out <= wrs_out + 1'b1;
-        else if (rd_data_ready) begin
+        else if (rd_has_data) begin
           if (~rd_beat[0]) begin
             tl_d_data <= rd_buf;
             rd_buf_has_data <= 0;
-          end
+          end else if (~native_rd_fire)
+            rd_has_data <= 0;
           rd_beat <= rd_beat + 1'b1;
           if (rd_beat == 3'd7) rds_out <= rds_out + 1'b1;
         end
       end
-      if (native_rd_valid & ~rd_buf_has_data) begin
+      if (native_rd_fire) begin
         {rd_buf, tl_d_data} <= native_rd_data;
         rd_buf_has_data <= 1;
+        rd_has_data <= 1;
       end
     end
   end

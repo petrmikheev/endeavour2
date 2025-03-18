@@ -75,7 +75,7 @@ module Ddr3Controller(
   reg [2:0] cnt;
 
   always @(posedge clk) begin
-    if (reset) begin
+    if (~reset_n) begin
       wr_ack_queue <= 0;
       a_in <= 0;
       a_out <= 0;
