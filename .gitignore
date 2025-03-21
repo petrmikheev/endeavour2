@@ -4,6 +4,8 @@ hardware/*/fp-info-cache
 rtl/endeavour2a/work_*
 rtl/endeavour2a/outflow
 rtl/endeavour2a/endeavour2a.f
+rtl/endeavour2a/la0_waveform*
+rtl/endeavour2a/debug_profile.wizard.json
 rtl/endeavour2a/ip/Ddr3Controller/ddr3*
 rtl/endeavour2a/ip/Ddr3Controller/Ddr3*
 rtl/endeavour2a/ip/Ddr3Controller/ipm
@@ -12,6 +14,11 @@ rtl/target
 rtl/verilog/EndeavourSoc.v*
 rtl/simWorkspace
 software/.clangd
+software/bios/ter*
+software/bios/charmap.S
 ~*
 *.log
 *.lock
+*.bin
+*.mem
+*.elf
