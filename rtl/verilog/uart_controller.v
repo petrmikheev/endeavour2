@@ -65,7 +65,7 @@ module UartController (
   always @(posedge clk) begin
     pwrite_buf <= apb_PWRITE;
     if (reset) begin
-      divisor <= 16'd415;
+      divisor <= 16'd1;
       use_parity <= 0;
       cstopb <= 0;
       selbuf_conf <= 0;

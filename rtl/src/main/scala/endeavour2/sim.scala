@@ -75,10 +75,10 @@ object EndeavourSocSim extends App {
     //FileUtil.loadToMem(mem, 0x400000l, "/home/petya/endeavour-tools/linux_kernel/arch/riscv/boot/Image")
     //FileUtil.loadToMem(mem, 0x5000000l, "/home/petya/endeavour-tools/minfs.initrd")
 
-    SimTimeout(100000000L)
+    SimTimeout(6000000000L)
     dut.io.pll_core_LOCKED #= true
     dut.io.pll_ddr_LOCKED #= true
-    dut.io.key #= 1
+    dut.io.key #= 2
     ClockDomain(dut.io.clk25).forkStimulus(40000)
     ClockDomain(dut.io.clk60).forkStimulus(17000)
     ClockDomain(dut.io.clk100).forkStimulus(10000)

@@ -147,6 +147,8 @@ class VexiiSmallCore(resetVector: Long, withCaches: Boolean = true, bootMemClear
   if (withCaches) {
     param.withCaches
     param.lsuL1Coherency = true
+    param.fetchMemDataWidthMin = 64
+    param.lsuMemDataWidthMin = 64
   }
 
   val plugins = param.plugins()

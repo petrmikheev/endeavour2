@@ -39,9 +39,9 @@ module Ddr3Controller(
     output cal_pass,
     output [7:0] cal_fail_log,
 
-    // user interface, it is what we simulate here
-    output reg [127:0] rd_data,
-    output rd_ack,
+    // user interface, it is what we (very roughly) simulate here
+    output [127:0] rd_data,
+    output rd_ack,  // ignore, not used in adapter
     output rd_valid,
     input rd_en,
     input rd_addr_en,
@@ -50,7 +50,7 @@ module Ddr3Controller(
     input [15:0] wr_datamask,  // ignore, not used in adapter
     input [127:0] wr_data,
     output wr_ack,
-    input wr_addr_en,
+    input wr_addr_en,  // ignore, adapter always sets we_en and wr_addr_en at the same time
     input wr_en,
     input [31:0] wr_addr,
     output wr_busy
@@ -67,12 +67,16 @@ module Ddr3Controller(
   reg [7:0] wr_ack_queue;
   reg [31:0] rd_addr_queue [15:0];
   reg [3:0] a_in, a_out;
+  reg rd_en_buf;
+
+  reg [2:0] cnt;
+  localparam RD_DELAY = 0;
 
   assign rd_busy = 1'b0;
   assign wr_busy = 1'b0;
   assign wr_ack = wr_ack_queue[0];
-
-  reg [2:0] cnt;
+  assign rd_data = mem[rd_addr_queue[a_out]];
+  assign rd_valid = a_in != a_out && cnt == 0;
 
   always @(posedge clk) begin
     if (~reset_n) begin
@@ -80,6 +84,7 @@ module Ddr3Controller(
       a_in <= 0;
       a_out <= 0;
       cnt <= 0;
+      rd_en_buf <= 0;
     end else begin
       wr_ack_queue <= {wr_en, wr_ack_queue[7:1]};
       if (wr_en) mem[wr_addr] <= wr_data;
@@ -87,18 +92,9 @@ module Ddr3Controller(
         rd_addr_queue[a_in] <= rd_addr;
         a_in <= a_in + 1'b1;
       end
-      rd_valid <= 0;
-      if (rd_valid & rd_en) begin
-        a_out <= a_out + 1'b1;
-        rd_valid <= 0;
-      end
-      if (cnt == 2) begin
-        cnt <= 0;
-        if (a_in != a_out) begin
-          rd_data <= mem[rd_addr_queue[a_out]];
-          rd_valid <= 1;
-        end
-      end else cnt <= cnt + 1'b1;
+      cnt <= cnt == RD_DELAY ? 0 : cnt + 1'b1;
+      rd_en_buf <= rd_en;
+      if (rd_valid & rd_en_buf) a_out <= a_out + 1'b1;
     end
   end
 

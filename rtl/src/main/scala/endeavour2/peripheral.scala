@@ -45,3 +45,23 @@ class UartController extends BlackBox {
   mapClockDomain(clock=io.clk, reset=io.reset)
   addRTLPath("./verilog/uart_controller.v")
 }
+
+class AudioController extends BlackBox {
+  val io = new Bundle {
+    val clk = in Bool()
+    val reset = in Bool()
+    val shdn = out Bool()
+    val i2c_scl = out Bool()
+    val i2c_sda = out Bool()
+    val i2c_sda_IN = in Bool()
+    val apb = slave(Apb3(Apb3Config(
+      addressWidth  = 3,
+      dataWidth     = 32,
+      useSlaveError = false
+    )))
+  }
+  noIoPrefix()
+  mapClockDomain(clock=io.clk, reset=io.reset)
+  addRTLPath("./verilog/audio_controller.v")
+  addRTLPath("./verilog/i2c.v")
+}

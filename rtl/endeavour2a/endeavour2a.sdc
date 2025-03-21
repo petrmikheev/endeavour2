@@ -17,11 +17,15 @@ set_max_delay -from io_clk60 -to io_clk_cpu 5.000
 set_max_delay -from io_clk_cpu -to io_clk100 5.000
 set_max_delay -from io_clk100 -to io_clk_cpu 5.000
 
+set_max_delay -from io_clk_cpu -to io_dyn_clk0 10.000
+set_max_delay -from io_dyn_clk0 -to io_clk_cpu 10.000
+
 set_max_delay -from io_clk_cpu -to io_clk25 15.000
 
 set_max_delay -from io_clk25 -to io_clk60 15.000
 set_max_delay -from io_clk25 -to io_clk100 15.000
 set_max_delay -from io_clk25 -to io_clk_cpu 15.000
+set_max_delay -from io_clk25 -to io_dyn_clk0 15.000
 set_max_delay -from io_clk25 -to io_ddr_core_clk 15.000
 set_max_delay -from io_clk25 -to io_ddr_tac_clk 15.000
 set_max_delay -from io_clk25 -to io_ddr_twd_clk 15.000

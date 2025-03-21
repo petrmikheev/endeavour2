@@ -149,7 +149,7 @@ class Ddr3Fiber(val bytes : BigInt, phy : Ddr3_Phy) extends Area {
   val up = tilelink.fabric.Node.up()
   up.addTag(PMA.MAIN)
   up.addTag(PMA.EXECUTABLE)
-  up.addTag(new system.tag.MemoryEndpointTag(SizeMapping(0, bytes)))
+  //up.addTag(new system.tag.MemoryEndpointTag(SizeMapping(0, bytes)))
   up.forceDataWidth(64)
 
   val ddr_ctrl = new Ddr3Controller()
@@ -269,7 +269,8 @@ class RomFiber(val content : Array[Byte]) extends Area {
   val addressWidth = log2Up(content.length)
 
   val thread = fiber.Fiber build new Area{
-    up.m2s.supported load up.m2s.proposed.intersect(tilelink.M2sTransfers.allGetPut).copy(addressWidth = addressWidth)
+    //up.m2s.supported load up.m2s.proposed.intersect(tilelink.M2sTransfers.allGetPut).copy(addressWidth = addressWidth)
+    up.m2s.supported load up.m2s.proposed.intersect(tilelink.M2sTransfers(get=tilelink.SizeRange(4, 64))).copy(addressWidth = addressWidth)
     up.s2m.none()
 
     val logic = new Rom(up.bus.p.node, (1 << addressWidth) toInt)

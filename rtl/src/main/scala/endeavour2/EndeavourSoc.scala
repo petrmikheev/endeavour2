@@ -10,10 +10,24 @@ import spinal.lib.bus.tilelink
 import spinal.lib.bus.misc.SizeMapping
 import spinal.lib.misc.plic._
 
-class FrequncyCounter extends Component {
+class FrequencyCounter extends Component {
   val io = new Bundle {
     val test_clk = in Bool()
+    val time = in UInt(16 bits)
+    val freq = out UInt(32 bits)
   }
+  val count_window = RegNext(io.time(11 downto 0) <= 2442 && io.time(11 downto 0) =/= 0)
+  val read_window = io.time(11 downto 9) === 6
+  val restart_window = RegNext(io.time(11 downto 9) === 7)
+  val c = new ClockingArea(ClockDomain(clock = io.test_clk, reset = ClockDomain.current.reset)) {
+    val count_en = RegNext(count_window) addTag(crossClockDomain)
+    val restart_en = RegNext(restart_window) addTag(crossClockDomain)
+    val counter = Reg(UInt(20 bits)) init(0)
+    when (count_en)   { counter := counter + 1 }
+    when (restart_en) { counter := 0 }
+  }
+  val res = RegNextWhen(c.counter, read_window) addTag(crossClockDomain)
+  io.freq := res @@ U(0, 12 bits)
 }
 
 class EndeavourSoc(withMinimalCore : Boolean = false,
@@ -21,7 +35,7 @@ class EndeavourSoc(withMinimalCore : Boolean = false,
                    romContent : Option[Array[Byte]] = None,
                    internalRam : Boolean = false,
                    internalRamContent : Option[Array[Byte]] = None,
-                   ramSize : Long = 1024L * 1024L * 1024L,
+                   ramSize : Long = 1L<<30,
                    sim : Boolean = false) extends Component {
   if (withMinimalCore) assert(internalRam && !withSmallCore, "minimal core requires internal RAM")
 
@@ -34,6 +48,7 @@ class EndeavourSoc(withMinimalCore : Boolean = false,
     val clk60 = in Bool()
     val clk100 = in Bool()
     val clk_cpu = in Bool()
+    val dyn_clk0 = in Bool()
 
     val pll_core_LOCKED = in Bool()
     val pll_ddr_LOCKED = in Bool()
@@ -42,7 +57,29 @@ class EndeavourSoc(withMinimalCore : Boolean = false,
     val ddr = Ddr3_Phy()
     val key = in Bits(3 bits)
     val led = out Bits(4 bits)
+
+    val snd_scl_OUT = out Bool()
+    val snd_scl_OE = out Bool()
+    val snd_sda_OUT = out Bool()
+    val snd_sda_OE = out Bool()
+    val snd_sda_IN = in Bool()
+    val snd_shdn = out Bool()
+
+    val i2c_scl_OUT = out Bool()
+    val i2c_scl_OE = out Bool()
+    val i2c_sda_OUT = out Bool()
+    val i2c_sda_OE = out Bool()
+    val i2c_sda_IN = in Bool()
+
+    val esp32_en = out Bool()
   }
+
+  io.esp32_en := False  // disable for now
+
+  io.i2c_scl_OUT := False
+  io.i2c_sda_OUT := False
+  io.i2c_scl_OE := False // ~val
+  io.i2c_sda_OE := False // ~val
 
   val rst_area = new ClockingArea(ClockDomain(
     clock = io.clk25,
@@ -61,6 +98,11 @@ class EndeavourSoc(withMinimalCore : Boolean = false,
 
   ClockDomainStack.set(ClockDomain(clock=io.clk_cpu, reset=rst_area.reset))
 
+  val cpu_freq_counter = new FrequencyCounter()
+  val dvi_freq_counter = new FrequencyCounter()
+  cpu_freq_counter.io.test_clk := io.clk_cpu
+  dvi_freq_counter.io.test_clk := io.dyn_clk0
+
   val cd60mhz = ClockDomain(
       clock = io.clk60, reset = rst_area.reset,
       frequency = FixedFrequency(60 MHz))
@@ -70,9 +112,13 @@ class EndeavourSoc(withMinimalCore : Boolean = false,
     val uart_ctrl = new UartController()
     uart_ctrl.io.uart <> io.uart
 
-    /*val audio_ctrl = new AudioController()
-    audio_ctrl.io.shdn <> io.audio_shdn
-    audio_ctrl.io.i2c <> io.audio_i2c*/
+    val audio_ctrl = new AudioController()
+    io.snd_shdn := audio_ctrl.io.shdn
+    io.snd_scl_OUT := False
+    io.snd_sda_OUT := False
+    io.snd_scl_OE := ~audio_ctrl.io.i2c_scl  // 0->0, 1->Z (has external pull-up)
+    io.snd_sda_OE := ~audio_ctrl.io.i2c_sda
+    audio_ctrl.io.i2c_sda_IN := io.snd_sda_IN
 
     val apb = Apb3(Apb3Config(
       addressWidth  = 10,
@@ -82,8 +128,8 @@ class EndeavourSoc(withMinimalCore : Boolean = false,
     val apbDecoder = Apb3Decoder(
       master = apb,
       slaves = List(
-        uart_ctrl.io.apb     -> (0x100, 16)
-        //audio_ctrl.io.apb    -> (0x200, 8)
+        uart_ctrl.io.apb     -> (0x100, 16),
+        audio_ctrl.io.apb    -> (0x200, 8)
         //i2c.io.apb   -> (0x300, 32)
       )
     )
@@ -107,8 +153,8 @@ class EndeavourSoc(withMinimalCore : Boolean = false,
   rst_area.softResetRequest := softResetRequested
 
   miscCtrl.read(U(1, 32 bits), address = 0x4)  // hart count
-  miscCtrl.read(U(0, 32 bits), address = 0x8)  // TODO cpu freq khz
-  miscCtrl.read(U(0, 32 bits), address = 0xC)  // TODO dvi pixel freq khz
+  miscCtrl.read(cpu_freq_counter.io.freq, address = 0x8)
+  miscCtrl.read(dvi_freq_counter.io.freq, address = 0xC)
 
   val keyReg = RegNext(io.key)
   val ledReg = Reg(Bits(4 bits)) init(0)
@@ -150,6 +196,8 @@ class EndeavourSoc(withMinimalCore : Boolean = false,
 
   val time = Reg(UInt(64 bits)) init(0) addTag(crossClockDomain)
   when (time_area.counter(2)) { time := time_area.time }  // time step: 100ns
+  cpu_freq_counter.io.time := time(15 downto 0)
+  dvi_freq_counter.io.time := time(15 downto 0)
 
   val clintApb = Apb3(Apb3Config(
     addressWidth  = 16,
@@ -216,10 +264,9 @@ class EndeavourSoc(withMinimalCore : Boolean = false,
 
   val rom = romContent match {
     case Some(content) => {
-      val rom = new RamFiber(8192, initialContent=Option(content))
-      rom.up at (romBaseAddr, 8192) of mbus
-      //val rom = new RomFiber(content)
-      //rom.up at (romBaseAddr, 1<<rom.addressWidth) of mbus
+      val rom = new RomFiber(content)
+      println(s"ROM at ${romBaseAddr.toHexString} - ${(romBaseAddr + (1<<rom.addressWidth)).toHexString}")
+      rom.up at (romBaseAddr, 1<<rom.addressWidth) of mbus
     }
     case None =>
   }
@@ -227,8 +274,9 @@ class EndeavourSoc(withMinimalCore : Boolean = false,
     val ram = new RamFiber(ramSize, initialContent=internalRamContent)
     ram.up at (ramBaseAddr, ramSize) of mbus
     io.ddr.not_connected()
-    ramStat := 0
+    ramStat := 3  // calibration_ok, calibration_done
   } else {
+    println(s"RAM at ${ramBaseAddr.toHexString} - ${(ramBaseAddr + ramSize).toHexString}")
     val ram = new Ddr3Fiber(ramSize, io.ddr)
     ram.up at (ramBaseAddr, ramSize) of mbus
     ramStat := ram.cal_stat
@@ -247,11 +295,10 @@ object EndeavourSoc {
     SpinalConfig(mode=Verilog, targetDirectory="verilog").generate(new EndeavourSoc(
         //withMinimalCore=true,
         withSmallCore=true,
-        //internalRam=true,
-        //ramSize=32768,
+        internalRam=true,
+        ramSize=65536,
         //internalRamContent=Some(romContent),
         romContent=Some(romContent)
         ))
-    //SpinalConfig(mode=Verilog).generate(new EndeavourSoc(withMinimalCore=true))
   }
 }

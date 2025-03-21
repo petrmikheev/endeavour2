@@ -43,14 +43,15 @@ module Ddr3Adapter
   reg wr_en;
   reg [2:0] wr_beat, rd_beat;
   reg [1:0] rd_cmd_counter;
-  reg rd_buf_has_data;
+  reg rd_wbuf_has_data;
   reg rd_has_data;
+  reg native_rd_ready;
+  reg [127:0] rd_wbuf;
+  reg [63:0] rd_buf;
 
   assign native_wr_datamask = 16'h0000;
   assign native_wr_en = wr_en;
   assign native_wr_addr_en = wr_en;
-  assign native_rd_en = ~rd_buf_has_data & (~rd_has_data | tl_d_ready);
-  wire native_rd_fire = native_rd_valid & native_rd_en;
 
   assign tl_d_denied  = 1'b0;
   assign tl_d_corrupt = 1'b0;
@@ -59,11 +60,10 @@ module Ddr3Adapter
 
   localparam FIFO_SIZE = 8;
   localparam FIFO_WIDTH = $clog2(FIFO_SIZE);
-  reg [SOURCE_WIDTH:0] rds_fifo [FIFO_SIZE-1:0];
-  reg [SOURCE_WIDTH:0] wrs_fifo [FIFO_SIZE-1:0];
+  reg [SOURCE_WIDTH-1:0] rds_fifo [FIFO_SIZE-1:0];
+  reg [SOURCE_WIDTH-1:0] wrs_fifo [FIFO_SIZE-1:0];
   reg [FIFO_WIDTH:0] rds_in, rds_out, wrs_in, wrs_out;
   reg [FIFO_WIDTH+2:0] wr_ack_counter;
-  reg [63:0] rd_buf;
   wire rds_full = rds_in == (rds_out ^ {1'b1, {FIFO_WIDTH{1'b0}}});
   wire wrs_full = wrs_in == (wrs_out ^ {1'b1, {FIFO_WIDTH{1'b0}}});
   wire wr_ack_pending = (wr_ack_counter[FIFO_WIDTH+2:2] != wrs_out) & (rd_beat == 0);
@@ -77,6 +77,11 @@ module Ddr3Adapter
   assign tl_d_opcode = wr_ack_pending ? 3'd0 : 3'd1;
   assign tl_d_source = wr_ack_pending ? wrs_fifo[wrs_out] : rds_fifo[rds_out];
 
+  wire rd_fire = tl_d_ready & ~wr_ack_pending & rd_has_data;
+  wire rd_wbuf_needed = ~rd_has_data | (rd_fire & rd_beat[0]);
+  assign native_rd_en = ~rd_wbuf_has_data | (rd_wbuf_needed & ~native_rd_ready);
+  wire native_rd_fire = native_rd_valid & native_rd_ready;
+
   always @(posedge clk or posedge reset) begin
     if (reset) begin
       wr_beat <= 0;
@@ -89,11 +94,32 @@ module Ddr3Adapter
       rds_out <= 0;
       wrs_in <= 0;
       wrs_out <= 0;
-      rd_buf_has_data <= 0;
+      rd_wbuf_has_data <= 0;
       rd_has_data <= 0;
+      native_rd_ready <= 0;
     end else if (calibration_done) begin
-      wr_en <= 0;
-      native_rd_addr_en <= 0;
+      // rd stream
+      native_rd_ready <= native_rd_en;
+      if (native_rd_fire) begin
+        rd_wbuf <= native_rd_data;
+        rd_wbuf_has_data <= 1;
+      end else if (rd_wbuf_needed)
+        rd_wbuf_has_data <= 0;
+      if (rd_wbuf_has_data & rd_wbuf_needed) begin
+        {rd_buf, tl_d_data} <= rd_wbuf;
+        rd_has_data <= 1;
+      end
+      if (rd_fire) begin
+        if (~rd_beat[0])
+          tl_d_data <= rd_buf;
+        else if (~rd_wbuf_has_data) rd_has_data <= 0;
+        rd_beat <= rd_beat + 1'b1;
+        if (rd_beat == 3'd7) rds_out <= rds_out + 1'b1;
+      end
+
+      // command and wr stream
+      if (~native_wr_busy) wr_en <= 0;
+      if (~native_rd_busy) native_rd_addr_en <= 0;
       if (tl_a_valid & tl_a_ready) begin
         if (tl_a_opcode[2]) begin // Get
           rds_fifo[rds_in] <= tl_a_source;
@@ -121,23 +147,7 @@ module Ddr3Adapter
         rd_cmd_counter <= rd_cmd_counter + 1'b1;
       end
       if (native_wr_ack) wr_ack_counter <= wr_ack_counter + 1'b1;
-      if (tl_d_ready) begin
-        if (wr_ack_pending) wrs_out <= wrs_out + 1'b1;
-        else if (rd_has_data) begin
-          if (~rd_beat[0]) begin
-            tl_d_data <= rd_buf;
-            rd_buf_has_data <= 0;
-          end else if (~native_rd_fire)
-            rd_has_data <= 0;
-          rd_beat <= rd_beat + 1'b1;
-          if (rd_beat == 3'd7) rds_out <= rds_out + 1'b1;
-        end
-      end
-      if (native_rd_fire) begin
-        {rd_buf, tl_d_data} <= native_rd_data;
-        rd_buf_has_data <= 1;
-        rd_has_data <= 1;
-      end
+      if (tl_d_ready & wr_ack_pending) wrs_out <= wrs_out + 1'b1;
     end
   end
 
