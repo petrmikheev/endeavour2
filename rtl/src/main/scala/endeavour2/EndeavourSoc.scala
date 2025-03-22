@@ -10,6 +10,8 @@ import spinal.lib.bus.tilelink
 import spinal.lib.bus.misc.SizeMapping
 import spinal.lib.misc.plic._
 
+import vexiiriscv.ParamSimple
+
 class FrequencyCounter extends Component {
   val io = new Bundle {
     val test_clk = in Bool()
@@ -30,18 +32,14 @@ class FrequencyCounter extends Component {
   io.freq := res @@ U(0, 12 bits)
 }
 
-class EndeavourSoc(withMinimalCore : Boolean = false,
-                   withSmallCore : Boolean = false,
-                   romContent : Option[Array[Byte]] = None,
+class EndeavourSoc(coreParam: ParamSimple,
+                   bootRomContent : Option[Array[Byte]] = None,
                    internalRam : Boolean = false,
                    internalRamContent : Option[Array[Byte]] = None,
-                   ramSize : Long = 1L<<30,
-                   sim : Boolean = false) extends Component {
-  if (withMinimalCore) assert(internalRam && !withSmallCore, "minimal core requires internal RAM")
-
+                   ramSize : Long = 1L<<30) extends Component {
   val romBaseAddr = 0x40000000L
   val ramBaseAddr = 0x80000000L
-  val resetVector = if (romContent.isDefined) romBaseAddr else ramBaseAddr
+  val resetVector = if (bootRomContent.isDefined) romBaseAddr else ramBaseAddr
 
   val io = new Bundle {
     val clk25 = in Bool()
@@ -138,8 +136,9 @@ class EndeavourSoc(withMinimalCore : Boolean = false,
   apb_60mhz_bridge.io.clk_output := io.clk60
   apb_60mhz_bridge.io.output <> area60mhz.apb
 
+  val dbus = tilelink.fabric.Node()
   val cbus = tilelink.fabric.Node()
-  cbus.forceDataWidth(if (withMinimalCore) 32 else 64)
+  cbus at (ramBaseAddr, ramSize) of dbus
 
   val miscApb = Apb3(Apb3Config(
     addressWidth  = 5,
@@ -251,54 +250,64 @@ class EndeavourSoc(withMinimalCore : Boolean = false,
     )
   }
 
-  val mbus = tilelink.fabric.Node()
-  if (withMinimalCore) {
-    mbus << cbus
-  } else {
-    val tilelink_hub = new tilelink.coherent.HubFiber()
-    tilelink_hub.up << cbus
-    mbus << tilelink_hub.down
-  }
-  val iobus = if (withMinimalCore) cbus else tilelink.fabric.Node()
-  toApb.up at (0, ioSize) of iobus
+  val cpu0 : Core = new VexiiCore(param=coreParam, resetVector=resetVector)
 
-  val rom = romContent match {
+  clint.connectCore(cpu0, hartId=0)
+  dbus << cpu0.iBus
+  toApb.up at (0, ioSize) of cpu0.dBus
+
+  if (cpu0.hasL1) {
+    dbus.forceDataWidth(64)
+    dbus << cpu0.lsuL1Bus
+  } else {
+    dbus.forceDataWidth(32)
+    dbus << cpu0.dBus
+  }
+
+  val mbus = tilelink.fabric.Node()
+
+  if (cpu0.hasL1) {
+    val tl_hub = new tilelink.coherent.HubFiber()
+    tl_hub.up << cbus
+    mbus << tl_hub.down
+  } else {
+    mbus << cbus
+  }
+
+  val rom = bootRomContent match {
     case Some(content) => {
-      val rom = new RomFiber(content)
+      val rom = new SlowRomFiber(content)
       println(s"ROM at ${romBaseAddr.toHexString} - ${(romBaseAddr + (1<<rom.addressWidth)).toHexString}")
-      rom.up at (romBaseAddr, 1<<rom.addressWidth) of mbus
+      rom.up at (romBaseAddr, 1<<rom.addressWidth) of cpu0.iBus
     }
     case None =>
   }
+
   if (internalRam) {
     val ram = new RamFiber(ramSize, initialContent=internalRamContent)
-    ram.up at (ramBaseAddr, ramSize) of mbus
+    ram.up << mbus
     io.ddr.not_connected()
     ramStat := 3  // calibration_ok, calibration_done
   } else {
+    assert(cpu0.hasL1);
     println(s"RAM at ${ramBaseAddr.toHexString} - ${(ramBaseAddr + ramSize).toHexString}")
     val ram = new Ddr3Fiber(ramSize, io.ddr)
-    ram.up at (ramBaseAddr, ramSize) of mbus
+    ram.up << mbus
     ramStat := ram.cal_stat
   }
-
-  val cpu0 : Core =
-    if (withMinimalCore || withSmallCore) new VexiiSmallCore(resetVector=resetVector, bootMemClear=sim, withCaches=withSmallCore)
-    else new VexiiCore(resetVector=resetVector, bootMemClear=sim)
-  clint.connectCore(cpu0, hartId=0)
-  cpu0.connectBus(cbus, iobus)
 }
 
 object EndeavourSoc {
   def main(args: Array[String]): Unit = {
-    val romContent = Files.readAllBytes(Paths.get("../software/bios/microloader.bin"))
+    val bootRomContent = Files.readAllBytes(Paths.get("../software/bios/microloader.bin"))
     SpinalConfig(mode=Verilog, targetDirectory="verilog").generate(new EndeavourSoc(
-        //withMinimalCore=true,
-        withSmallCore=true,
-        internalRam=true,
-        ramSize=65536,
-        //internalRamContent=Some(romContent),
-        romContent=Some(romContent)
+        //coreParam=Core.minimal(),
+        coreParam=Core.minimal(withCaches=true),
+        //coreParam=Core.small(),
+        //coreParam=Core.full(),
+        //internalRam=true,
+        //ramSize=32768,
+        bootRomContent=Some(bootRomContent)
         ))
   }
 }

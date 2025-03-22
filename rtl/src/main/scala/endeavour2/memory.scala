@@ -1,5 +1,7 @@
 package endeavour2
 
+import scala.math
+
 import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.tilelink
@@ -149,7 +151,6 @@ class Ddr3Fiber(val bytes : BigInt, phy : Ddr3_Phy) extends Area {
   val up = tilelink.fabric.Node.up()
   up.addTag(PMA.MAIN)
   up.addTag(PMA.EXECUTABLE)
-  //up.addTag(new system.tag.MemoryEndpointTag(SizeMapping(0, bytes)))
   up.forceDataWidth(64)
 
   val ddr_ctrl = new Ddr3Controller()
@@ -176,118 +177,83 @@ class Ddr3Fiber(val bytes : BigInt, phy : Ddr3_Phy) extends Area {
   }
 }
 
-// Copied from spinal.lib.bus.tilelink.Ram with a modification to ignore writes.
-// Small Rom uses less memory blocks than Ram since it doesn't need write port.
-class Rom(p : tilelink.NodeParameters, bytes : Int) extends Component {
+// ROM optimized for low resource usage in FPGA.
+// Has memory width 16 bit and bus width >= 32 bit. Takes several cycles per beat.
+class SlowRom(np : tilelink.NodeParameters, val content : Array[Byte]) extends Component {
   val io = new Bundle{
-    val up = slave port tilelink.Bus(p)
+    val up = slave port tilelink.Bus(np)
   }
 
-  val mem = Mem.fill(bytes/p.m.dataBytes)(Bits(p.m.dataWidth bits))
-  val port_address = cloneOf(mem.addressType)
-  val port_enable = Bool()
-  val port_rdata = mem.readSync(port_address, port_enable)
+  val p = io.up.p
+  val memoryWidthBytes = 2
+  val memoryWidth = memoryWidthBytes * 8
+  val memoryDepth = (1<<p.addressWidth)/memoryWidthBytes
+  println(s"ROM[${memoryDepth} * ${memoryWidth} bytes] <= content ${content.length} bytes")
 
-  val pipeline = new Pipeline{
-    val cmd = new Stage{
-      val IS_GET = insert(tilelink.Opcode.A.isGet(io.up.a.opcode))
-      val SIZE = insert(io.up.a.size)
-      val SOURCE = insert(io.up.a.source)
-      val LAST = insert(True)
-
-      valid := io.up.a.valid
-      io.up.a.ready := isReady
-
-      val addressShifted = (io.up.a.address >> log2Up(p.m.dataBytes))
-      port_enable := isFireing
-
-      val withFsm = io.up.p.beatMax != 1
-      if (!withFsm) port_address := addressShifted
-      val fsm = withFsm generate new Area {
-        val counter = Reg(io.up.p.beat) init (0)
-        val address = Reg(mem.addressType)
-        val size = Reg(io.up.p.size)
-        val source = Reg(io.up.p.source)
-        val isGet = Reg(Bool())
-        val busy = counter =/= 0
-        when(busy && isGet) {
-          io.up.a.ready := False
-          valid := True
-        }
-
-        when(io.up.a.fire && !busy){
-          size := io.up.a.size
-          source := io.up.a.source
-          isGet := tilelink.Opcode.A.isGet(io.up.a.opcode)
-          address := addressShifted
-        }
-
-        LAST clearWhen(counter =/= tilelink.sizeToBeatMinusOne(io.up.p,SIZE))
-        when(busy){
-          SIZE := size
-          SOURCE := source
-          IS_GET := isGet
-        }
-        when(isFireing) {
-          counter := counter + 1
-          when(LAST) {
-            counter := 0
-          }
-        }
-        port_address := busy.mux(address, addressShifted) | counter.resized
-      }
-
+  val reshapedContent = new Array[Bits](memoryDepth)
+  for (i <- 0 to memoryDepth - 1) {
+    var v = BigInt(0)
+    for (j <- (i+1)*memoryWidthBytes-1 to i*memoryWidthBytes by -1) {
+      if (j < content.length) v = (v << 8) | (content(j).toInt & 0xff)
     }
-
-    val rsp = new Stage(Connection.M2S()){
-      val takeIt = cmd.LAST || cmd.IS_GET
-      haltWhen(!io.up.d.ready && takeIt)
-      io.up.d.valid := valid && takeIt
-      io.up.d.opcode := cmd.IS_GET.mux(tilelink.Opcode.D.ACCESS_ACK_DATA, tilelink.Opcode.D.ACCESS_ACK)
-      io.up.d.param := 0
-      io.up.d.source := cmd.SOURCE
-      io.up.d.size := cmd.SIZE
-      io.up.d.denied := False
-      io.up.d.corrupt := False
-      io.up.d.data := port_rdata
-    }
-    build()
+    reshapedContent(i) = v
   }
 
-  val ordering = Flow(OrderingCmd(p.sizeBytes))
-  ordering.valid := io.up.a.fire && io.up.a.isLast()
-  ordering.debugId := io.up.a.debugId
-  ordering.bytes := (U(1) << io.up.a.size).resized
-  Component.current.addTag(new tilelink.OrderingTag(ordering.stage()))
+  val mem = Mem.fill(memoryDepth)(Bits(memoryWidth bits)) init(reshapedContent)
+
+  val stepCount = p.dataWidth / memoryWidth
+  val data = Reg(Bits(p.dataWidth-memoryWidth bits))
+  val size = Reg(UInt(p.sizeWidth bits))
+  val source = Reg(UInt(p.sourceWidth bits))
+  val beatCounter = Reg(UInt(math.max(p.beatWidth, 1) bits))
+  val stepCounter = Reg(UInt(log2Up(stepCount + 1) bits))
+  val busy = Reg(Bool()) init(False)
+  val stepEnable = busy && (io.up.d.ready || (stepCounter =/= 0))
+  if (p.beatWidth == 0) beatCounter := 0
+
+  val memAddress = Reg(mem.addressType)
+  val memAddressLow = memAddress((log2Up(p.sizeBytes / memoryWidthBytes) - 1) downto 0)
+  val memData = mem.readSync(memAddress, stepEnable)
+
+  io.up.a.ready := !busy
+  io.up.d.valid := busy && (stepCounter === 0)
+  io.up.d.opcode := tilelink.Opcode.D.ACCESS_ACK_DATA
+  io.up.d.param := 0
+  io.up.d.source := source
+  io.up.d.size := size
+  io.up.d.denied := False
+  io.up.d.corrupt := False
+  io.up.d.data := memData ## data
+
+  when (io.up.a.fire) {
+    source := io.up.a.source
+    size := io.up.a.size
+    memAddress := io.up.a.address >> log2Up(memoryWidthBytes)
+    if (p.beatWidth > 0) beatCounter := io.up.a.sizeToBeatMinusOne
+    stepCounter := stepCount
+    busy := True
+  }
+  when (stepEnable) {
+    data := memData ## (data >> memoryWidth)
+    memAddressLow := memAddressLow + 1
+    stepCounter := stepCounter - 1
+    when (stepCounter === 0) {
+      stepCounter := stepCount - 1
+      if (p.beatWidth > 0) beatCounter := beatCounter - 1
+      when (beatCounter === 0) { busy := False }
+    }
+  }
 }
 
-class RomFiber(val content : Array[Byte]) extends Area {
+class SlowRomFiber(val content : Array[Byte]) extends Area {
   val up = tilelink.fabric.Node.up()
-  //up.forceDataWidth(16)
-  up.addTag(PMA.MAIN)
   up.addTag(PMA.EXECUTABLE)
   val addressWidth = log2Up(content.length)
-
   val thread = fiber.Fiber build new Area{
-    //up.m2s.supported load up.m2s.proposed.intersect(tilelink.M2sTransfers.allGetPut).copy(addressWidth = addressWidth)
     up.m2s.supported load up.m2s.proposed.intersect(tilelink.M2sTransfers(get=tilelink.SizeRange(4, 64))).copy(addressWidth = addressWidth)
     up.s2m.none()
-
-    val logic = new Rom(up.bus.p.node, (1 << addressWidth) toInt)
+    val logic = new SlowRom(up.bus.p.node, content)
     logic.io.up << up.bus
-
-    val memWidth = logic.mem.getWidth
-    val wordSize = memWidth / 8
-    val array = new Array[Bits](logic.mem.wordCount)
-    println(s"ROM[${array.length} * ${wordSize} bytes] <= content ${content.length} bytes")
-    for (i <- 0 to logic.mem.wordCount - 1) {
-      var v = BigInt(0)
-      for (j <- (i+1)*wordSize-1 to i*wordSize by -1) {
-        if (j < content.length) v = (v << 8) | (content(j).toInt & 0xff)
-      }
-      array(i) = v
-    }
-    logic.mem.init(array)
   }
 }
 

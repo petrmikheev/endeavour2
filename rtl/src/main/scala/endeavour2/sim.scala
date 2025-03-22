@@ -31,12 +31,12 @@ object FileUtil {
 }
 
 class EndeavourSocSim extends EndeavourSoc(
-        withSmallCore=true,
+        coreParam=Core.minimal(withCaches=true),
         //internalRam=true,
         //internalRamContent=Some(Files.readAllBytes(Paths.get("../software/bios/microloader.bin"))),
-        romContent=Some(Files.readAllBytes(Paths.get("../software/bios/microloader.bin"))),
+        bootRomContent=Some(Files.readAllBytes(Paths.get("../software/bios/microloader.bin"))),
         //ramSize=32768,
-        sim=false) {
+        ) {
   Fiber patch{
     //ram.thread.logic.mem.simPublic()
     rst_area.reset.simPublic()
@@ -65,7 +65,7 @@ object EndeavourSocSim extends App {
 
   sim.compile(new EndeavourSocSim(/*withCaches=false, internalRam=true*/)).doSimUntilVoid("test", seed = 42){dut =>
     val probe = new VexiiRiscvProbe(
-      cpu = dut.cpu0.core(),
+      cpu = dut.cpu0.vexii(),
       kb = None // Option(new vexiiriscv.test.konata.Backend(new File(currentTestPath, "konata.log")).spinalSimFlusher(hzToLong(1000 Hz)))
     )
     probe.autoRegions()
