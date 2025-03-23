@@ -75,7 +75,7 @@ module Ddr3Adapter
 
   assign tl_d_valid = wr_ack_pending | rd_has_data;
   assign tl_d_opcode = wr_ack_pending ? 3'd0 : 3'd1;
-  assign tl_d_source = wr_ack_pending ? wrs_fifo[wrs_out] : rds_fifo[rds_out];
+  assign tl_d_source = wr_ack_pending ? wrs_fifo[wrs_out[FIFO_WIDTH-1:0]] : rds_fifo[rds_out[FIFO_WIDTH-1:0]];
 
   wire rd_fire = tl_d_ready & ~wr_ack_pending & rd_has_data;
   wire rd_wbuf_needed = ~rd_has_data | (rd_fire & rd_beat[0]);
@@ -122,7 +122,7 @@ module Ddr3Adapter
       if (~native_rd_busy) native_rd_addr_en <= 0;
       if (tl_a_valid & tl_a_ready) begin
         if (tl_a_opcode[2]) begin // Get
-          rds_fifo[rds_in] <= tl_a_source;
+          rds_fifo[rds_in[FIFO_WIDTH-1:0]] <= tl_a_source;
           rds_in <= rds_in + 1'b1;
           native_rd_addr <= {tl_a_address[ADDRESS_WIDTH-1:6], 2'b0};
           rd_cmd_counter <= 2'd1;
@@ -136,7 +136,7 @@ module Ddr3Adapter
           end else
             native_wr_data[63:0] <= tl_a_data;
           if (wr_beat == 3'd7) begin
-            wrs_fifo[wrs_in] <= tl_a_source;
+            wrs_fifo[wrs_in[FIFO_WIDTH-1:0]] <= tl_a_source;
             wrs_in <= wrs_in + 1'b1;
           end
         end
