@@ -28,7 +28,7 @@ charmap.S: ter-u16.bdf
 microloader.bin: microloader.S ../include/endeavour2/defs.h
 	${TOOLCHAIN}gcc -march=rv32im -mabi=ilp32 -nostdlib -ffreestanding -Os -o microloader.elf microloader.S -I../include -Wl,--section-start=.text=0x40000000
 	${TOOLCHAIN}objcopy -O binary microloader.elf microloader.bin
-	od -An -w8 -t x8 microloader.bin > microloader.mem
+	../../scripts/gen_hex.py microloader.bin 2 > microloader.mem
 
 .PHONY: clean
 clean:
