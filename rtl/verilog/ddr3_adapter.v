@@ -79,8 +79,12 @@ module Ddr3Adapter
 
   wire rd_fire = tl_d_ready & ~wr_ack_pending & rd_has_data;
   wire rd_wbuf_needed = ~rd_has_data | (rd_fire & rd_beat[0]);
-  assign native_rd_en = ~rd_wbuf_has_data | (rd_wbuf_needed & ~native_rd_ready);
   wire native_rd_fire = native_rd_valid & native_rd_ready;
+
+  // native_rd_en allows native_rd_fire in next cycle and writing to rd_wbuf in 2 cycles
+  assign native_rd_en = (~rd_wbuf_has_data & ~native_rd_ready) | // rd_wbuf is empty and will not be written in the next cycle
+                        (rd_wbuf_needed & ~native_rd_ready) |    // rd_wbuf will be consumed and will not be written in the next cycle
+                        (~rd_wbuf_has_data & rd_wbuf_needed);    // rd_wbuf may be written in next cycle, but it is empy and data is needed, so in 2 cycles it can receive new data
 
   always @(posedge clk or posedge reset) begin
     if (reset) begin
@@ -150,5 +154,26 @@ module Ddr3Adapter
       if (tl_d_ready & wr_ack_pending) wrs_out <= wrs_out + 1'b1;
     end
   end
+
+  // debug
+  /*
+  reg [FIFO_WIDTH+2:0] rd_ack_counter;
+  wire [FIFO_WIDTH+2:0] rd_queued = {rds_in, 2'b0} - rd_ack_counter;
+  wire [FIFO_WIDTH+2:0] wr_queued = {wrs_in, 2'b0} - wr_ack_counter;
+  reg [2:0] last_rd_beat;
+  reg [7:0] rd_beat_stall_counter;
+  always @(posedge clk or posedge reset) begin
+    if (reset) begin
+      last_rd_beat <= 0;
+      rd_beat_stall_counter <= 0;
+      rd_ack_counter <= 0;
+    end else begin
+      if (native_rd_ack) rd_ack_counter <= rd_ack_counter + 1'b1;
+      last_rd_beat <= rd_beat;
+      if (rd_beat != last_rd_beat || rd_beat == 0)
+        rd_beat_stall_counter <= 0;
+      else if (~&rd_beat_stall_counter) rd_beat_stall_counter <= rd_beat_stall_counter + 1'b1;
+    end
+  end*/
 
 endmodule
