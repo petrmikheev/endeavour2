@@ -73,13 +73,14 @@ struct EndeavourAudio {
 // *** Board
 
 #ifdef __ASSEMBLER__
-  #define     REG_BOARD_RESET      0x0  // write triggers soft reset
-  #define     REG_BOARD_HART_COUNT 0x4
-  #define     REG_BOARD_CPU_FREQ   0x8  // CPU frequency
-  #define     REG_BOARD_DVI_FREQ   0xC  // DVI pixel frequency
-  #define     REG_BOARD_LEDS      0x10
-  #define     REG_BOARD_KEYS      0x14
-  #define     REG_BOARD_RAM_STAT  0x18
+  #define     REG_BOARD_RESET         0x0  // write triggers soft reset
+  #define     REG_BOARD_HART_COUNT    0x4
+  #define     REG_BOARD_CPU_FREQ      0x8  // CPU frequency
+  #define     REG_BOARD_DVI_FREQ      0xC  // DVI pixel frequency
+  #define     REG_BOARD_LEDS         0x10
+  #define     REG_BOARD_KEYS         0x14
+  #define     REG_BOARD_RAM_STAT     0x18
+  #define     REG_BOARD_CPU_FEATURES 0x1C
 #else
 struct EndeavourBoard {
   unsigned reset;
@@ -89,12 +90,21 @@ struct EndeavourBoard {
   unsigned leds;
   unsigned keys;
   unsigned ram_stat;
+  unsigned cpu_features;
 };
 #define BOARD_REGS ((volatile struct EndeavourBoard*)(BOARD_BASE))
 #endif
 
 // BOARD_KEYS flags
 #define BOARD_KEY_BOOT_EN 4
+
+// BOARD_CPU_FEATURES flags
+#define CPU_FEATURES_ZBA        1  // Address calculation extension.
+#define CPU_FEATURES_ZBB        2  // Basic bit manipulation extension.
+#define CPU_FEATURES_ZBC        4  // Carry-less multiplication extension.
+#define CPU_FEATURES_ZBS        8  // Single-bit operation extension.
+#define CPU_FEATURES_ZICBOP  0x10  // Cache-block prefetch extension.
+#define CPU_FEATURES_ZICBOM  0x20  // Cache-block management extension.
 
 // *** misc utils
 

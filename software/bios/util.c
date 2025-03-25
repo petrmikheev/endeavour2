@@ -20,6 +20,31 @@ static void print_number(unsigned v, unsigned base, int width) {
   while (ptr != buf) putchar_impl("0123456789ABCDEF"[*--ptr]);
 }
 
+static unsigned parse_uint(const char** str, int base) {
+  unsigned res = 0;
+  while (1) {
+    char c = **str;
+    if (c >= '0' && c <= '9') {
+      res = res * base + (c - '0');
+    } else if (base==16 && c >= 'a' && c <= 'f') {
+      res = res * base + (c - 'a' + 10);
+    } else if (base==16 && c >= 'A' && c <= 'F') {
+      res = res * base + (c - 'A' + 10);
+    } else {
+      return res;
+    }
+    (*str)++;
+  }
+  return res;
+}
+
+static int parse_int(const char** str, int base) {
+  int neg = **str == '-';
+  if (neg) (*str)++;
+  int res = parse_uint(str, base);
+  return neg ? -res : res;
+}
+
 void printf_impl(const char* fmt, unsigned a1, unsigned a2, unsigned a3, unsigned a4, unsigned a5, unsigned a6, unsigned a7)
 {
   unsigned args[7] = {a1, a2, a3, a4, a5, a6, a7};
@@ -34,20 +59,20 @@ void printf_impl(const char* fmt, unsigned a1, unsigned a2, unsigned a3, unsigne
       putchar_impl(c);
       continue;
     }
-    char f = *fmt++;
+    char f = *fmt;
     if (f == '%') {
+      fmt++;
       putchar_impl('%');
       continue;
     }
-    int width = 1;
-    while (f >= '0' && f <= '9') {
-      width = f - '0';
-      f = *fmt++;
-    }
+    int width = parse_int(&fmt, 10);
+    if (width < 0) width = -width;
+    if (width == 0) width = 1;
+    f = *fmt++;
     if (f == 0) break;
     unsigned a = *arg;
     switch (f) {
-      case 'B': print_number(a, 2, width * 8); break;
+      case 'B': print_number(a, 2, width); break;
       case 'p':
       case 'x':
       case 'X': print_number(a, 16, width); break;
@@ -65,7 +90,8 @@ void printf_impl(const char* fmt, unsigned a1, unsigned a2, unsigned a3, unsigne
         break;
       case 's': {
         const char* s = (const char*)(long)a;
-        while (*s) putchar_impl(*s++);
+        while (*s) { putchar_impl(*s++); width--; }
+        while (width > 0) { putchar_impl(' '); width--; }
         break;
       }
       default:
@@ -74,24 +100,6 @@ void printf_impl(const char* fmt, unsigned a1, unsigned a2, unsigned a3, unsigne
     }
     arg++;
   }
-}
-
-static unsigned parse_uint(const char** str, int base) {
-  unsigned res = 0;
-  while (1) {
-    char c = **str;
-    if (c >= '0' && c <= '9') {
-      res = res * base + (c - '0');
-    } else if (c >= 'a' && c <= 'f') {
-      res = res * base + (c - 'a' + 10);
-    } else if (c >= 'A' && c <= 'F') {
-      res = res * base + (c - 'A' + 10);
-    } else {
-      return res;
-    }
-    (*str)++;
-  }
-  return res;
 }
 
 int sscanf_impl(const char* str, const char* fmt, unsigned* a1, unsigned* a2, unsigned* a3, unsigned* a4, unsigned* a5, unsigned* a6) {

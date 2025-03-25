@@ -101,6 +101,7 @@ checkloop:
     li t1, BIOS_MAGIC
     li a0, 8
     bne t0, t1, error # leds B111 -> no BIOS_MAGIC
+    fence.i
     li t0, 15
     sw t0, REG_BOARD_LEDS(BBOARD)  # leds 1111 -> jump to RAM_BASE
     li t0, RAM_BASE

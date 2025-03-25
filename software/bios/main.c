@@ -20,8 +20,60 @@ void print_cpu_info() {
   int cores = BOARD_REGS->hart_count;
   printf(", %d core", cores);
   if (cores > 1) putchar('s');
-  printf(", %uMhz\n", BOARD_REGS->cpu_frequency / 1000000);
+  printf(", %uMhz\nExtensions: zicsr, zifencei", BOARD_REGS->cpu_frequency / 1000000);
+  unsigned features = BOARD_REGS->cpu_features;
+  if (features & CPU_FEATURES_ZBA) printf(", zba");
+  if (features & CPU_FEATURES_ZBB) printf(", zbb");
+  if (features & CPU_FEATURES_ZBC) printf(", zbc");
+  if (features & CPU_FEATURES_ZBS) printf(", zbs");
+  if (features & CPU_FEATURES_ZICBOP) printf(", zicbop");
+  if (features & CPU_FEATURES_ZICBOM) printf(", zicbom");
+  printf("\n");
 }
+
+int memtest() {
+  printf("RAM: %uMB\tmemtest", RAM_SIZE >> 20);
+  char* ram = (char*)RAM_BASE;
+  const int batch_size = RAM_SIZE >> 4;
+  const int base_step = 16;
+  const int start = 256 * 64;  // skip first 64KB
+  int i = start, j = start;
+  for (int b = 0; b < 4; ++b, j -= batch_size) {
+    const int step = base_step + (b & 1);
+    for (; j < batch_size; j += step, i += step) {
+      char* ptr = ram + (i << 2);
+      *(int*)ptr = i ^ (i << 25);  // test 4 byte write
+      *(ptr + 1) ^= 0xff;  // test 1 byte write
+    }
+    bios_putchar('.');
+  }
+  int check_count = 0;
+  int err_count = 0;
+  i = start, j = start;
+  for (int b = 0; b < 4; ++b, j -= batch_size) {
+    const int step = base_step + (b & 1);
+    for (; j < batch_size; j += step, i += step, check_count++) {
+      char* ptr = ram + (i << 2);
+      unsigned expected = (i ^ (i << 25)) ^ 0xff00;
+      unsigned actual = *(unsigned*)ptr;
+      if (*(ptr + 3) != (expected >> 24)  // test 1 byte read
+          || actual != expected) {    // test 4 byte read
+        if (++err_count <= 8) {
+          printf("\n\tmem[%8x] = %8x, expected %8x", i << 2, actual, expected);
+        }
+      }
+    }
+    bios_putchar('.');
+  }
+  if (err_count) {
+    printf("\nFAILED %u/%u errors\n", err_count, check_count);
+  } else {
+    printf(" OK\n");
+  }
+  return err_count == 0;
+}
+
+void bench();
 
 int main() {
   printf(
@@ -30,18 +82,16 @@ int main() {
       "\t\t\t==========\n\n"
   );
   print_cpu_info();
+  memtest();
+
+  bench();
 
   AUDIO_REGS->cfg = AUDIO_SAMPLE_RATE(2400) | AUDIO_VOLUME(3); // beep 300Hz
   bios_beep(0, 90);
   bios_beep(256, 90);
-
-  for (int i = 0; i < 16; ++i) {
-    BOARD_REGS->leds = i;
-    wait(5000000);
-  }
+  wait(5000000);
 
   BOARD_REGS->reset = 1;
-  while (1);
 }
 
 void fatal_trap_handler(unsigned cause, unsigned tval, unsigned epc, unsigned sp, unsigned ra) {
