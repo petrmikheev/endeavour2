@@ -34,7 +34,7 @@
         "mpr_rf": "0",
         "mpr": "1'b0",
         "tREFI": "7800",
-        "arbiter_init": "1",
+        "arbiter_init": "0",
         "arbiter_count": "8",
         "write_leveling": "1'b0",
         "tdqs": "1'b0",
@@ -47,11 +47,11 @@
         "external_source_source": [
             "Ddr3Controller/Ddr3Controller.v",
             "Ddr3Controller/Ddr3Controller_tmpl.vhd",
-            "Ddr3Controller/Ddr3Controller_tmpl.v",
-            "Ddr3Controller/Ddr3Controller_define.vh"
+            "Ddr3Controller/Ddr3Controller_define.vh",
+            "Ddr3Controller/Ddr3Controller_tmpl.v"
         ],
         "external_script_generator": []
     },
     "sw_version": "2024.2.294",
-    "generated_date": "2025-03-16T09:59:55.226222+00:00"
+    "generated_date": "2025-03-25T23:19:20.042282+00:00"
 }

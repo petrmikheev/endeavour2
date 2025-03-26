@@ -30,13 +30,15 @@ trait Core {
 }
 
 object Core {
-  def minimal(withCaches: Boolean = false): ParamSimple = {
+  def small(withCaches: Boolean = true): ParamSimple = {  // 0.734 DMIPS/MHz
     val param = new ParamSimple()
     param.xlen = 32
     param.hartCount = 1
     param.withMul = true
     param.withDiv = true
     param.privParam.withRdTime = true
+    param.withRvc = true
+    param.withAlignerBuffer = true
     if (withCaches) {
       param.withCaches
       param.lsuL1Coherency = true
@@ -46,78 +48,71 @@ object Core {
     param
   }
 
-  def small(): ParamSimple = {
-    val param = minimal(withCaches = true)
+  def medium(): ParamSimple = {  // 1.606 DMIPS/MHz
+    val param = small(withCaches = true)
+
+    // needed to run linux
     param.withRva = true
-    param.withRvc = true
-    param.withAlignerBuffer = true
-    param.privParam.withSupervisor = true
-    param.privParam.withUser = true
-    param
-  }
-
-  def full(): ParamSimple = {
-    val param = new ParamSimple()
-    param.xlen = 32
-    param.hartCount = 1
-    param.withCaches
-    param.lsuL1Coherency = true
-
-    param.fetchMemDataWidthMin = 64
-    param.lsuMemDataWidthMin = 64
-
-    param.withRvc = true
-    param.withAlignerBuffer = true
-    param.withDispatcherBuffer = true
-
-    param.withMul = true
-    param.withDiv = true
-    param.withRva = true
-    param.withRvZb = false
-
     param.withMmu = true
     param.withMmuSyncRead
-
     param.privParam.withSupervisor = true
     param.privParam.withUser = true
-    param.privParam.withRdTime = true
 
-    /*param.withRvf = true
-    param.fpuFmaFullAccuracy = false
-    param.fpuIgnoreSubnormal = true*/
-
-    // Performance optimization
-    param.decoders = 2
-    param.lanes = 2
-
-    param.fetchL1Ways = 4
-    param.lsuL1Ways = 4
-
+    // cache performance
     param.fetchL1RefillCount = 3
     param.lsuL1RefillCount = 4
     param.lsuL1WritebackCount = 4
+    param.fetchL1Prefetch = "nl"
+    param.lsuHardwarePrefetch = "nl"
+    param.lsuSoftwarePrefetch = true
+    param.lsuStoreBufferSlots = 4
+    param.lsuStoreBufferOps = 32
 
+    // branch prediction
     param.withBtb = true
     param.withGShare = true
     param.withRas = true
 
-    param.fetchL1Prefetch = "nl"
-    //param.lsuSoftwarePrefetch = true
-    param.lsuHardwarePrefetch = "rpt"
-    param.lsuStoreBufferSlots = 4
-    param.lsuStoreBufferOps = 32
+    // core performance
+    param.withDispatcherBuffer = true
+    param.allowBypassFrom = 0
+    param.withLsuBypass = true
+    param.withLateAlu = true
+    param.storeRs2Late = true
 
-    // fMax optimization
+    // fMax
     param.relaxedBranch = true
+
+    param
+  }
+
+  def full(): ParamSimple = {  // 2.451 DMIPS/MHz
+    val param = medium()
+
+    // performance
+    param.divRadix = 4
+    param.lsuL1RefillCount = 8
+    param.lsuL1WritebackCount = 8
+    param.lsuHardwarePrefetch = "rpt"
+    param.decoders = 2
+    param.lanes = 2
+    param.fetchL1Ways = 4
+    param.lsuL1Ways = 4
+
+    // features
+    /*param.withRvZb = true
+    param.withRvd = true
+    param.fpuFmaFullAccuracy = false
+    param.fpuIgnoreSubnormal = true*/
+
+    // fMax
+    /*param.relaxedBranch = true
     param.relaxedShift = true
     param.relaxedSrc = true
     param.relaxedBtb = true
     param.relaxedDiv = true
-    param.relaxedMulInputs = true
+    param.relaxedMulInputs = true*/
 
-    param.withLateAlu = true
-    param.allowBypassFrom = 0
-    param.storeRs2Late = true
     param
   }
 }

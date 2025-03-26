@@ -83,7 +83,7 @@ class EndeavourSoc(coreParam: ParamSimple,
     clock = io.clk25,
     config = ClockDomainConfig(resetKind = BOOT))
   ) {
-    val counter = Reg(UInt(4 bits)) init(0)
+    val counter = Reg(UInt(15 bits)) init(0)
     val reset = RegInit(True)
     val softResetRequest = Bool() addTag(crossClockDomain)
     when (io.pll_core_LOCKED & io.pll_ddr_LOCKED) { counter := counter + 1 }
@@ -162,6 +162,14 @@ class EndeavourSoc(coreParam: ParamSimple,
   miscCtrl.driveAndRead(ledReg, address = 0x10)
   miscCtrl.read(keyReg, address = 0x14)
   miscCtrl.read(ramStat, address = 0x18)
+  miscCtrl.read(B(32 bits,
+      0 -> coreParam.withRvZb,            // zba
+      1 -> coreParam.withRvZb,            // zbb
+      2 -> coreParam.withRvZb,            // zbc
+      3 -> coreParam.withRvZb,            // zbs
+      4 -> coreParam.lsuSoftwarePrefetch, // zicbop
+      5 -> coreParam.withRvcbm,           // zicbom
+      default -> False), address = 0x1C)
 
   val plicSize = 0x4000000
   val plicPriorityWidth = 1
@@ -267,9 +275,10 @@ class EndeavourSoc(coreParam: ParamSimple,
   val mbus = tilelink.fabric.Node()
 
   if (cpu0.hasL1) {
-    val tl_hub = new tilelink.coherent.HubFiber()
-    tl_hub.up << cbus
-    mbus << tl_hub.down
+    val tl_cache = new tilelink.coherent.CacheFiber()
+    tl_cache.parameter.downPendingMax = 8
+    tl_cache.up << cbus
+    mbus << tl_cache.down
   } else {
     mbus << cbus
   }
@@ -301,12 +310,11 @@ object EndeavourSoc {
   def main(args: Array[String]): Unit = {
     val bootRomContent = Files.readAllBytes(Paths.get("../software/bios/microloader.bin"))
     SpinalConfig(mode=Verilog, targetDirectory="verilog").generate(new EndeavourSoc(
-        //coreParam=Core.minimal(),
-        coreParam=Core.minimal(withCaches=true),
-        //coreParam=Core.small(),
+        //coreParam=Core.small(withCaches=false),
+        //coreParam=Core.small(withCaches=true),
+        coreParam=Core.medium(),
         //coreParam=Core.full(),
-        //internalRam=true,
-        //ramSize=32768,
+        //internalRam=true, ramSize=32768,
         bootRomContent=Some(bootRomContent)
         ))
   }
