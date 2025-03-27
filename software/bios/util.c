@@ -1,4 +1,5 @@
 #include <endeavour2/defs.h>
+#include <endeavour2/bios.h>
 
 static void uart_putc(char c) {
   while (UART_REGS->tx < 0);
@@ -6,18 +7,37 @@ static void uart_putc(char c) {
 }
 
 void putchar_impl(char c) {
+  if (c == '\b') {
+    uart_putc('\b');
+    uart_putc(' ');
+  }
   uart_putc(c);
 }
 
-static void print_number(unsigned v, unsigned base, int width) {
+static void print_number(unsigned v, unsigned base, int width, int leading_zero, int sign) {
   char buf[32];
+  if (leading_zero && width > 32) width = 32;
+  int neg = sign && (int)v < 0;
+  if (neg) {
+    v = -v;
+    if (width > 0) width--;
+    else if (width < 0) width++;
+  }
   char* ptr = buf;
-  while (v > 0 || width > 0) {
+  while (v > 0 || width > 0 || ptr == buf) {
     *ptr++ = v % base;
     v /= base;
-    width--;
+    if (width > 0) width--;
   }
-  while (ptr != buf) putchar_impl("0123456789ABCDEF"[*--ptr]);
+  if (!leading_zero) {
+    while (ptr[-1] == 0 && ptr > buf+1) {
+      putchar_impl(' ');
+      ptr--;
+    }
+  }
+  if (neg) putchar_impl('-');
+  while (ptr != buf) { putchar_impl("0123456789ABCDEF"[*--ptr]); width++; }
+  while (width++ < 0) putchar_impl(' ');
 }
 
 static unsigned parse_uint(const char** str, int base) {
@@ -35,7 +55,6 @@ static unsigned parse_uint(const char** str, int base) {
     }
     (*str)++;
   }
-  return res;
 }
 
 static int parse_int(const char** str, int base) {
@@ -43,6 +62,12 @@ static int parse_int(const char** str, int base) {
   if (neg) (*str)++;
   int res = parse_uint(str, base);
   return neg ? -res : res;
+}
+
+static int strlen(const char* str) {
+  int res = 0;
+  while (*str++) res++;
+  return res;
 }
 
 void printf_impl(const char* fmt, unsigned a1, unsigned a2, unsigned a3, unsigned a4, unsigned a5, unsigned a6, unsigned a7)
@@ -65,33 +90,31 @@ void printf_impl(const char* fmt, unsigned a1, unsigned a2, unsigned a3, unsigne
       putchar_impl('%');
       continue;
     }
+    int leading_zero = f == '0';
     int width = parse_int(&fmt, 10);
-    if (width < 0) width = -width;
-    if (width == 0) width = 1;
     f = *fmt++;
     if (f == 0) break;
     unsigned a = *arg;
     switch (f) {
-      case 'B': print_number(a, 2, width); break;
+      case 'B': print_number(a, 2, width, leading_zero, 0); break;  // non-standard
       case 'p':
       case 'x':
-      case 'X': print_number(a, 16, width); break;
-      case 'o': print_number(a, 8, width); break;
+      case 'X': print_number(a, 16, width, leading_zero, 0); break;
+      case 'o': print_number(a, 8, width, leading_zero, 0); break;
       case 'c': putchar_impl(a); break;
       case 'd':
       case 'i':
-        if ((int)a < 0) {
-          putchar_impl('-');
-          a = -a;
-        }
-        // no break
+        print_number(a, 10, width, leading_zero, 1);
+        break;
       case 'u':
-        print_number(a, 10, width);
+        print_number(a, 10, width, leading_zero, 0);
         break;
       case 's': {
         const char* s = (const char*)(long)a;
-        while (*s) { putchar_impl(*s++); width--; }
-        while (width > 0) { putchar_impl(' '); width--; }
+        int len = strlen(s);
+        while (width > len) { putchar_impl(' '); width--; }
+        while (*s) putchar_impl(*s++);
+        while (-width > len) { putchar_impl(' '); width++; }
         break;
       }
       default:
@@ -107,7 +130,7 @@ int sscanf_impl(const char* str, const char* fmt, unsigned* a1, unsigned* a2, un
   unsigned** arg = args;
   while (1) {
     char f = *fmt++;
-    if (f == 0) break;
+    if (f == 0 || *str == 0) break;
     if (f == '%') {
       char s = *fmt++;
       if (s == '%') {
@@ -118,8 +141,19 @@ int sscanf_impl(const char* str, const char* fmt, unsigned* a1, unsigned* a2, un
       }
       int base;
       int neg = 0;
-      switch (*fmt++) {
+      switch (s) {
         case 'o': base = 8; break;
+        case 'i':
+          if (str[0] == '0') {
+            if (str[1] == 'x') {
+              str += 2;
+              base = 16;
+            } else {
+              base = 8;
+            }
+            break;
+          }
+          // no break
         case 'd': if (*str == '-') {
           str++;
           neg = 1;
@@ -160,14 +194,60 @@ unsigned crc32_impl(const char* data, int size) {
   return ~ncrc;
 }
 
-static const unsigned short beep_data[8] = {0x800, 0xda8, 0xfff, 0xda8, 0x800, 0x257, 0x0, 0x257};
+void wait(unsigned t) {
+  unsigned start = time_100nsec();
+  while (1) {
+    if ((time_100nsec() - start) > t) return;
+  }
+}
 
-void beep_impl(unsigned volume, int periods) {
-  for (int i = 0; i < periods; ++i) {
-    while (AUDIO_REGS->stream < 8);
-    for (int j = 0; j < 8; ++j) {
-      unsigned v = (((unsigned)beep_data[j] * volume) >> 8) & 0xfff;
-      AUDIO_REGS->stream = v | (v << 16);
+void uart_flush() {
+  while (1) {
+    wait(1000);
+    if (UART_REGS->rx) {
+      UART_REGS->rx = 0;
+      return;
+    }
+    while (UART_REGS->rx >= 0);
+  }
+}
+
+int read_uart_impl(char* dst, int size, int divisor) {
+  unsigned uart_cfg = UART_REGS->cfg;
+  if (divisor >= 0) {
+    UART_REGS->cfg = (UART_REGS->cfg & 0xffff0000) | divisor;
+  }
+  for (int i = 0; i < size; ++i) {
+    int x;
+    do { x = UART_REGS->rx; } while (x < 0);
+    if (x < 0x100) {
+      *(dst++) = (char)x;
+    } else {
+      uart_flush();
+      if (divisor >= 0) {
+        UART_REGS->cfg = uart_cfg;
+        wait(10000);
+      }
+      printf("Error %d at pos %d\n", x>>8, i);
+      return 0;
     }
   }
+  if (divisor >= 0) {
+    UART_REGS->cfg = uart_cfg;
+    wait(100000);
+  }
+  return 1;
+}
+
+int strcmp(const char* s1, const char* s2) {
+  while (*s1 == *s2 && *s1 != 0) {
+    s1++;
+    s2++;
+  }
+  if (*s1 > *s2)
+    return 1;
+  else if (*s1 < *s2)
+    return -1;
+  else
+    return 0;
 }

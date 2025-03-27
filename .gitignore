@@ -22,3 +22,4 @@ software/bios/charmap.S
 *.bin
 *.mem
 *.elf
+*.o

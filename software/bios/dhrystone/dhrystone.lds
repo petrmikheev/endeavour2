@@ -2,15 +2,11 @@ ENTRY(_start)
 
 SECTIONS
 {
-   . = 0x80000000;
+   . = 0x80007400;
    .text.startup : { *(.text.startup) }
    .text : { *(.text) }
    PROVIDE( __global_pointer$ = . + 0x800 );
-   .rodata : { *(.rodata) }
    .data : { *(.data) }
+   . = 0x80008000;
    .bss : { *(.bss) }
-   . = 0x80007400;
-   .text.dhrystone_bin : { *(.data.dhrystone_bin) }
-   . = 0x80007ffc;
-   .data.biosmagic : { *(.data.biosmagic) }
 }

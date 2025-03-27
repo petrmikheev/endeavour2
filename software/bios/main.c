@@ -1,12 +1,7 @@
 #include <endeavour2/defs.h>
 #include <endeavour2/bios.h>
 
-void wait(unsigned t) {
-  unsigned start = time_100nsec();
-  while (1) {
-    if ((time_100nsec() - start) > t) return;
-  }
-}
+#include "bios_internal.h"
 
 void print_cpu_info() {
   printf("CPU: rv32im");
@@ -20,7 +15,7 @@ void print_cpu_info() {
   int cores = BOARD_REGS->hart_count;
   printf(", %d core", cores);
   if (cores > 1) putchar('s');
-  printf(", %uMhz\nExtensions: zicsr, zifencei", BOARD_REGS->cpu_frequency / 1000000);
+  printf(", %u MHz\nExtensions: zicsr, zifencei", BOARD_REGS->cpu_frequency / 1000000);
   unsigned features = BOARD_REGS->cpu_features;
   if (features & CPU_FEATURES_ZBA) printf(", zba");
   if (features & CPU_FEATURES_ZBB) printf(", zbb");
@@ -31,71 +26,122 @@ void print_cpu_info() {
   printf("\n");
 }
 
-int memtest() {
-  printf("RAM: %uMB\tmemtest", RAM_SIZE >> 20);
-  char* ram = (char*)RAM_BASE;
-  const int batch_size = RAM_SIZE >> 4;
-  const int base_step = 16;
-  const int start = 256 * 64;  // skip first 64KB
-  int i = start, j = start;
-  for (int b = 0; b < 4; ++b, j -= batch_size) {
-    const int step = base_step + (b & 1);
-    for (; j < batch_size; j += step, i += step) {
-      char* ptr = ram + (i << 2);
-      *(int*)ptr = i ^ (i << 25);  // test 4 byte write
-      *(ptr + 1) ^= 0xff;  // test 1 byte write
-    }
-    bios_putchar('.');
-  }
-  int check_count = 0;
-  int err_count = 0;
-  i = start, j = start;
-  for (int b = 0; b < 4; ++b, j -= batch_size) {
-    const int step = base_step + (b & 1);
-    for (; j < batch_size; j += step, i += step, check_count++) {
-      char* ptr = ram + (i << 2);
-      unsigned expected = (i ^ (i << 25)) ^ 0xff00;
-      unsigned actual = *(unsigned*)ptr;
-      if (*(ptr + 3) != (expected >> 24)  // test 1 byte read
-          || actual != expected) {    // test 4 byte read
-        if (++err_count <= 8) {
-          printf("\n\tmem[%8x] = %8x, expected %8x", i << 2, actual, expected);
-        }
-      }
-    }
-    bios_putchar('.');
-  }
-  if (err_count) {
-    printf("\nFAILED %u/%u errors\n", err_count, check_count);
-  } else {
-    printf(" OK\n");
-  }
-  return err_count == 0;
-}
-
-void bench();
+const char* console_help_msg =
+      "\nUART console. Commands:\n"
+      "\tW addr val\t\t\t- save 4B to RAM\n"
+      "\tR addr\t\t\t\t- load 4B from RAM\n"
+      "\tSD addr sector\t\t- load SD card sector to addr\n"
+      "\tUART addr size\t\t- receive size(decimal) bytes via UART\n"
+      "\tFUART addr size\t   - UART with baud rate 12Mhz\n"
+      "\tCRC32 addr size [expected] - calculate crc of data in RAM\n"
+      "\tMEMTEST\t\t\t   - rerun memtest\n"
+      "\tJ addr\t\t\t\t- run code at addr\n\n";
 
 int main() {
+  BOARD_REGS->leds = 0;
+  bios_beep(256, 90);
+
   printf(
       "\n\n"
       "\t\t\tEndeavour2\n"
       "\t\t\t==========\n\n"
   );
   print_cpu_info();
-  memtest();
 
-  bench();
+  unsigned ram_size = BOARD_REGS->ram_size;
+  if (ram_size < (1<<20)) {
+    printf("RAM: %u KB\n", ram_size >> 10);
+  } else {
+    printf("RAM: %u MB\t", ram_size >> 20);
+    if (!fast_memtest()) {
+      bios_beep(256, 300);
+    }
+  }
 
-  AUDIO_REGS->cfg = AUDIO_SAMPLE_RATE(2400) | AUDIO_VOLUME(3); // beep 300Hz
-  bios_beep(0, 90);
-  bios_beep(256, 90);
-  wait(5000000);
+  run_benchmarks();
 
-  BOARD_REGS->reset = 1;
+  printf("\n\n");
+  printf(console_help_msg);
+  while (1) {
+    #define CMD_BUF_SIZE 120
+    char cmd[CMD_BUF_SIZE];
+    bios_readline("> ", cmd, CMD_BUF_SIZE);
+    if (*cmd == 0) continue;
+    unsigned long addr;
+    unsigned val;
+    int size, c;
+    int fast_uart = cmd[0] == 'F';
+    switch (cmd[0]) {
+      case 'w': {
+        int volume = 6;
+        int seconds = -1;
+        if (bios_sscanf(cmd, "wav %x %d %d", &addr, &volume, &seconds) >= 1) {
+          playWav((void*)addr, volume, seconds);
+          continue;
+        }
+        break;
+      }
+      case 'W':
+        if (bios_sscanf(cmd, "W %x %x", &addr, &val) == 2) {
+          *(volatile unsigned*)addr = val;
+          continue;
+        }
+        break;
+      case 'R':
+        if (bios_sscanf(cmd, "R %x", &addr) == 1) {
+          bios_printf("%08x\n", *(volatile unsigned*)addr);
+          continue;
+        }
+        break;
+      /*case 'S':
+        if (bios_sscanf(cmd, "SD %x %x", &addr, &val) == 2) {
+          int res = bios_sdread((unsigned*)addr, val, 1);
+          if (!res) bios_printf("SD error\n");
+          continue;
+        }
+        break;*/
+      case 'U':
+      case 'F':
+        if (bios_sscanf(cmd + fast_uart, "UART %x %d", &addr, &size) == 2) {
+          bios_read_uart((char*)addr, size, fast_uart ? UART_BAUD_RATE(12000000) : -1);
+          continue;
+        }
+        break;
+      case 'C':
+        val = 0;
+        c = bios_sscanf(cmd, "CRC32 %x %d %x", &addr, &size, &val);
+        if (c == 2 || c == 3) {
+          unsigned crc = bios_crc32((char*)addr, size);
+          bios_printf("%08x", crc);
+          if (val) {
+            bios_printf(crc == val ? " OK" : " ERROR");
+          }
+          putchar('\n');
+          continue;
+        }
+        break;
+      case 'M':
+        full_memtest();
+        continue;
+      case 'J':
+        if (bios_sscanf(cmd, "J %x", &addr) == 1) {
+          asm("fence.i");
+          ((void (*)())addr)();
+          continue;
+        }
+        break;
+      case 'h':
+      case 'H':
+        bios_printf(console_help_msg);
+      case '\n': continue;
+    }
+    bios_printf("Invalid command\n");
+    uart_flush();
+  }
 }
 
 void fatal_trap_handler(unsigned cause, unsigned tval, unsigned epc, unsigned sp, unsigned ra) {
-  printf("\nTRAP\n\tcause = %8x\n\ttval  = %8x\n\tepc   = %8x\n\tsp\t= %8x\n\tra\t= %8x\n", cause, tval, epc, sp, ra);
+  printf("\nTRAP\n\tcause = %08x\n\ttval  = %08x\n\tepc   = %08x\n\tsp\t= %08x\n\tra\t= %08x\n", cause, tval, epc, sp, ra);
   //bios_uart_console();
 }
 

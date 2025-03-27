@@ -45,9 +45,13 @@ static void test_memcpy_check(const unsigned* data) {
   }
 }
 
-void bench() {
+unsigned dhrystone();
+
+void run_benchmarks() {
   unsigned mDMIPS_MHz = dhrystone();
   printf("\nDhrystone Benchmark\t: %u.%03u DMIPS/MHz\n", mDMIPS_MHz / 1000, mDMIPS_MHz % 1000);
+
+  if (BOARD_REGS->ram_size < 0x300000) return;
 
   printf("\nMemory benchmarks\n");
   unsigned* page1 = (unsigned*)(RAM_BASE + 0x100000);

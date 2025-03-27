@@ -1,8 +1,8 @@
-sources = asm.S main.c util.c bench.c charmap.S dhry_1.o dhry_2.o dhrystone/strcmp.S dhrystone/strcpy.S
-#sdcard.c console.c
+sources = asm.S main.c util.c bench.c memtest.c readline.c sound.c charmap.S
 
 TOOLCHAIN=../../../endeavour-tools/rv32imac-linux-toolchain/bin/riscv32-unknown-linux-gnu-
 OPTIONS=-mabi=ilp32 -nostdlib -ffreestanding -I../include -T bios.lds
+OPTIONS+= -fomit-frame-pointer -fno-exceptions -fno-asynchronous-unwind-tables -fno-unwind-tables
 BASE_ARCH=-march=rv32imc_zicsr_zifencei_zicbop
 BENCH_ARCH=-march=rv32imc_zicsr_zifencei_zicbop_zba_zbb_zbc_zbs
 
@@ -17,7 +17,7 @@ BENCH_ARCH=-march=rv32imc_zicsr_zifencei_zicbop_zba_zbb_zbc_zbs
 .PHONY: all
 all: bios.bin microloader.bin
 
-bios.elf: $(sources) bench_impl.o ../include/endeavour2/defs.h ../include/endeavour2/bios.h
+bios.elf: $(sources) bench_impl.o dhrystone/dhrystone.bin ../include/endeavour2/defs.h ../include/endeavour2/bios.h
 	${TOOLCHAIN}gcc ${OPTIONS} ${BASE_ARCH} -Wl,--no-warn-rwx-segments -Os -o bios.elf $(sources) bench_impl.o
 
 bios.bin: bios.elf
@@ -26,11 +26,8 @@ bios.bin: bios.elf
 bench_impl.o: bench_impl.c
 	${TOOLCHAIN}gcc ${OPTIONS} ${BENCH_ARCH} -O3 -c bench_impl.c
 
-dhry_1.o: dhrystone/dhry_1.c ../include/endeavour2/bios.h
-	${TOOLCHAIN}gcc ${OPTIONS} ${BASE_ARCH} -O3 -DTIME -Idhrystone -w -c dhrystone/dhry_1.c
-
-dhry_2.o: dhrystone/dhry_2.c
-	${TOOLCHAIN}gcc ${OPTIONS} ${BASE_ARCH} -O3 -DTIME -Idhrystone -w -c dhrystone/dhry_2.c
+dhrystone/dhrystone.bin:
+	cd dhrystone && make
 
 .PHONE: objdump
 objdump: bios.elf
@@ -51,7 +48,7 @@ microloader.bin: microloader.S ../include/endeavour2/defs.h
 
 .PHONY: clean
 clean:
-	rm -rf *.bin *.elf *.mem *.o dhrystone/*.o
+	rm -rf *.bin *.elf *.mem *.o
 
 .PHONY: clean_charmap
 clean_charmap:

@@ -1,3 +1,19 @@
+.section .text.startup
+.global _start
+_start:
+    addi sp, sp, -8
+    sw gp, 0(sp)
+    sw ra, 4(sp)
+.option push
+.option norelax
+    la gp, __global_pointer$
+.option pop
+    jal dhrystone
+    lw ra, 4(sp)
+    lw gp, 0(sp)
+    addi sp, sp, 8
+    ret
+
 .globl strcpy
 strcpy:
     lb   t0, 0(a1)

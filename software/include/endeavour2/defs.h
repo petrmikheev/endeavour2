@@ -22,7 +22,6 @@
 
 #define ROM_BASE  0x40000000  // reset addr
 #define RAM_BASE  0x80000000
-#define     RAM_SIZE  0x40000000  // 1 GB
 
 // *** UART
 
@@ -81,6 +80,7 @@ struct EndeavourAudio {
   #define     REG_BOARD_KEYS         0x14
   #define     REG_BOARD_RAM_STAT     0x18
   #define     REG_BOARD_CPU_FEATURES 0x1C
+  #define     REG_BOARD_RAM_SIZE     0x20
 #else
 struct EndeavourBoard {
   unsigned reset;
@@ -91,6 +91,7 @@ struct EndeavourBoard {
   unsigned keys;
   unsigned ram_stat;
   unsigned cpu_features;
+  unsigned ram_size;
 };
 #define BOARD_REGS ((volatile struct EndeavourBoard*)(BOARD_BASE))
 #endif

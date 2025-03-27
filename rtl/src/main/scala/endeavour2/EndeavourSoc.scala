@@ -141,7 +141,7 @@ class EndeavourSoc(coreParam: ParamSimple,
   cbus at (ramBaseAddr, ramSize) of dbus
 
   val miscApb = Apb3(Apb3Config(
-    addressWidth  = 5,
+    addressWidth  = 6,
     dataWidth     = 32,
     useSlaveError = true
   ))
@@ -170,6 +170,7 @@ class EndeavourSoc(coreParam: ParamSimple,
       4 -> coreParam.lsuSoftwarePrefetch, // zicbop
       5 -> coreParam.withRvcbm,           // zicbom
       default -> False), address = 0x1C)
+  miscCtrl.read(U(ramSize, 32 bits), address = 0x20)
 
   val plicSize = 0x4000000
   val plicPriorityWidth = 1
@@ -251,7 +252,7 @@ class EndeavourSoc(coreParam: ParamSimple,
         // usb     0x4000
         // esp32   0x5000
         // spi?
-        miscApb              -> (0x1000, 32),
+        miscApb              -> (0x1000, 1<<miscApb.config.addressWidth),
         clintApb             -> (0x10000, 0x10000),
         plicApb              -> (0x4000000, 0x4000000)
       )
@@ -310,11 +311,10 @@ object EndeavourSoc {
   def main(args: Array[String]): Unit = {
     val bootRomContent = Files.readAllBytes(Paths.get("../software/bios/microloader.bin"))
     SpinalConfig(mode=Verilog, targetDirectory="verilog").generate(new EndeavourSoc(
-        //coreParam=Core.small(withCaches=false),
+        //coreParam=Core.small(withCaches=false), internalRam=true, ramSize=65536,
         //coreParam=Core.small(withCaches=true),
         coreParam=Core.medium(),
         //coreParam=Core.full(),
-        //internalRam=true, ramSize=32768,
         bootRomContent=Some(bootRomContent)
         ))
   }

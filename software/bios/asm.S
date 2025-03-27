@@ -19,6 +19,10 @@ _start:
     j crc32_impl
 .align 2
     j beep_impl
+.align 2
+    j readline_impl
+.align 2
+    j read_uart_impl
 
 start:
 .option push
@@ -122,3 +126,8 @@ fatal_trap:
     jal fatal_trap_handler
 infloop:
     j infloop
+
+.section .text.dhrystone_bin
+.global dhrystone
+dhrystone:
+    .incbin "dhrystone/dhrystone.bin"
