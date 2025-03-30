@@ -36,7 +36,8 @@ class EndeavourSoc(coreParam: ParamSimple,
                    bootRomContent : Option[Array[Byte]] = None,
                    internalRam : Boolean = false,
                    internalRamContent : Option[Array[Byte]] = None,
-                   ramSize : Long = 1L<<30) extends Component {
+                   ramSize : Long = 1L<<30,
+                   sim : Boolean = false) extends Component {
   val romBaseAddr = 0x40000000L
   val ramBaseAddr = 0x80000000L
   val resetVector = if (bootRomContent.isDefined) romBaseAddr else ramBaseAddr
@@ -83,7 +84,7 @@ class EndeavourSoc(coreParam: ParamSimple,
     clock = io.clk25,
     config = ClockDomainConfig(resetKind = BOOT))
   ) {
-    val counter = Reg(UInt(15 bits)) init(0)
+    val counter = Reg(UInt((if (sim) 4 else 15) bits)) init(0)
     val reset = RegInit(True)
     val softResetRequest = Bool() addTag(crossClockDomain)
     when (io.pll_core_LOCKED & io.pll_ddr_LOCKED) { counter := counter + 1 }

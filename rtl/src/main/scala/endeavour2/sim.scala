@@ -32,10 +32,10 @@ object FileUtil {
 
 class EndeavourSocSim extends EndeavourSoc(
         coreParam=Core.small(withCaches=true),
-        //internalRam=true,
-        //internalRamContent=Some(Files.readAllBytes(Paths.get("../software/bios/microloader.bin"))),
-        bootRomContent=Some(Files.readAllBytes(Paths.get("../software/bios/microloader.bin"))),
-        //ramSize=32768,
+        internalRam=true, ramSize=65536,
+        internalRamContent=Some(Files.readAllBytes(Paths.get("../software/bios/bios.bin"))),
+        //bootRomContent=Some(Files.readAllBytes(Paths.get("../software/bios/microloader.bin"))),
+        sim=true
         ) {
   Fiber patch{
     //ram.thread.logic.mem.simPublic()
