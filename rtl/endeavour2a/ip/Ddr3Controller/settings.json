@@ -38,20 +38,20 @@
         "arbiter_count": "8",
         "write_leveling": "1'b0",
         "tdqs": "1'b0",
-        "DDR3_DATA_RATE": "1",
+        "DDR3_DATA_RATE": "2",
         "DDR3_MODE": "1",
         "READ_ENABLE_PIPELINE": "8",
         "PLL_OUT_SEL": "4"
     },
     "output": {
         "external_source_source": [
-            "Ddr3Controller/Ddr3Controller.v",
             "Ddr3Controller/Ddr3Controller_tmpl.vhd",
-            "Ddr3Controller/Ddr3Controller_define.vh",
-            "Ddr3Controller/Ddr3Controller_tmpl.v"
+            "Ddr3Controller/Ddr3Controller_tmpl.v",
+            "Ddr3Controller/Ddr3Controller.v",
+            "Ddr3Controller/Ddr3Controller_define.vh"
         ],
         "external_script_generator": []
     },
     "sw_version": "2024.2.294",
-    "generated_date": "2025-03-25T23:19:20.042282+00:00"
+    "generated_date": "2025-03-29T12:47:17.067934+00:00"
 }
