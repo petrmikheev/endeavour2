@@ -64,10 +64,23 @@ static int parse_int(const char** str, int base) {
   return neg ? -res : res;
 }
 
-static int strlen(const char* str) {
+unsigned long strlen(const char* str) {
   int res = 0;
   while (*str++) res++;
   return res;
+}
+
+int strcmp(const char* s1, const char* s2) {
+  while (*s1 == *s2 && *s1 != 0) {
+    s1++;
+    s2++;
+  }
+  if (*s1 > *s2)
+    return 1;
+  else if (*s1 < *s2)
+    return -1;
+  else
+    return 0;
 }
 
 void printf_impl(const char* fmt, unsigned a1, unsigned a2, unsigned a3, unsigned a4, unsigned a5, unsigned a6, unsigned a7)
@@ -139,6 +152,7 @@ int sscanf_impl(const char* str, const char* fmt, unsigned* a1, unsigned* a2, un
         else
           continue;
       }
+      while (*str == ' ' || *str == '\t') str++;
       int base;
       int neg = 0;
       switch (s) {
@@ -204,7 +218,7 @@ void wait(unsigned t) {
 void uart_flush() {
   while (1) {
     wait(1000);
-    if (UART_REGS->rx) {
+    if (UART_REGS->rx < 0) {
       UART_REGS->rx = 0;
       return;
     }
@@ -226,28 +240,15 @@ int read_uart_impl(char* dst, int size, int divisor) {
       uart_flush();
       if (divisor >= 0) {
         UART_REGS->cfg = uart_cfg;
-        wait(10000);
+        wait(100000);
       }
       printf("Error %d at pos %d\n", x>>8, i);
-      return 0;
+      return 1;
     }
   }
   if (divisor >= 0) {
     UART_REGS->cfg = uart_cfg;
     wait(100000);
   }
-  return 1;
-}
-
-int strcmp(const char* s1, const char* s2) {
-  while (*s1 == *s2 && *s1 != 0) {
-    s1++;
-    s2++;
-  }
-  if (*s1 > *s2)
-    return 1;
-  else if (*s1 < *s2)
-    return -1;
-  else
-    return 0;
+  return 0;
 }

@@ -1,5 +1,7 @@
 #include <endeavour2/bios.h>
 
+#include "bios_internal.h"
+
 void readline_impl(const char* prompt, char* buffer, unsigned max_size) {
   printf(prompt);
   int c;
@@ -10,6 +12,7 @@ void readline_impl(const char* prompt, char* buffer, unsigned max_size) {
     if (c > 255) {
       printf("\nUART error %d\n", c >> 8);
       *buffer = 0;
+      uart_flush();
       return;
     }
     if (c == '\r') c = '\n';

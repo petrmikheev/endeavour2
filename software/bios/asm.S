@@ -35,6 +35,7 @@ start:
     jal main
     j infloop
 
+.align 2
 trap:
     # save sp, t0, t1
     csrw mscratch, sp
@@ -123,6 +124,10 @@ fatal_trap:
     csrr a2, mepc     # mepc
     csrr a3, mscratch # sp
     mv   a4, ra       # ra
+.option push
+.option norelax
+    la gp, __global_pointer$
+.option pop
     jal fatal_trap_handler
 infloop:
     j infloop

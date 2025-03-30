@@ -7,10 +7,11 @@
 #define bios_printf     ((void (*)(const char* /*fmt*/, ...))                       (RAM_BASE + 0x8))
 #define bios_sscanf     ((int  (*)(const char* /*str*/, const char* /*fmt*/, ...))  (RAM_BASE + 0xC))
 #define bios_crc32      ((unsigned (*)(const void*, int))                           (RAM_BASE + 0x10))
-#define bios_beep       ((void (*)(int /*volume 0-256*/, int /*cnt*/))              (RAM_BASE + 0x14))
+// bios_beep(duration_ms, frequency, volume) // volume range [-1:15]; -1 = silent
+#define bios_beep       ((void (*)(unsigned, unsigned, int))                        (RAM_BASE + 0x14))
 // bios_readline(prompt, buffer, max_size)
 #define bios_readline   ((void (*)(const char*, char*, unsigned))                   (RAM_BASE + 0x18))
-// bios_read_uart(dst, size, uart_divisor_override /* -1 - don't override */) -> ok
+// bios_read_uart(dst, size, uart_divisor_override /* -1 - don't override */) -> err
 #define bios_read_uart  ((int (*)(char*, int, int))                                 (RAM_BASE + 0x1C))
 
 // bios_sdread(dst, sector, sector_count) -> sector_count

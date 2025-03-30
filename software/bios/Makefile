@@ -1,4 +1,4 @@
-sources = asm.S main.c util.c bench.c memtest.c readline.c sound.c charmap.S
+sources = asm.S main.c util.c bench.c memtest.c readline.c sound.c console.c charmap.S
 
 TOOLCHAIN=../../../endeavour-tools/rv32imac-linux-toolchain/bin/riscv32-unknown-linux-gnu-
 OPTIONS=-mabi=ilp32 -nostdlib -ffreestanding -I../include -T bios.lds
@@ -17,7 +17,7 @@ BENCH_ARCH=-march=rv32imc_zicsr_zifencei_zicbop_zba_zbb_zbc_zbs
 .PHONY: all
 all: bios.bin microloader.bin
 
-bios.elf: $(sources) bench_impl.o dhrystone/dhrystone.bin ../include/endeavour2/defs.h ../include/endeavour2/bios.h
+bios.elf: $(sources) bios_internal.h bench_impl.o dhrystone/dhrystone.bin ../include/endeavour2/defs.h ../include/endeavour2/bios.h
 	${TOOLCHAIN}gcc ${OPTIONS} ${BASE_ARCH} -Wl,--no-warn-rwx-segments -Os -o bios.elf $(sources) bench_impl.o
 
 bios.bin: bios.elf
