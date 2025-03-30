@@ -153,6 +153,12 @@ int sscanf_impl(const char* str, const char* fmt, unsigned* a1, unsigned* a2, un
           continue;
       }
       while (*str == ' ' || *str == '\t') str++;
+      if (s == 's') {
+        char* dst = (char*)(*arg++);
+        while (*str && *str != ' ' && *str != '\t') *dst++ = *str++;
+        *dst = 0;
+        continue;
+      }
       int base;
       int neg = 0;
       switch (s) {
@@ -251,4 +257,33 @@ int read_uart_impl(char* dst, int size, int divisor) {
     wait(100000);
   }
   return 0;
+}
+
+static int i2c_wait() {
+  int cmd;
+  while ((cmd = I2C_REGS->cmd) < 0);
+  return cmd & (I2C_CMD_DATA_ERR|I2C_CMD_ADDR_ERR);
+}
+
+int i2c_write(int addr, int size, const char* data) {
+  int err = 0;
+  I2C_REGS->cmd = I2C_CMD_WRITE | addr;
+  I2C_REGS->counter = size;
+  for (int i = 0; i < size; ++i) {
+    err |= i2c_wait();
+    I2C_REGS->data = *data++;
+  }
+  err |= i2c_wait();
+  return err;
+}
+
+int i2c_read(int addr, int size, char* data) {
+  int err = 0;
+  I2C_REGS->cmd = I2C_CMD_READ | addr;
+  I2C_REGS->counter = size;
+  for (int i = 0; i < size; ++i) {
+    err |= i2c_wait();
+    *data++ = I2C_REGS->data;
+  }
+  return err;
 }

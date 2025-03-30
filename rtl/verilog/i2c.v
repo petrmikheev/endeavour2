@@ -67,6 +67,8 @@ module I2C (
       end else if (q == 2'd2) begin
         case (state)
           HALT: begin
+            addr_err <= 0;
+            data_err <= 0;
             if (~sda)
               sda <= 1;
             else if (cmd_active) begin
@@ -118,8 +120,7 @@ module I2C (
 
 endmodule
 
-// Not used in the SoC. Was added for debugging only.
-/*module I2C_APB(
+module I2cController(
   input clk,
   input reset,
 
@@ -132,34 +133,39 @@ endmodule
   output reg [31:0] apb_PRDATA,
 
   output i2c_scl,
-  inout i2c_sda
+  output i2c_sda,
+  input i2c_sda_IN
 );
 
   reg [6:0] cmd_addr;
-  reg cmd_active, cmd_high_speed, cmd_read, read_nack;
+  reg cmd_high_speed, cmd_read, read_nack;
   reg has_data;
   wire addr_err, data_err, data_ready;
   reg [7:0] data_in;
   wire [7:0] data_out;
 
+  reg [7:0] byte_counter;
+  wire busy = (has_data ^ cmd_read) & |byte_counter;
+
   I2C i2c(
     .clk(clk),
 
-    .cmd_active(cmd_active),
+    .cmd_active(|byte_counter),
     .cmd_high_speed(cmd_high_speed),
     .cmd_addr(cmd_addr),
     .cmd_read(cmd_read),
     .addr_err(addr_err),
-    .read_nack(read_nack),
+    .read_nack(byte_counter == 1),
 
-    .data_valid(has_data ^ cmd_read),
+    .data_valid(busy),
     .data_ready(data_ready),
     .data_in(data_in),
     .data_out(data_out),
     .data_err(data_err),
 
     .i2c_scl(i2c_scl),
-    .i2c_sda(i2c_sda)
+    .i2c_sda(i2c_sda),
+    .i2c_sda_IN(i2c_sda_IN)
   );
 
   assign apb_PREADY = 1'b1;
@@ -167,28 +173,36 @@ endmodule
   always @(posedge clk) begin
     if (reset) begin
       cmd_addr <= 7'd0;
-      {read_nack, cmd_active, cmd_high_speed, cmd_read} <= 3'd0;
+      {cmd_high_speed, cmd_read} <= 2'd0;
+      byte_counter <= 0;
       has_data <= 0;
     end else begin
-      if (cmd_read) begin
-        if (~has_data & data_ready & cmd_active) has_data <= 1;
-      end else begin
-        if (has_data & data_ready) has_data <= 0;
+      if (data_ready & busy) begin
+        byte_counter <= byte_counter - 1'b1;
+        has_data <= ~has_data;
       end
       if (apb_PSEL & ~apb_PWRITE) begin
-        case (apb_PADDR)
-          4'd0: apb_PRDATA <= {25'd0, cmd_addr};
-          4'd4: apb_PRDATA <= {26'd0, has_data, addr_err, data_err, read_nack, cmd_active, cmd_high_speed, cmd_read};
-          4'd8: begin apb_PRDATA <= {24'd0, data_out}; if (has_data) has_data <= 0; end
+        case (apb_PADDR[3:2])
+          2'd0: apb_PRDATA <= {busy, 20'd0, addr_err, data_err, cmd_high_speed, cmd_read, cmd_addr};
+          2'd1: apb_PRDATA <= {24'd0, byte_counter};
+          2'd2: begin
+            apb_PRDATA <= {24'd0, data_out};
+            if (cmd_read & apb_PENABLE & has_data) has_data <= 0;
+          end
+          default:;
         endcase
       end else if (apb_PSEL & apb_PENABLE & apb_PWRITE) begin
-        case (apb_PADDR)
-          4'd0: cmd_addr <= apb_PWDATA[6:0];
-          4'd4: begin {read_nack, cmd_active, cmd_high_speed, cmd_read} <= apb_PWDATA[3:0]; has_data <= 0; end
-          4'd8: if (~has_data & ~cmd_read) begin has_data <= 1'd1; data_in <= apb_PWDATA[7:0]; end
+        case (apb_PADDR[3:2])
+          2'd0: {cmd_high_speed, cmd_read, cmd_addr} <= apb_PWDATA[8:0];
+          2'd1: byte_counter <= apb_PWDATA[7:0];
+          2'd2: begin
+            data_in <= apb_PWDATA[7:0];
+            has_data <= 1;
+          end
+          default:;
         endcase
       end
     end
   end
 
-endmodule*/
+endmodule

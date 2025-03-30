@@ -15,7 +15,9 @@ void run_benchmarks();
 
 void playWav(void* filePtr, int volume);
 
-void init_console();
 void run_console();
+
+int i2c_write(int addr, int size, const char* data);
+int i2c_read(int addr, int size, char* data);
 
 #endif  // BIOS_INTERNAL_H

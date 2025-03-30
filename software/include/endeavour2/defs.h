@@ -3,13 +3,14 @@
 
 // *** Address map
 
-#define UART_BASE      0x100
-#define AUDIO_BASE     0x200
-#define I2C_BASE       0x300
-#define BOARD_BASE    0x1000
-#define VIDEO_BASE    0x2000
-#define SDCARD_BASE   0x3000
-#define USB_OHCI_BASE 0x4000
+#define UART_BASE       0x100
+#define AUDIO_BASE      0x200
+#define I2C_BASE        0x300
+#define ESP32_UART_BASE 0x400
+#define BOARD_BASE     0x1000
+#define VIDEO_BASE     0x2000
+#define SDCARD_BASE    0x3000
+#define USB_OHCI_BASE  0x4000
 
 #define CLINT_BASE   0x10000
 #define CLINT_IPI(hartid)      (CLINT_BASE + ((hartid)<<2))
@@ -26,9 +27,9 @@
 // *** UART
 
 #ifdef __ASSEMBLER__
-  #define   REG_UART_RX      0  // negative value - buffer empty; write to RX clears framing error flag
-  #define   REG_UART_TX      4  // negative value - buffer full
-  #define   REG_UART_CFG     8
+  #define REG_UART_RX      0  // negative value - buffer empty; write to RX clears framing error flag
+  #define REG_UART_TX      4  // negative value - buffer full
+  #define REG_UART_CFG     8
 #else
 struct EndeavourUart {
   int rx;
@@ -36,6 +37,7 @@ struct EndeavourUart {
   unsigned cfg;
 };
 #define UART_REGS ((volatile struct EndeavourUart*)(UART_BASE))
+#define ESP32_UART_REGS ((volatile struct EndeavourUart*)(ESP32_UART_BASE))
 #endif
 
 // UART_CFG flags
@@ -52,8 +54,8 @@ struct EndeavourUart {
 // *** Audio
 
 #ifdef __ASSEMBLER__
-  #define     REG_AUDIO_CFG    0
-  #define     REG_AUDIO_STREAM 4  // write - add to stream, read - remaining buf size
+  #define REG_AUDIO_CFG    0
+  #define REG_AUDIO_STREAM 4  // write - add to stream, read - remaining buf size
 #else
 struct EndeavourAudio {
   unsigned cfg;
@@ -69,18 +71,47 @@ struct EndeavourAudio {
 #define AUDIO_NO_SLEEP 0x00100000
 #define AUDIO_EMPTY    0x80000000
 
+// *** I2C
+
+#ifdef __ASSEMBLER__
+  #define REG_I2C_CMD      0
+  #define REG_I2C_COUNTER  4
+  #define REG_I2C_DATA     8
+#else
+struct EndeavourI2C {
+  int cmd;
+  unsigned counter;
+  unsigned data;
+};
+#define I2C_REGS ((volatile struct EndeavourI2C*)(I2C_BASE))
+#endif
+
+// I2C_CMD
+#define I2C_ADDR_STUSB4500  0x28  // USB PD controller
+#define I2C_ADDR_DDC        0x37  // Display data channel
+#define I2C_ADDR_TFP410     0x38  // DVI transmitter
+#define I2C_ADDR_PCF85063A  0x51  // Real-time clock
+#define I2C_ADDR_SI5351A    0x60  // PLL
+#define I2C_CMD_READ        0x80
+#define I2C_CMD_WRITE       0x00
+#define I2C_CMD_HIGH_SPEED 0x100
+#define I2C_CMD_DATA_ERR   0x200
+#define I2C_CMD_ADDR_ERR   0x400
+#define I2C_CMD_BUSY  0x80000000
+
 // *** Board
 
 #ifdef __ASSEMBLER__
-  #define     REG_BOARD_RESET         0x0  // write triggers soft reset
-  #define     REG_BOARD_HART_COUNT    0x4
-  #define     REG_BOARD_CPU_FREQ      0x8  // CPU frequency
-  #define     REG_BOARD_DVI_FREQ      0xC  // DVI pixel frequency
-  #define     REG_BOARD_LEDS         0x10
-  #define     REG_BOARD_KEYS         0x14
-  #define     REG_BOARD_RAM_STAT     0x18
-  #define     REG_BOARD_CPU_FEATURES 0x1C
-  #define     REG_BOARD_RAM_SIZE     0x20
+  #define REG_BOARD_RESET         0x0  // write triggers soft reset
+  #define REG_BOARD_HART_COUNT    0x4
+  #define REG_BOARD_CPU_FREQ      0x8  // CPU frequency
+  #define REG_BOARD_DVI_FREQ      0xC  // DVI pixel frequency
+  #define REG_BOARD_LEDS         0x10
+  #define REG_BOARD_KEYS         0x14
+  #define REG_BOARD_RAM_STAT     0x18
+  #define REG_BOARD_CPU_FEATURES 0x1C
+  #define REG_BOARD_RAM_SIZE     0x20
+  #define REG_BOARD_ESP32_CFG    0x24
 #else
 struct EndeavourBoard {
   unsigned reset;
@@ -92,6 +123,7 @@ struct EndeavourBoard {
   unsigned ram_stat;
   unsigned cpu_features;
   unsigned ram_size;
+  unsigned esp32_cfg;
 };
 #define BOARD_REGS ((volatile struct EndeavourBoard*)(BOARD_BASE))
 #endif
@@ -106,6 +138,10 @@ struct EndeavourBoard {
 #define CPU_FEATURES_ZBS        8  // Single-bit operation extension.
 #define CPU_FEATURES_ZICBOP  0x10  // Cache-block prefetch extension.
 #define CPU_FEATURES_ZICBOM  0x20  // Cache-block management extension.
+
+// BOARD_ESP32_CFG flags
+#define BOARD_ESP32_EN          1
+#define BOARD_ESP32_SPI_BOOT    2
 
 // *** misc utils
 

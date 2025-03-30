@@ -79,6 +79,8 @@ static int cmd_sound(const char* args) {
   return CMD_OK;
 }
 
+int cmd_date(const char* args);  // implemented in time.c
+
 static int cmd_no_impl() {
   printf("Not implemented\n");
   return CMD_FAILED;
@@ -101,6 +103,7 @@ static const struct ConsoleCommand commands[] = {
   {cmd_benchmark,  "benchmark",   "",                        "run benchmarks"},
   {cmd_uart,       "uart",        "addr size",               "receive size (decimal) bytes via UART with baud rate 12 MHz"},
   {cmd_crc32,      "crc32",       "addr size [expected]",    "calculate crc32 of data in RAM"},
+  {cmd_date,       "date",        "[new_date]",              "print or set date and time"},
   /*{cmd_no_impl,    "sdread",      "addr sector [count]",     "read from sdcard to given address in RAM"},
   {cmd_no_impl,    "display",     "WIDTHxHEIGHT",            "set display resolution"},
   {cmd_no_impl,    "textstyle",   "fg bg",                   "set text style; fg and bg range is [0:15]"},

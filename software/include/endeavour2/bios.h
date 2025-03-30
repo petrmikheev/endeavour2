@@ -18,9 +18,6 @@
 //#define bios_sdread  ((int  (*)(void*, unsigned, unsigned))          (BIOS_ROM_ADDR + 0x10))
 // bios_sdwrite(src, sector, sector_count) -> sector_count
 //#define bios_sdwrite ((int  (*)(const void*, unsigned, unsigned))    (BIOS_ROM_ADDR + 0x14))
-// 0x18 used for BIOS_CHARMAP_ADDR
-//#define bios_gets    ((int (*)(char*, int /*max_size*/)) /*-> size*/ (BIOS_ROM_ADDR + 0x1C))
-//#define bios_uart_console ((void (*)())                              (BIOS_ROM_ADDR + 0x28))
 
 #define putchar bios_putchar
 #define printf bios_printf

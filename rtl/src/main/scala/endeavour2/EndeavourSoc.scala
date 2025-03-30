@@ -71,14 +71,24 @@ class EndeavourSoc(coreParam: ParamSimple,
     val i2c_sda_IN = in Bool()
 
     val esp32_en = out Bool()
+    val esp32_spi_boot = out Bool()
+    val esp32_rx = out Bool()
+    val esp32_tx = in Bool()
+
+    // ESP32 GPIO 4-7, can be used for spi x4 or for second uart
+    /*val esp32_io4_IN = in Bool()
+    val esp32_io4_OUT = out Bool()
+    val esp32_io4_OE = out Bool()
+    val esp32_io5_IN = in Bool()
+    val esp32_io5_OUT = out Bool()
+    val esp32_io5_OE = out Bool()
+    val esp32_io6_IN = in Bool()
+    val esp32_io6_OUT = out Bool()
+    val esp32_io6_OE = out Bool()
+    val esp32_io7_IN = in Bool()
+    val esp32_io7_OUT = out Bool()
+    val esp32_io7_OE = out Bool()*/
   }
-
-  io.esp32_en := False  // disable for now
-
-  io.i2c_scl_OUT := False
-  io.i2c_sda_OUT := False
-  io.i2c_scl_OE := False // ~val
-  io.i2c_sda_OE := False // ~val
 
   val rst_area = new ClockingArea(ClockDomain(
     clock = io.clk25,
@@ -111,6 +121,10 @@ class EndeavourSoc(coreParam: ParamSimple,
     val uart_ctrl = new UartController()
     uart_ctrl.io.uart <> io.uart
 
+    val esp32_uart_ctrl = new UartController()
+    esp32_uart_ctrl.io.uart.rx := io.esp32_tx
+    io.esp32_rx := esp32_uart_ctrl.io.uart.tx
+
     val audio_ctrl = new AudioController()
     io.snd_shdn := audio_ctrl.io.shdn
     io.snd_scl_OUT := False
@@ -119,21 +133,29 @@ class EndeavourSoc(coreParam: ParamSimple,
     io.snd_sda_OE := ~audio_ctrl.io.i2c_sda
     audio_ctrl.io.i2c_sda_IN := io.snd_sda_IN
 
+    val i2c_ctrl = new I2cController()
+    io.i2c_scl_OUT := False
+    io.i2c_sda_OUT := False
+    io.i2c_scl_OE := ~i2c_ctrl.io.i2c_scl  // 0->0, 1->Z (has external pull-up)
+    io.i2c_sda_OE := ~i2c_ctrl.io.i2c_sda
+    i2c_ctrl.io.i2c_sda_IN := io.i2c_sda_IN
+
     val apb = Apb3(Apb3Config(
-      addressWidth  = 10,
+      addressWidth  = 11,
       dataWidth     = 32,
       useSlaveError = true
     ))
     val apbDecoder = Apb3Decoder(
       master = apb,
       slaves = List(
-        uart_ctrl.io.apb     -> (0x100, 16),
-        audio_ctrl.io.apb    -> (0x200, 8)
-        //i2c.io.apb   -> (0x300, 32)
+        uart_ctrl.io.apb       -> (0x100, 16),
+        audio_ctrl.io.apb      -> (0x200, 8),
+        i2c_ctrl.io.apb        -> (0x300, 16),
+        esp32_uart_ctrl.io.apb -> (0x400, 16)
       )
     )
   }
-  val apb_60mhz_bridge = new ApbClockBridge(10)
+  val apb_60mhz_bridge = new ApbClockBridge(11)
   apb_60mhz_bridge.io.clk_output := io.clk60
   apb_60mhz_bridge.io.output <> area60mhz.apb
 
@@ -159,7 +181,10 @@ class EndeavourSoc(coreParam: ParamSimple,
   val keyReg = RegNext(io.key)
   val ledReg = Reg(Bits(4 bits)) init(0)
   val ramStat = Bits(12 bits)
+  val esp32CfgReg = Reg(Bits(2 bits)) init(0)
   io.led := ledReg
+  io.esp32_en := esp32CfgReg(0)
+  io.esp32_spi_boot := esp32CfgReg(1)
   miscCtrl.driveAndRead(ledReg, address = 0x10)
   miscCtrl.read(keyReg, address = 0x14)
   miscCtrl.read(ramStat, address = 0x18)
@@ -172,6 +197,7 @@ class EndeavourSoc(coreParam: ParamSimple,
       5 -> coreParam.withRvcbm,           // zicbom
       default -> False), address = 0x1C)
   miscCtrl.read(U(ramSize, 32 bits), address = 0x20)
+  miscCtrl.driveAndRead(esp32CfgReg, address = 0x24)
 
   val plicSize = 0x4000000
   val plicPriorityWidth = 1
@@ -246,7 +272,7 @@ class EndeavourSoc(coreParam: ParamSimple,
         // uart     0x100
         // audio    0x200
         // i2c      0x300
-        apb_60mhz_bridge.io.input -> (0x0, 0x400),
+        apb_60mhz_bridge.io.input -> (0x0, 0x800),
         // misc    0x1000
         // display 0x2000
         // sdcard  0x3000
