@@ -51,6 +51,9 @@ int main() {
     }
   }
 
+  init_sdcard();
+  init_usb();
+
   run_benchmarks();
 
   run_console();

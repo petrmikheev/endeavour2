@@ -2,9 +2,6 @@
 
 #define STACK_ADDR (RAM_BASE + BIOS_SIZE)
 
-.section .data.biosmagic
-    .word BIOS_MAGIC
-
 .section .text.startup
 .global _start
 _start:
@@ -23,6 +20,12 @@ _start:
     j readline_impl
 .align 2
     j read_uart_impl
+.align 2
+    j sdread_impl
+.align 2
+    j sdwrite_impl
+.align 2
+    j get_sdcard_sector_count
 
 start:
 .option push
@@ -132,7 +135,16 @@ fatal_trap:
 infloop:
     j infloop
 
+.section .bss.ohci_hcca
+.global ohci_hcca
+.align 8
+ohci_hcca:
+    .zero 256
+
 .section .text.dhrystone_bin
 .global dhrystone
 dhrystone:
     .incbin "dhrystone/dhrystone.bin"
+
+.section .data.biosmagic
+    .word BIOS_MAGIC

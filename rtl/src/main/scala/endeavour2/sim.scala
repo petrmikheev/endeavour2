@@ -80,6 +80,8 @@ object EndeavourSocSim extends App {
     dut.io.pll_ddr_LOCKED #= true
     dut.io.key #= 2
     dut.io.i2c_sda_IN #= true
+    dut.io.sd.ndetect #= false
+    dut.io.sd.cmd_IN #= true
     ClockDomain(dut.io.clk25).forkStimulus(40000)
     ClockDomain(dut.io.clk60).forkStimulus(17000)
     ClockDomain(dut.io.clk100).forkStimulus(10000)

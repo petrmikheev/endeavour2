@@ -111,4 +111,14 @@ void run_benchmarks() {
     sparse_inplace_xor_1mb_prefetch(page2, 0xa5a5a5a5);
     print_bench_res("sparse_inplace_xor prefetch", start);
   }
+
+  // *** sdcard
+  if (bios_sdcard_sector_count() >= 2048) {
+    start = time_100nsec();
+    unsigned count = bios_sdread(page1, 0, 2048);
+    print_bench_res("SD card read", start);
+    if (count != 2048) {
+      printf("[ERROR] SD card read failed, transfered %u of 2048 sectors\n", count);
+    }
+  }
 }

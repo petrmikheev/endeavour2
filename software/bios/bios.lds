@@ -9,6 +9,8 @@ SECTIONS
    .rodata : { *(.rodata) }
    .data : { *(.data) }
    .bss : { *(.bss) }
+   . = 0x80007300;
+   .bss.ohci_hcca : { *(.bss.ohci_hcca) }
    . = 0x80007400;
    .text.dhrystone_bin : { *(.data.dhrystone_bin) }
    . = 0x80007ffc;

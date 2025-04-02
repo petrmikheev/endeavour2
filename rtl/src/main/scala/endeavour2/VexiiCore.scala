@@ -82,6 +82,8 @@ object Core {
 
     // fMax
     param.relaxedBranch = true
+    //param.relaxedSrc = true  // ??
+    param.relaxedBtb = true
 
     param
   }

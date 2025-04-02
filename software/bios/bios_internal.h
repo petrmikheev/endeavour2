@@ -20,4 +20,7 @@ void run_console();
 int i2c_write(int addr, int size, const char* data);
 int i2c_read(int addr, int size, char* data);
 
+void init_sdcard();
+void init_usb();
+
 #endif  // BIOS_INTERNAL_H

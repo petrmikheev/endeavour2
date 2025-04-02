@@ -82,3 +82,44 @@ class I2cController extends BlackBox {
   mapClockDomain(clock=io.clk, reset=io.reset)
   addRTLPath("./verilog/i2c.v")
 }
+
+case class SdcardPhy() extends Bundle {
+  val clk = out Bool()
+
+  val cmd_IN = in Bool()
+  val cmd_OUT = out Bool()
+  val cmd_OE = out Bool()
+
+  val data_IN = in Bits(4 bits)
+  val data_OUT = out Bits(4 bits)
+  val data_OE = out Bits(4 bits)
+
+  val ndetect = in Bool()
+  val vdd_sel_3v3 = out Bool()
+}
+
+class SdcardController extends BlackBox {
+  val io = new Bundle {
+    val clk = in Bool()
+    val reset = in Bool()
+    val sdcard = SdcardPhy()
+
+    val apb = slave(Apb3(Apb3Config(
+      addressWidth  = 5,
+      dataWidth     = 32,
+      useSlaveError = true
+    )))
+
+    val interrupt = out Bool()
+  }
+  noIoPrefix()
+  addRTLPath("./verilog/sdcard_controller.v")
+  addRTLPath("./sdspi/rtl/sdio_top.v")
+  addRTLPath("./sdspi/rtl/sdio.v")
+  addRTLPath("./sdspi/rtl/sdwb.v")
+  addRTLPath("./sdspi/rtl/sdckgen.v")
+  addRTLPath("./sdspi/rtl/sdcmd.v")
+  addRTLPath("./sdspi/rtl/sdtxframe.v")
+  addRTLPath("./sdspi/rtl/sdrxframe.v")
+  addRTLPath("./sdspi/rtl/sdfrontend.v")
+}

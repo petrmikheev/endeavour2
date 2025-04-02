@@ -1,3 +1,6 @@
 [submodule "rtl/VexiiRiscv"]
 	path = rtl/VexiiRiscv
 	url = https://github.com/SpinalHDL/VexiiRiscv.git
+[submodule "rtl/sdspi"]
+	path = rtl/sdspi
+	url = https://github.com/ZipCPU/sdspi

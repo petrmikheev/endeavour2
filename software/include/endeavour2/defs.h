@@ -143,6 +143,45 @@ struct EndeavourBoard {
 #define BOARD_ESP32_EN          1
 #define BOARD_ESP32_SPI_BOOT    2
 
+#ifndef __ASSEMBLER__
+// *** SD card, see https://github.com/ZipCPU/sdspi
+struct EndeavourSDCard {
+  unsigned cmd;
+  unsigned data;
+  unsigned fifo0;
+  unsigned fifo1;
+  unsigned phy;
+};
+#define SDCARD_REGS ((volatile struct EndeavourSDCard*)(SDCARD_BASE))
+
+// *** USB OHCI
+struct OHCICtrl {
+  unsigned HcRevision;         // 0x00
+  unsigned HcControl;          // 0x04
+  unsigned HcCommandStatus;    // 0x08
+  unsigned HcInterruptStatus;  // 0x0c
+  unsigned HcInterruptEnable;  // 0x10
+  unsigned HcInterruptDisable; // 0x14
+  unsigned HcHCCA;             // 0x18
+  unsigned HcPeriodCurrentED;  // 0x1c
+  unsigned HcControlHeadED;    // 0x20
+  unsigned HcControlCurrentED; // 0x24
+  unsigned HcBulkHeadED;       // 0x28
+  unsigned HcBulkCurrentED;    // 0x2c
+  unsigned HcDoneHead;         // 0x30
+  unsigned HcFmInterval;       // 0x34
+  unsigned HcFmRemaining;      // 0x38
+  unsigned HcFmNumber;         // 0x3c
+  unsigned HcPeriodicStart;    // 0x40
+  unsigned HcLSThreshold;      // 0x44
+  unsigned HcRhDescriptorA;    // 0x48
+  unsigned HcRhDescriptorB;    // 0x4c
+  unsigned HcRhStatus;         // 0x50
+  unsigned HcRhPortStatus[2];  // 0x54, 0x58
+};
+#define USB_OHCI_REGS ((volatile struct OHCICtrl*)(USB_OHCI_BASE))
+#endif
+
 // *** misc utils
 
 // Initial loader in ROM loads BIOS_SIZE bytes from SPI Flash or UART to RAM_BASE

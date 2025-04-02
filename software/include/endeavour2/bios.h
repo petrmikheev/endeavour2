@@ -13,11 +13,11 @@
 #define bios_readline   ((void (*)(const char*, char*, unsigned))                   (RAM_BASE + 0x18))
 // bios_read_uart(dst, size, uart_divisor_override /* -1 - don't override */) -> err
 #define bios_read_uart  ((int (*)(char*, int, int))                                 (RAM_BASE + 0x1C))
-
 // bios_sdread(dst, sector, sector_count) -> sector_count
-//#define bios_sdread  ((int  (*)(void*, unsigned, unsigned))          (BIOS_ROM_ADDR + 0x10))
+#define bios_sdread     ((unsigned  (*)(void*, unsigned, unsigned))                 (RAM_BASE + 0x20))
 // bios_sdwrite(src, sector, sector_count) -> sector_count
-//#define bios_sdwrite ((int  (*)(const void*, unsigned, unsigned))    (BIOS_ROM_ADDR + 0x14))
+#define bios_sdwrite    ((unsigned  (*)(const void*, unsigned, unsigned))           (RAM_BASE + 0x24))
+#define bios_sdcard_sector_count ((unsigned (*)())                                  (RAM_BASE + 0x28))
 
 #define putchar bios_putchar
 #define printf bios_printf
