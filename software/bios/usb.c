@@ -1,13 +1,7 @@
 #include <endeavour2/defs.h>
 #include <endeavour2/bios.h>
 
-static void* next_alloc = (void*)0x80080000;
-
-void* malloc(unsigned long size) {
-  void* res = next_alloc;
-  next_alloc += (size + 3) & ~3;
-  return res;
-}
+#include "bios_internal.h"
 
 typedef unsigned char uint8_t;
 typedef unsigned short uint16_t;
@@ -32,6 +26,12 @@ struct HCCA {
   short pad1;
   int done_head;
 };
+
+static volatile struct ED ed __attribute__((aligned(16)));
+static volatile struct TD tds[2] __attribute__((aligned(16)));
+extern volatile struct HCCA ohci_hcca;
+
+static char* tmp_buf = (void*)(RAM_BASE + BIOS_SIZE);
 
 struct UsbRequest {
   uint8_t bmRequestType;
@@ -92,127 +92,93 @@ struct UsbEndpointDescriptor {
 };
 #pragma pack()
 
-volatile static struct OHCICtrl* ctrl = (void*)USB_OHCI_BASE;
-volatile static struct ED *default_ed, *end_ed;
-volatile static struct TD* default_tds;
-
-extern volatile struct HCCA ohci_hcca;
-
-void uwait(int microseconds) {
-  microseconds *= 10;
-  unsigned time, start_time;
-  asm volatile("csrr %0, time" : "=r" (start_time));
-  do {
-    ctrl->HcInterruptStatus = -1;
-    asm volatile("csrr %0, time" : "=r" (time));
-  } while (time - start_time < microseconds);
-}
-
-void init_hub() {
-  ctrl->HcControl = 0x0;  // reset hub 50 ms
-  uwait(50000);
+static void init_hub() {
+  USB_OHCI_REGS->HcControl = 0x0;  // reset hub 50 ms
+  wait(500000);
 
   const unsigned frame_interval = 11999; // 1ms frame
-  ctrl->HcFmInterval = (1<<31 /*FIT=1*/) | (((frame_interval-210)*6/7) << 16 /*FSLargestDataPackage*/) | frame_interval;
-  ctrl->HcPeriodicStart = 10799; // 90% of FrameInterval
-  ctrl->HcInterruptDisable = -1; // disable all
+  USB_OHCI_REGS->HcFmInterval = (1<<31 /*FIT=1*/) | (((frame_interval-210)*6/7) << 16 /*FSLargestDataPackage*/) | frame_interval;
+  USB_OHCI_REGS->HcPeriodicStart = 10799; // 90% of FrameInterval
+  USB_OHCI_REGS->HcInterruptDisable = -1; // disable all
 
-  default_ed = malloc(16);
-  end_ed = malloc(16);
-  default_tds = malloc(16 * 4);
+  USB_OHCI_REGS->HcHCCA = (long)&ohci_hcca;  // already zeroed in bss
+  USB_OHCI_REGS->HcControlHeadED = 0;
+  USB_OHCI_REGS->HcBulkHeadED = 0;
 
-  end_ed->flags = 1 << 14;
-  end_ed->nextED = 0;
-  end_ed->head = end_ed->tail = (long)&default_tds[2];
+  USB_OHCI_REGS->HcControl = 0x80 | (1<<4);
 
-  for (int i = 0; i < 32; ++i) ohci_hcca.interrupt_table[i] = 0;//(long)end_ed;
-  ctrl->HcHCCA = (long)&ohci_hcca;
-
-  default_ed->head = default_ed->tail = (long)default_tds;
-  default_ed->nextED = 0;
-
-  ctrl->HcControlHeadED = (long)default_ed;
-  ctrl->HcBulkHeadED = (long)end_ed;
-
-  ctrl->HcControl = 0x80 | (1<<4) /*| (1<<3) | (1<<2)*/;  // operational state, allow only control transfers
-
-  uwait(1000);  // wait 1ms to update port connection status
+  wait(10000);  // wait 1ms to update port connection status
 
   // disable ports
-  ctrl->HcRhPortStatus[0] = 1;
-  ctrl->HcRhPortStatus[1] = 1;
+  USB_OHCI_REGS->HcRhPortStatus[0] = 1;
+  USB_OHCI_REGS->HcRhPortStatus[1] = 1;
 }
 
-int usb_request(volatile struct ED* ed, const volatile struct UsbRequest* request, volatile void* data) {
-  default_tds[0].flags = 0xf2000000;
-  default_tds[0].nextTD = (void*)&default_tds[1];
-  default_tds[0].buf_start = (void*)request;
-  default_tds[0].buf_end = (char*)request + sizeof(struct UsbRequest)-1;
+static int process_tds(int td_count) {
+  unsigned last = (long)&tds[td_count - 1];
+
+  ed.nextED = 0;
+  ed.head = (long)&tds[0];
+  ed.tail = 0;
+
+  USB_OHCI_REGS->HcControlHeadED = (long)&ed;
+  USB_OHCI_REGS->HcCommandStatus = 2;
+
+  while (1) {
+    wait(10);
+    if ((USB_OHCI_REGS->HcInterruptStatus & 2) == 0) continue;
+    unsigned done_head = ohci_hcca.done_head & ~15;
+    USB_OHCI_REGS->HcInterruptStatus = 2;
+    if (done_head == last) break;
+  }
+  USB_OHCI_REGS->HcControlHeadED = 0;
+
+  if ((tds[td_count-1].flags >> 28) == 0) return 0;
+
+  //printf("ERR cstatus=%x ed.flags=%8x %d td[0].flags=%8x td[1].flags=%8x\n", USB_OHCI_REGS->HcCommandStatus, ed.flags, (unsigned)ed.head&3, tds[0].flags, tds[1].flags);
+  return -1;
+}
+
+static int usb_request(const volatile struct UsbRequest* request, volatile void* data) {
+  tds[0].flags = 0xf2000000;
+  tds[0].nextTD = (void*)&tds[1];
+  tds[0].buf_start = (void*)request;
+  tds[0].buf_end = (char*)request + sizeof(struct UsbRequest)-1;
 
   int read = (request->bmRequestType & 0x80) || data == 0;
-  default_tds[1].flags = 0xf3040000 | (read ? 2<<19 : 1<<19);
-  default_tds[1].nextTD = (void*)&default_tds[2];
-  default_tds[1].buf_start = (void*)data;
-  default_tds[1].buf_end = (void*)data + request->wLength - 1;
+  tds[1].flags = 0xf3040000 | (read ? 2<<19 : 1<<19);
+  tds[1].nextTD = 0;
+  tds[1].buf_start = (void*)data;
+  tds[1].buf_end = (void*)data + request->wLength - 1;
 
-  ed->head = (long)&default_tds[0];
-  ed->tail = (long)&default_tds[2];
-
-  //ctrl->HcDoneHead = (long)&default_tds[2];
-  //hcca->done_head = (long)&default_tds[2];
-  ctrl->HcCommandStatus = 2;
-
-  uwait(100000);
-  //while ((ctrl->HcDoneHead != (long)&default_tds[1] && ohci_hcca.done_head != (long)&default_tds[1]) || ctrl->HcCommandStatus != 0) uwait(10);
-
-  if ((ctrl->HcCommandStatus&0xffff) == 0 && (ed->head & 1) == 0 && (default_tds[0].flags>>28) == 0 && (default_tds[1].flags>>28) == 0) {
-    return 0;
-  }
-
-  bios_printf("ERR cstatus=%x ed.flags=%8x %d td[0].flags=%8x td[1].flags=%8x\n", ctrl->HcCommandStatus, ed->flags, (unsigned)ed->head&3, default_tds[0].flags, default_tds[1].flags);
-  return -1;
+  return process_tds(2);
 }
 
-int get_report(volatile struct ED* ed, volatile void* data) {
-  default_tds[3].flags = 0xf2000000 | (2<<19);
-  default_tds[3].nextTD = (void*)&default_tds[2];
-  default_tds[3].buf_start = (void*)data;
-  default_tds[3].buf_end = (void*)data + 7;
+static unsigned keyboard_initialized = 0;
 
-  ed->nextED = 0;//(void*)end_ed;
-  ed->head = (long)&default_tds[3];
-  ed->tail = (long)&default_tds[2];
+int get_keyboard_report(volatile struct KeyboardReport* data) {
+  if (!keyboard_initialized) return -1;
 
-  //for (int i=0;i<32;++i) hcca->interrupt_table[i] = (long)ed;
-  ctrl->HcControlHeadED = (long)ed;
-  ctrl->HcCommandStatus = 2;
-  //hcca->interrupt_table[0] = (long)ed;
-  //ctrl->HcHCCA = (long)hcca;
-  //while ((default_tds[0].flags>>28) == 0xf) uwait(10);
-uwait(1000000);
-  /*ctrl->HcDoneHead = (long)&default_tds[2];
-  hcca->done_head = (long)&default_tds[2];
-  ctrl->HcCommandStatus = 2;
-  while ((ctrl->HcDoneHead != (long)&default_tds[0] && hcca->done_head != (long)&default_tds[0]) || ctrl->HcCommandStatus != 0) uwait(10);*/
+  tds[0].flags = 0xf2000000 | (2<<19);
+  tds[0].nextTD = 0;
+  tds[0].buf_start = (void*)data;
+  tds[0].buf_end = (void*)data + 7;
 
-  /*if ((ed->head & 1) == 0 && (default_tds[0].flags>>28) == 0) {
-    return 0;
-  }*/
-  bios_printf("R cstatus=%x ed.flags=%8x head=%8x tail=%8x td.flags=%8x\n", ctrl->HcCommandStatus, ed->flags, ed->head, ed->tail, default_tds[3].flags);
-  return -1;
+  return process_tds(1);
 }
 
-int reset_port(int p) {
-  ctrl->HcRhPortStatus[p] = 1 << 4;
-  uwait(100000);
-  unsigned pstate = ctrl->HcRhPortStatus[p];
+
+static int reset_port(int p) {
+  USB_OHCI_REGS->HcRhPortStatus[p] = 1 << 4;
+  wait(1000000);
+  unsigned pstate = USB_OHCI_REGS->HcRhPortStatus[p];
   if ((pstate&3) != 3) return -1;
 
   // max 8 byte, get direction from TD, USB address = 0, endpoint number = 0
   if (pstate & (1<<9))
-    default_ed->flags = (8 << 16) | (1 << 13); // low speed
+    ed.flags = (8 << 16) | (1 << 13); // low speed
   else
-    default_ed->flags = (8 << 16); // full speed
+    ed.flags = (8 << 16); // full speed
 
   struct UsbRequest request;
   struct UsbDeviceDescriptor descr;
@@ -223,27 +189,43 @@ int reset_port(int p) {
   request.wIndex = 0;
   request.wLength = 8;
 
-  if (usb_request(default_ed, &request, &descr) < 0) {
-    ctrl->HcRhPortStatus[p] = 1;
+  if (usb_request(&request, &descr) < 0) {
+    USB_OHCI_REGS->HcRhPortStatus[p] = 1;
     return -1;
   }
 
-  default_ed->flags = ((unsigned)descr.bMaxPacketSize0 << 16) | (default_ed->flags & 0xffff);
+  ed.flags = ((unsigned)descr.bMaxPacketSize0 << 16) | (ed.flags & 0xffff);
   return 0;
 }
 
-void init_usb() {
+static int print_string_descriptor(unsigned id) {
+  struct UsbRequest request;
+  request.bmRequestType = 0x80;
+  request.bRequest = 6; // GET_DESCRIPTOR
+  request.wIndex = 0;
+  request.wValue = (3 << 8 /*string descriptor*/) | id;
+  request.wLength = 1;
+  if (usb_request(&request, tmp_buf) < 0) return -1;
+  request.wLength = tmp_buf[0];
+  if (usb_request(&request, tmp_buf) < 0) return -1;
+  for (int i = 2; i < request.wLength; i += 2) putchar(tmp_buf[i]);
+  return 0;
+}
+
+void init_usb_keyboard() {
   init_hub();
 
+  unsigned keyboard_in_endpoint_flags = 0;
+
   for (int port = 0; port < 2; ++port) {
-    bios_printf("USB%u: ", port + 1);
-    if (!(ctrl->HcRhPortStatus[port] & 1)) {
-      bios_printf("not connected\n");
+    printf("USB%u: ", port + 1);
+    if (!(USB_OHCI_REGS->HcRhPortStatus[port] & 1)) {
+      printf("not connected\n");
       continue;
     }
 
     if (reset_port(port) < 0) {
-      goto test_port_error;
+      goto port_error;
     }
 
     struct UsbRequest request;
@@ -251,41 +233,23 @@ void init_usb() {
 
     request.bmRequestType = 0x0;
     request.bRequest = 5; // SET_ADDRESS
-    request.wValue = 1; // new address
+    request.wValue = port + 1; // new address
     request.wIndex = 0;
     request.wLength = 0;
+    if (usb_request(&request, 0) < 0) goto port_error;
 
-    if (usb_request(default_ed, &request, 0) < 0) goto test_port_error;
-
-    default_ed->flags |= 1; // new address
+    ed.flags |= port + 1; // new address
 
     request.bmRequestType = 0x80;
     request.bRequest = 6; // GET_DESCRIPTOR
     request.wValue = 1 << 8; // device descriptor
     request.wIndex = 0;
     request.wLength = sizeof(struct UsbDeviceDescriptor);
+    if (usb_request(&request, &ddev) < 0) goto port_error;
 
-    if (usb_request(default_ed, &request, &ddev) < 0) goto test_port_error;
-
-    char dstr[256];
-
-    request.wValue = (3 << 8 /*string descriptor*/) | ddev.iManufacturer;
-    request.wLength = 1;
-    if (usb_request(default_ed, &request, &dstr) < 0) goto test_port_error;
-    request.wLength = dstr[0];
-    if (usb_request(default_ed, &request, &dstr) < 0) goto test_port_error;
-    for (int i = 2; i < request.wLength; i += 2) bios_putchar(dstr[i]);
-    bios_putchar(' ');
-
-    request.wValue = (3 << 8 /*string descriptor*/) | ddev.iProduct;
-    request.wLength = 1;
-    if (usb_request(default_ed, &request, &dstr) < 0) goto test_port_error;
-    request.wLength = dstr[0];
-    if (usb_request(default_ed, &request, &dstr) < 0) goto test_port_error;
-    for (int i = 2; i < request.wLength; i += 2) bios_putchar(dstr[i]);
-    bios_putchar('\n');
-#if 0
-    bios_printf("bDeviceClass=%02x bDeviceSubClass=%02x bDeviceProtocol=%02x bNumConf=%02x\n", ddev.bDeviceClass, ddev.bDeviceSubClass, ddev.bDeviceProtocol, ddev.bNumConfigurations);
+    print_string_descriptor(ddev.iManufacturer);
+    putchar(' ');
+    print_string_descriptor(ddev.iProduct);
 
     struct UsbConfigurationDescriptor dconf;
 
@@ -295,108 +259,76 @@ void init_usb() {
     request.wIndex = 0;
     request.wLength = sizeof(struct UsbConfigurationDescriptor);
 
-    if (usb_request(default_ed, &request, &dconf) < 0) goto test_port_error;
-
-    bios_printf("len=%d wTotalLength=%d bNumInterfaces=%d bConfVal=%d iConf=%d\n", dconf.bLength, dconf.wTotalLength, dconf.bNumInterfaces, dconf.bConfigurationValue, dconf.iConfiguration);
-    bios_printf("bmAttributes=0x%02x bMaxPower=%d ma\n", dconf.bmAttributes, dconf.bMaxPower * 2);
+    if (usb_request(&request, &dconf) < 0) goto port_error;
 
     request.wLength = dconf.wTotalLength;
-    char* cdata = malloc(dconf.wTotalLength);
-    if (usb_request(default_ed, &request, cdata) < 0) goto test_port_error;
-
-    for (int i = 0; i < dconf.wTotalLength; ++i) {
-      bios_printf("%02x ", cdata[i]);
-      if ((i&7)==7) bios_putchar('\n');
-    }
-    bios_putchar('\n');
+    char* cdata = tmp_buf;
+    if (usb_request(&request, cdata) < 0) goto port_error;
 
     char* cend = cdata + dconf.wTotalLength;
     cdata += dconf.bLength;
 
+    int use_as_keyboard = 0;
+
     for (int infid=0; infid<dconf.bNumInterfaces; ++infid) {
-      while (cdata < cend && cdata[1] != 4) {
-        bios_printf("Unknown size=%d dt=%d\n", cdata[0], cdata[1]);
-        cdata += cdata[0];
-      }
+      while (cdata < cend && cdata[1] != 4) cdata += cdata[0];
       if (cdata >= cend) break;
       struct UsbInterfaceDescriptor* inf = (void*)cdata;
-      bios_printf("\tInterface %d: len=%d dt=%d class=%d:%d protocol=%d str=%d\n", infid, inf->bLength, inf->bDescriptorType, inf->bInterfaceClass, inf->bInterfaceSubClass, inf->bInterfaceProtocol, inf->iInterface);
+      int boot_keyboard = inf->bInterfaceClass == 3 && inf->bInterfaceSubClass == 1 && inf->bInterfaceProtocol == 1;
+
+      //printf("\tInterface %d: len=%d dt=%d class=%d:%d protocol=%d str=%d\n", infid, inf->bLength, inf->bDescriptorType,
+      //        inf->bInterfaceClass, inf->bInterfaceSubClass, inf->bInterfaceProtocol, inf->iInterface);
       cdata += inf->bLength;
 
       for (int ei=0; ei<inf->bNumEndpoints; ++ei) {
-        while (cdata < cend && cdata[1] != 5) {
-          bios_printf("\t\tUnknown size=%d dt=%d\n", cdata[0], cdata[1]);
-          cdata += cdata[0];
-        }
+        while (cdata < cend && cdata[1] != 5) cdata += cdata[0];
         struct UsbEndpointDescriptor* enp = (void*)cdata;
-        bios_printf("\t\tEndpoint %d: len=%d dt=%d eaddr=%d psize=%d attrs=0x%02x interval=%d\n", ei, enp->bLength, enp->bDescriptorType, enp->bEndpointAddress, enp->wMaxPacketSize, enp->bmAttributes, enp->bInterval);
+        if (keyboard_in_endpoint_flags == 0 && boot_keyboard && (enp->bmAttributes&3)==3 && (enp->bEndpointAddress&128)) {
+          use_as_keyboard = 1;
+          keyboard_in_endpoint_flags = ((unsigned)enp->wMaxPacketSize << 16) /*| (2<<11)*/
+              | (ed.flags & (1 << 13)/*speed*/) | (port+1 /*addr*/) | ((enp->bEndpointAddress&15) << 7);
+        }
+
+        //printf("\t\tEndpoint %d: len=%d dt=%d eaddr=%d psize=%d attrs=0x%02x interval=%d\n", ei, enp->bLength,
+        //       enp->bDescriptorType, enp->bEndpointAddress, enp->wMaxPacketSize, enp->bmAttributes, enp->bInterval);
         cdata += enp->bLength;
       }
     }
-bios_printf("set_conf\n");
-    request.bmRequestType = 0x0;
-    request.bRequest = 9; // SET_CONFIGURATION
-    request.wValue = dconf.bConfigurationValue; // new configuration
-    request.wIndex = 0;
-    request.wLength = 0;
 
-    if (usb_request(default_ed, &request, 0) < 0) goto test_port_error;
-bios_printf("set_protocol\n");
-    request.bmRequestType = 0x21;
-    request.bRequest = 0xb; // SET_PROTOCOL
-    request.wValue = 0; // boot protocol
-    request.wIndex = 0;
-    request.wLength = 0;
+    if (use_as_keyboard) {
+      request.bmRequestType = 0x0;
+      request.bRequest = 9; // SET_CONFIGURATION
+      request.wValue = dconf.bConfigurationValue; // new configuration
+      request.wIndex = 0;
+      request.wLength = 0;
+      if (usb_request(&request, 0) < 0) goto port_error;
 
-    if (usb_request(default_ed, &request, 0) < 0) goto test_port_error;
+      request.bmRequestType = 0x21;
+      request.bRequest = 0xb; // SET_PROTOCOL
+      request.wValue = 0; // boot protocol
+      request.wIndex = 0;
+      request.wLength = 0;
+      if (usb_request(&request, 0) < 0) goto port_error;
 
-    /*request.bmRequestType = 0xa1;
-    request.bRequest = 0x2; // GET_IDLE
-    request.wValue = 0;
-    request.wIndex = 0;
-    request.wLength = 1;
-    unsigned char idle_rate;
+      request.bmRequestType = 0x21;
+      request.bRequest = 0xa; // SET_IDLE
+      request.wValue = 0x400; // 16 ms
+      request.wIndex = 0;
+      request.wLength = 0;
+      if (usb_request(&request, 0) < 0) goto port_error;
 
-    if (usb_request(default_ed, &request, &idle_rate) < 0) goto test_port_error;
-    bios_printf("idle rate: %u\n", idle_rate);*/
-
-    /*request.bmRequestType = 0x21;
-    request.bRequest = 0xa; // SET_IDLE
-    request.wValue = 0x100; // 4ms
-    request.wIndex = 0;
-    request.wLength = 0;
-    if (usb_request(default_ed, &request, 0) < 0) goto test_port_error;*/
-
-    request.bmRequestType = 0xa1;
-    request.bRequest = 1; // GET_REPORT
-    request.wValue = 0x101; //0x100; // 0x101
-    request.wIndex = 0;
-    request.wLength = 8;
-bios_printf("get report\n");
-#if 1
-uwait(1000000);
-    //volatile struct ED* in_ed = malloc(sizeof(struct ED));
-    //in_ed->flags = (8 << 16/*max 8 bytes*/) /*| (2<<11)*/ | (default_ed->flags & (1 << 13)/*speed*/) | 1 /*addr*/ | (1 << 7 /*endpoint 1*/);
-    volatile char report[8];
-    for (int i = 0; i < 5; ++i) {
-      for (int j = 0; j < 8; ++j) report[j] = 0xff;
-      //get_report(in_ed, report);
-      uwait(1000000);
-
-      if (usb_request(default_ed, &request, report) < 0) goto test_port_error;
-      //get_report(in_ed, report);// == 0 || 1) {
-        for (int j = 0; j < 8; ++j) {
-          bios_printf("%02x ", report[j]);
-        }
-        bios_putchar('\n');
-      //}
+      printf(" [active keyboard]\n");
+      keyboard_initialized = 1;
+    } else {
+      putchar('\n');
+      USB_OHCI_REGS->HcRhPortStatus[port] = 1;  // disable port
     }
-#endif
-#endif
-    goto test_port_ok;
-test_port_error:
-    bios_printf("error\n");
-test_port_ok:
-    ctrl->HcRhPortStatus[port] = 1;  // disable
+    continue;
+
+port_error:
+    printf("error\n");
+    USB_OHCI_REGS->HcRhPortStatus[port] = 1;  // disable port
   }
+
+  if (keyboard_initialized) ed.flags = keyboard_in_endpoint_flags;
 }

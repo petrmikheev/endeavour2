@@ -21,6 +21,6 @@ int i2c_write(int addr, int size, const char* data);
 int i2c_read(int addr, int size, char* data);
 
 void init_sdcard();
-void init_usb();
+void init_usb_keyboard();
 
 #endif  // BIOS_INTERNAL_H

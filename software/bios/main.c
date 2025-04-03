@@ -52,7 +52,7 @@ int main() {
   }
 
   init_sdcard();
-  init_usb();
+  init_usb_keyboard();
 
   run_benchmarks();
 

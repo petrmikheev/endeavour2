@@ -34,16 +34,18 @@ static const unsigned
 		SDPHY_1P8VSPT = 0x00800000,
     SECTOR_512B   = 0x09000000;
 
-//#define BASE_CLK_IS_200MHZ
+#define BASE_CLK_IS_200MHZ
 
 static const unsigned
 #ifdef BASE_CLK_IS_200MHZ
-  SDIOCK_DEFAULT = SDIOCK_12MHZ,  // 25 MHz
-  SDIOCK_HS = SDIOCK_25MHZ;       // 50 MHz
+  SDIOCK_SDR12 = SDIOCK_12MHZ,  // 25 MHz
+  SDIOCK_SDR25 = SDIOCK_25MHZ,  // 50 MHz
+  SDIOCK_SDR50 = SDIOCK_50MHZ;  // 100 MHz
 #else
-  SDIOCK_DEFAULT = SDIOCK_25MHZ,
-  SDIOCK_HS = SDIOCK_50MHZ;
+  SDIOCK_SDR12 = SDIOCK_25MHZ,
+  SDIOCK_SDR25 = SDIOCK_50MHZ;
 #endif
+#define SDIOCK_DEFAULT SDIOCK_SDR12
 
 static unsigned command(unsigned cmd, unsigned arg) {
   SDCARD_REGS->data = arg;
@@ -146,13 +148,17 @@ void init_sdcard() {
 
   const int SDR25 = 0x020000, SDR50 = 0x040000, SDR104 = 0x080000, DDR50 = 0x100000;
 
-  /*if (modes & SDR50) {
-    command(SDIO_R1 | SDIO_MEM | 6, 0x80fffff2); // SDR50
-    phy = (phy & ~0xff) | SDIOCK_100MHZ;
-  } else*/
-  if (modes & SDR25) {  // CMD6 - switch to HS mode
-    command(SDIO_R1 | SDIO_MEM | 6, 0x80fffff1); // SDR25
-    phy = (phy & ~0xff) | SDIOCK_HS;
+  /*if (modes & SDR104) {
+    command(SDIO_R1 | SDIO_MEM | 6, 0x80fffff3); // switch to SDR104
+    phy = (phy & ~0xff) | SDIOCK_SDR104;
+  } else*/ if (modes & SDR50) {
+    command(SDIO_R1 | SDIO_MEM | 6, 0x80fffff2); // switch to SDR50
+    phy = (phy & ~0xff) | SDIOCK_SDR50;
+  } else if (modes & SDR25) {
+    command(SDIO_R1 | SDIO_MEM | 6, 0x80fffff1); // switch to SDR25
+    phy = (phy & ~0xff) | SDIOCK_SDR25;
+  } else {
+    phy = (phy & ~0xff) | SDIOCK_SDR12;
   }
 
   phy = (phy & 0xf0ffffff) | SECTOR_512B | SDIOCK_SHUTDN;

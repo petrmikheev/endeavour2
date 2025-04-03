@@ -104,14 +104,14 @@ static int memtest_iteration(unsigned step, unsigned modifier, unsigned random_a
 
 int fast_memtest() {
   xorshift_init(0x3285a83d);
-  printf("memtest");
+  printf("fast memtest");
   int c = 0;
-  for (void* base = MEMTEST_FROM; base < MEMTEST_TO; base += 1<<20) {
+  for (void* base = MEMTEST_FROM; base < MEMTEST_TO; base += 5<<20) {
     clear_1mb(base, 0);
-    if ((++c & 255) == 0) putchar('.');
+    if ((++c & 127) == 0) putchar('.');
   }
   putchar('.');
-  return memtest_iteration(3, 0, 1024);
+  return memtest_iteration(5, 0, 1024);
 }
 
 int full_memtest(unsigned iter_count, unsigned seed) {
@@ -124,7 +124,7 @@ int full_memtest(unsigned iter_count, unsigned seed) {
   for (unsigned iter = 0; iter < iter_count; ++iter) {
     unsigned modifier = xorshift32();
     printf("\titer=%-3u\txor=%08x\tmemtest", iter, modifier);
-    int err_count = memtest_iteration(1, modifier, 4096);
+    int err_count = memtest_iteration(1, modifier, 8192);
     if (err_count > max_err) max_err = err_count;
   }
   return max_err;

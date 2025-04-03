@@ -26,6 +26,8 @@ _start:
     j sdwrite_impl
 .align 2
     j get_sdcard_sector_count
+.align 2
+    j get_keyboard_report
 
 start:
 .option push

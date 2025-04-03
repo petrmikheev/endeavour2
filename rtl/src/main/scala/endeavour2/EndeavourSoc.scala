@@ -171,13 +171,13 @@ class EndeavourSoc(coreParam: ParamSimple,
   apb_60mhz_bridge.io.output <> area60mhz.apb
 
   val sdcard_ctrl = new SdcardController()
-  sdcard_ctrl.io.clk := io.clk100
+  sdcard_ctrl.io.clk := io.ddr.core_clk
   sdcard_ctrl.io.reset := rst_area.reset
   sdcard_ctrl.io.sdcard <> io.sd
   io.TL_MODE_SEL := ~io.sd.vdd_sel_3v3
 
   val apb_sdcard_bridge = new ApbClockBridge(5)
-  apb_sdcard_bridge.io.clk_output := io.clk100
+  apb_sdcard_bridge.io.clk_output := sdcard_ctrl.io.clk
   apb_sdcard_bridge.io.output <> sdcard_ctrl.io.apb
 
   val dbus = tilelink.fabric.Node()
@@ -321,7 +321,12 @@ class EndeavourSoc(coreParam: ParamSimple,
 
   val mbus = tilelink.fabric.Node()
 
-  if (cpu0.hasL1) {
+  if (cpu0.hasL1 && internalRam) {
+    val tl_hub = new tilelink.coherent.HubFiber()
+    tl_hub.parameter.downPendingMax = 8
+    tl_hub.up << cbus
+    mbus << tl_hub.down
+  } else if (cpu0.hasL1) {
     val tl_cache = new tilelink.coherent.CacheFiber()
     tl_cache.parameter.downPendingMax = 8
     tl_cache.up << cbus
