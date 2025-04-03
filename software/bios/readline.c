@@ -40,15 +40,16 @@ static void process_usb_code(int modifiers, int code) {
     process(usb_to_char[code - 4]);
 }
 
+static unsigned last_kb_time = 0;
+static unsigned all_same_counter = 0;
+static struct KeyboardReport last_kb;
+
 void readline_impl(const char* prompt, char* buffer, unsigned max_size) {
   printf(prompt);
   state.buffer = buffer;
   state.size = 0;
   state.max_size = max_size;
   state.finished = 0;
-  unsigned last_kb_time = time_100nsec();
-  unsigned all_same_counter = 0;
-  struct KeyboardReport last_kb;
   while (1) {
     int c;
     while ((c = UART_REGS->rx) >= 0) {
@@ -75,16 +76,15 @@ void readline_impl(const char* prompt, char* buffer, unsigned max_size) {
       for (int j = 0; j < 6; ++j) new = new && code != last_kb.pressed[j];
       if (new) {
         process_usb_code(kb.modifiers, code);
-        if (state.finished) return;
+        if (state.finished) break;
       } else
         last = code;
     }
 #define KEY_FIRST_DELAY 20
 #define KEY_NEXT_DELAY 1
-    if (all_same && last) {
+    if (all_same && last && !state.finished) {
       if (all_same_counter == 0) {
         process_usb_code(kb.modifiers, last);
-        if (state.finished) return;
         all_same_counter = KEY_NEXT_DELAY;
       } else {
         all_same_counter--;
@@ -94,5 +94,6 @@ void readline_impl(const char* prompt, char* buffer, unsigned max_size) {
     }
     ((unsigned*)&last_kb)[0] = ((unsigned*)&kb)[0];
     ((unsigned*)&last_kb)[1] = ((unsigned*)&kb)[1];
+    if (state.finished) return;
   }
 }
