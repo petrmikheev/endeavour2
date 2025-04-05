@@ -1,6 +1,13 @@
-#include <endeavour2/bios.h>
+#include <endeavour2/defs.h>
 
 #include "bios_internal.h"
+
+void wait(unsigned t) {
+  unsigned start = time_100nsec();
+  while (1) {
+    if ((time_100nsec() - start) > t) return;
+  }
+}
 
 struct RealTimeClockBCD {
   unsigned char second;
@@ -44,14 +51,16 @@ static void print_time(const struct RealTimeClockBCD* t) {
 int cmd_date(const char* args) {
   struct RealTimeClockBCD t;
   if (*args == 0) {
-    read_time(&t);
+    for (int attempt = 0; attempt < 3; ++attempt) {
+      if (read_time(&t) == 0) break;
+      wait(10000);
+    }
     print_time(&t);
     return 0;
   }
-  char wday[16], month[16];
+  char wday[4], month[4];
   int day, hour, minute, second, year;
-  sscanf(args, "%s", wday);
-  if (sscanf(args+4, "%u %s %u:%u:%u 20%u", &day, month, &hour, &minute, &second, &year) != 6) {
+  if (sscanf(args, "%3s %u %3s %u:%u:%u 20%u", wday, &day, month, &hour, &minute, &second, &year) != 7) {
     printf("Invalid date format\n");
     return 0;
   }
@@ -68,6 +77,9 @@ int cmd_date(const char* args) {
     if (strcmp(month, months[i]) == 0) t.month = toBCD(i);
   }
   print_time(&t);
-  write_time(&t);
+  for (int attempt = 0; attempt < 3; ++attempt) {
+    if (write_time(&t) == 0) break;
+    wait(10000);
+  }
   return 0;
 }

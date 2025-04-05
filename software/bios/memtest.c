@@ -1,5 +1,6 @@
 #include <endeavour2/defs.h>
-#include <endeavour2/bios.h>
+
+#include "bios_internal.h"
 
 static unsigned xorshift_state;
 
@@ -17,14 +18,14 @@ static unsigned xorshift32() {
 
 static void clear_1mb(unsigned* dst, unsigned v) {
   for (int i = 0; i < 1024*1024/4; i += 16) {
-    asm("prefetch.w 64(%0)" :: "r" (dst+i));
+    asm volatile("prefetch.w 64(%0)" :: "r" (dst+i));
     for (int j = i; j < i + 16; ++j) dst[j] = v;
   }
 }
 
 static void fill_1mb(unsigned* dst, unsigned modifier) {
   for (int i = 0; i < 1024*1024/4; i += 16) {
-    asm("prefetch.w 64(%0)" :: "r" (dst+i));
+    asm volatile("prefetch.w 64(%0)" :: "r" (dst+i));
     unsigned base = ((unsigned long)(dst + i) << 4) ^ modifier;
     unsigned* line = dst + i;
     for (int j = 0; j < 16; ++j) line[j] = base ^ i;
@@ -34,7 +35,7 @@ static void fill_1mb(unsigned* dst, unsigned modifier) {
 static void check_1mb(const unsigned* data, unsigned modifier, int* err_count) {
   int ec = *err_count;
   for (int i = 0; i < 1024*1024/4; i += 16) {
-    asm("prefetch.r 64(%0)" :: "r" (data+i));
+    asm volatile("prefetch.r 64(%0)" :: "r" (data+i));
     unsigned base = ((unsigned long)(data + i) << 4) ^ modifier;
     const unsigned* line = data + i;
     for (int j = 0; j < 16; ++j) {

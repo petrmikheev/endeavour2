@@ -2,32 +2,87 @@
 
 #define STACK_ADDR (RAM_BASE + BIOS_SIZE)
 
+.section .data.tmp_gp
+.align 2
+tmp_gp:
+    .word 0
+tmp_ra:
+    .word 0
+tmp_sp:
+    .word 0
+
 .section .text.startup
 .global _start
 _start:
     j start
-.align 2
-    j putchar_impl
-.align 2
-    j printf_impl
-.align 2
-    j sscanf_impl
-.align 2
-    j crc32_impl
-.align 2
-    j beep_impl
-.align 2
-    j readline_impl
-.align 2
-    j read_uart_impl
-.align 2
-    j sdread_impl
-.align 2
-    j sdwrite_impl
-.align 2
-    j get_sdcard_sector_count
-.align 2
-    j get_keyboard_report
+
+. = _start + 4
+
+.global sdcard_sector_count
+sdcard_sector_count: .word 0
+text_style:          .word 0
+cursor_ptr:          .word 0
+
+.macro API_FN id fn
+  . = _start + 64 + 36 * \id
+  # store gp and ra to global variables rather than to stack
+  # because stack may contain variadic arguments for printf/sscanf
+    la t1, __global_pointer$
+    sw gp, -0x800(t1)  # tmp_gp
+    sw ra, -0x7fc(t1)  # tmp_ra
+    mv gp, t1
+    call \fn
+    lw ra, -0x7fc(gp)
+    lw gp, -0x800(gp)
+    ret
+.endm
+
+.option push
+.option norelax
+    API_FN  0, putchar
+    API_FN  1, printf
+    API_FN  2, sscanf
+    API_FN  3, crc32
+    API_FN  4, beep
+    API_FN  5, readline
+    API_FN  6, read_uart
+    API_FN  7, sdread
+    API_FN  8, sdwrite
+    API_FN  9, get_keyboard_report
+.option pop
+
+.global printf
+printf:
+    addi sp, sp, -32
+    sw ra, 0(sp)
+    sw a1, 4(sp)
+    sw a2, 8(sp)
+    sw a3, 12(sp)
+    sw a4, 16(sp)
+    sw a5, 20(sp)
+    sw a6, 24(sp)
+    sw a7, 28(sp)
+    addi a1, sp, 4
+    call printf_impl
+    lw ra, 0(sp)
+    addi sp, sp, 32
+    ret
+
+.global sscanf
+sscanf:
+    addi sp, sp, -32
+    sw ra, 0(sp)
+    sw a2, 8(sp)
+    sw a3, 12(sp)
+    sw a4, 16(sp)
+    sw a5, 20(sp)
+    sw a6, 24(sp)
+    sw a7, 28(sp)
+    addi a2, sp, 8
+    call sscanf_impl
+    lw ra, 0(sp)
+    addi sp, sp, 32
+    ret
 
 start:
 .option push
@@ -40,11 +95,30 @@ start:
     jal main
     j infloop
 
+.global run_binary
+run_binary:
+    add sp, sp, -16
+    sw ra, 12(sp)
+    sw sp, -0x7f8(gp)
+    mv t0, a0
+    mv a0, a1
+    mv a1, a2
+    fence.i
+    jalr ra, 0(t0)
+.option push
+.option norelax
+    la gp, __global_pointer$
+.option pop
+    lw sp, -0x7f8(gp)
+    lw ra, 12(sp)
+    add sp, sp, -16
+    ret
+
 .align 2
 trap:
     # save sp, t0, t1
     csrw mscratch, sp
-    li sp, STACK_ADDR - 56
+    li sp, STACK_ADDR - 64
     sw t0, 0(sp)
     sw t1, 4(sp)
 
@@ -77,6 +151,12 @@ trap:
     sw a6, 44(sp)
     sw a7, 48(sp)
     sw ra, 52(sp)
+    sw gp, 56(sp)
+
+.option push
+.option norelax
+    la gp, __global_pointer$
+.option pop
 
     mv a2, a6
     mv a3, a7
@@ -95,6 +175,7 @@ trap:
     lw a6, 44(sp)
     lw a7, 48(sp)
     lw ra, 52(sp)
+    lw gp, 56(sp)
     j trap_ret
 
 set_timer:

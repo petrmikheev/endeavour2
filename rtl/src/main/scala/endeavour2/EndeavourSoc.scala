@@ -45,7 +45,6 @@ class EndeavourSoc(coreParam: ParamSimple,
   val io = new Bundle {
     val clk25 = in Bool()
     val clk60 = in Bool()
-    val clk100 = in Bool()
     val clk_cpu = in Bool()
     val dyn_clk0 = in Bool()
 
@@ -195,12 +194,21 @@ class EndeavourSoc(coreParam: ParamSimple,
   val miscCtrl = Apb3SlaveFactory(miscApb)
 
   val softResetRequested = RegInit(False)
-  miscCtrl.onWrite(0)(softResetRequested := True)
   rst_area.softResetRequest := softResetRequested
 
-  miscCtrl.read(U(1, 32 bits), address = 0x4)  // hart count
-  miscCtrl.read(cpu_freq_counter.io.freq, address = 0x8)
-  miscCtrl.read(dvi_freq_counter.io.freq, address = 0xC)
+  miscCtrl.onWrite(0)(softResetRequested := True)
+  miscCtrl.read(cpu_freq_counter.io.freq, address = 0x4)
+  miscCtrl.read(dvi_freq_counter.io.freq, address = 0x8)
+  miscCtrl.read(U(1, 32 bits), address = 0xC)  // hart count
+
+  miscCtrl.read(B(32 bits,
+      0 -> coreParam.withRvZb,            // zba
+      1 -> coreParam.withRvZb,            // zbb
+      2 -> coreParam.withRvZb,            // zbc
+      3 -> coreParam.withRvZb,            // zbs
+      4 -> coreParam.lsuSoftwarePrefetch, // zicbop
+      5 -> coreParam.withRvcbm,           // zicbom
+      default -> False), address = 0x10)
 
   val keyReg = RegNext(io.key)
   val ledReg = Reg(Bits(4 bits)) init(0)
@@ -209,19 +217,11 @@ class EndeavourSoc(coreParam: ParamSimple,
   io.led := ledReg
   io.esp32_en := esp32CfgReg(0)
   io.esp32_spi_boot := esp32CfgReg(1)
-  miscCtrl.driveAndRead(ledReg, address = 0x10)
-  miscCtrl.read(keyReg, address = 0x14)
-  miscCtrl.read(ramStat, address = 0x18)
-  miscCtrl.read(B(32 bits,
-      0 -> coreParam.withRvZb,            // zba
-      1 -> coreParam.withRvZb,            // zbb
-      2 -> coreParam.withRvZb,            // zbc
-      3 -> coreParam.withRvZb,            // zbs
-      4 -> coreParam.lsuSoftwarePrefetch, // zicbop
-      5 -> coreParam.withRvcbm,           // zicbom
-      default -> False), address = 0x1C)
-  miscCtrl.read(U(ramSize, 32 bits), address = 0x20)
-  miscCtrl.driveAndRead(esp32CfgReg, address = 0x24)
+  miscCtrl.driveAndRead(ledReg, address = 0x20)
+  miscCtrl.read(keyReg, address = 0x24)
+  miscCtrl.read(ramStat, address = 0x28)
+  miscCtrl.read(U(ramSize, 32 bits), address = 0x2C)
+  miscCtrl.driveAndRead(esp32CfgReg, address = 0x30)
 
   val plicSize = 0x4000000
   val plicPriorityWidth = 1
@@ -242,10 +242,10 @@ class EndeavourSoc(coreParam: ParamSimple,
     targets = List(plic_target)
   )
 
-  val time_area = new ClockingArea(ClockDomain(clock=io.clk100, reset=rst_area.reset)) {
+  val time_area = new ClockingArea(cd60mhz) {
     val time = Reg(UInt(64 bits)) init(0)
-    val counter = Reg(UInt(4 bits)) init(0)
-    when (counter === 9) {
+    val counter = Reg(UInt(3 bits)) init(0)
+    when (counter === 5) {
       counter := 0
       time := time + 1
     } otherwise {
@@ -254,7 +254,7 @@ class EndeavourSoc(coreParam: ParamSimple,
   }
 
   val time = Reg(UInt(64 bits)) init(0) addTag(crossClockDomain)
-  when (time_area.counter(2)) { time := time_area.time }  // time step: 100ns
+  when (time_area.counter(1)) { time := time_area.time }  // time step: 100ns
   cpu_freq_counter.io.time := time(15 downto 0)
   dvi_freq_counter.io.time := time(15 downto 0)
 

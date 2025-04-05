@@ -103,25 +103,25 @@ struct EndeavourI2C {
 
 #ifdef __ASSEMBLER__
   #define REG_BOARD_RESET         0x0  // write triggers soft reset
-  #define REG_BOARD_HART_COUNT    0x4
-  #define REG_BOARD_CPU_FREQ      0x8  // CPU frequency
-  #define REG_BOARD_DVI_FREQ      0xC  // DVI pixel frequency
-  #define REG_BOARD_LEDS         0x10
-  #define REG_BOARD_KEYS         0x14
-  #define REG_BOARD_RAM_STAT     0x18
-  #define REG_BOARD_CPU_FEATURES 0x1C
-  #define REG_BOARD_RAM_SIZE     0x20
-  #define REG_BOARD_ESP32_CFG    0x24
+  #define REG_BOARD_CPU_FREQ      0x4  // CPU frequency
+  #define REG_BOARD_DVI_FREQ      0x8  // DVI pixel frequency
+  #define REG_BOARD_HART_COUNT    0xC
+  #define REG_BOARD_CPU_FEATURES(hartid) (0x10 + 4 * (hartid))
+  #define REG_BOARD_LEDS         0x20
+  #define REG_BOARD_KEYS         0x24
+  #define REG_BOARD_RAM_STAT     0x28
+  #define REG_BOARD_RAM_SIZE     0x2C
+  #define REG_BOARD_ESP32_CFG    0x30
 #else
 struct EndeavourBoard {
   unsigned reset;
-  unsigned hart_count;
   unsigned cpu_frequency;
   unsigned dvi_pixel_frequency;
+  unsigned hart_count;
+  unsigned cpu_features[4];
   unsigned leds;
   unsigned keys;
   unsigned ram_stat;
-  unsigned cpu_features;
   unsigned ram_size;
   unsigned esp32_cfg;
 };

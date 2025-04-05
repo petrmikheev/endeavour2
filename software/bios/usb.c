@@ -1,5 +1,4 @@
 #include <endeavour2/defs.h>
-#include <endeavour2/bios.h>
 
 #include "bios_internal.h"
 
@@ -124,12 +123,13 @@ static int process_tds(int td_count) {
   USB_OHCI_REGS->HcControlHeadED = (long)&ed;
   USB_OHCI_REGS->HcCommandStatus = 2;
 
+  unsigned start = time_100nsec();
   while (1) {
     wait(10);
     if ((USB_OHCI_REGS->HcInterruptStatus & 2) == 0) continue;
     unsigned done_head = ohci_hcca.done_head & ~15;
     USB_OHCI_REGS->HcInterruptStatus = 2;
-    if (done_head == last) break;
+    if (done_head == last || time_100nsec() - start > 5000000) break;
   }
   USB_OHCI_REGS->HcControlHeadED = 0;
 

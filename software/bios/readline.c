@@ -1,5 +1,4 @@
 #include <endeavour2/defs.h>
-#include <endeavour2/bios.h>
 
 #include "bios_internal.h"
 
@@ -44,7 +43,7 @@ static unsigned last_kb_time = 0;
 static unsigned all_same_counter = 0;
 static struct KeyboardReport last_kb;
 
-void readline_impl(const char* prompt, char* buffer, unsigned max_size) {
+void readline(const char* prompt, char* buffer, unsigned max_size) {
   printf(prompt);
   state.buffer = buffer;
   state.size = 0;
@@ -65,7 +64,7 @@ void readline_impl(const char* prompt, char* buffer, unsigned max_size) {
     if (time_100nsec() - last_kb_time < 200000) continue;  // max every 20ms
     last_kb_time = time_100nsec();
     struct KeyboardReport kb;
-    if (bios_get_keyboard_report(&kb) != 0) continue;
+    if (get_keyboard_report(&kb) != 0) continue;
     int all_same = 1;
     int last = 0;
     for (int i = 0; i < 6; ++i) {

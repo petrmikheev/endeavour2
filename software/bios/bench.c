@@ -1,5 +1,6 @@
 #include <endeavour2/defs.h>
-#include <endeavour2/bios.h>
+
+#include "bios_internal.h"
 
 unsigned dhrystone();
 
@@ -48,8 +49,10 @@ static void test_memcpy_check(const unsigned* data) {
 unsigned dhrystone();
 
 void run_benchmarks() {
-  unsigned mDMIPS_MHz = dhrystone();
-  printf("\nDhrystone Benchmark\t: %u.%03u DMIPS/MHz\n", mDMIPS_MHz / 1000, mDMIPS_MHz % 1000);
+  unsigned mDMIPS = dhrystone();
+  unsigned mDMIPS_MHz = (mDMIPS * 1000) / (BOARD_REGS->cpu_frequency / 1000);
+  printf("\nDhrystone Benchmark\t: %u.%02u DMIPS (%u.%03u DMIPS/MHz)\n",
+         mDMIPS / 1000, (mDMIPS % 1000) / 10,  mDMIPS_MHz / 1000, mDMIPS_MHz % 1000);
 
   if (BOARD_REGS->ram_size < 0x300000) return;
 
@@ -69,7 +72,7 @@ void run_benchmarks() {
   print_bench_res("memset", start);
   test_memset(page1, 0x222);
 
-  if (BOARD_REGS->cpu_features & CPU_FEATURES_ZICBOP) {
+  if (BOARD_REGS->cpu_features[0] & CPU_FEATURES_ZICBOP) {
     start = time_100nsec();
     memset_1mb_prefetch(page1, 0x333);
     print_bench_res("memset prefetch", start);
@@ -84,7 +87,7 @@ void run_benchmarks() {
   print_bench_res("memcpy", start);
   test_memcpy_check(page1);
 
-  if (BOARD_REGS->cpu_features & CPU_FEATURES_ZICBOP) {
+  if (BOARD_REGS->cpu_features[0] & CPU_FEATURES_ZICBOP) {
     test_memcpy_fill(page2);
     memset_1mb(page1, 0x222);
     start = time_100nsec();
@@ -102,7 +105,7 @@ void run_benchmarks() {
   sparse_inplace_xor_1mb(page2, 0xa5a5a5a5);
   print_bench_res("sparse_inplace_xor", start);
 
-  if (BOARD_REGS->cpu_features & CPU_FEATURES_ZICBOP) {
+  if (BOARD_REGS->cpu_features[0] & CPU_FEATURES_ZICBOP) {
     start = time_100nsec();
     sparse_agg_xor_1mb_prefetch(page1);
     print_bench_res("sparse_agg_xor     prefetch", start);
@@ -113,9 +116,9 @@ void run_benchmarks() {
   }
 
   // *** sdcard
-  if (bios_sdcard_sector_count() >= 2048) {
+  if (get_sdcard_sector_count() >= 2048) {
     start = time_100nsec();
-    unsigned count = bios_sdread(page1, 0, 2048);
+    unsigned count = sdread(page1, 0, 2048);
     print_bench_res("SD card read", start);
     if (count != 2048) {
       printf("[ERROR] SD card read failed, transfered %u of 2048 sectors\n", count);

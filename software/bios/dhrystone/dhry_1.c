@@ -141,9 +141,10 @@ unsigned dhrystone()
   unsigned res_time = time_100nsec() - start_time;
   //printf("%d iterations, %u00 ns\n", Number_Of_Runs, res_time);
 
-  unsigned mDMIPS_MHz = ((1000000000u / 1757 * Number_Of_Runs / res_time) * 10000) / (BOARD_REGS->cpu_frequency / 1000);
+  unsigned mDMIPS = (1000000000u / 1757 * Number_Of_Runs / res_time) * 10;
+  //unsigned mDMIPS_MHz = (mDMIPS * 1000) / (BOARD_REGS->cpu_frequency / 1000);
   //printf("Result: %u.%03u DMIPS/MHz\n", mDMIPS_MHz / 1000, mDMIPS_MHz % 1000);
-  return mDMIPS_MHz;
+  return mDMIPS;
 }
 
 

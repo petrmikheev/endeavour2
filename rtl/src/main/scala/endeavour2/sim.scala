@@ -84,7 +84,6 @@ object EndeavourSocSim extends App {
     dut.io.sd.cmd_IN #= true
     ClockDomain(dut.io.clk25).forkStimulus(40000)
     ClockDomain(dut.io.clk60).forkStimulus(17000)
-    ClockDomain(dut.io.clk100).forkStimulus(10000)
     ClockDomain(dut.io.clk_cpu).forkStimulus(5000)
     //dut.io.reset #= true
     //delayed(100 ns)(dut.io.reset #= false)

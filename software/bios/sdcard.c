@@ -2,7 +2,6 @@
 // Supports only SDHC and SDXC cards.
 
 #include <endeavour2/defs.h>
-#include <endeavour2/bios.h>
 
 #include "bios_internal.h"
 
@@ -38,12 +37,13 @@ static const unsigned
 
 static const unsigned
 #ifdef BASE_CLK_IS_200MHZ
-  SDIOCK_SDR12 = SDIOCK_12MHZ,  // 25 MHz
-  SDIOCK_SDR25 = SDIOCK_25MHZ,  // 50 MHz
-  SDIOCK_SDR50 = SDIOCK_50MHZ;  // 100 MHz
+  SDIOCK_SDR12  = SDIOCK_12MHZ,  // 25 MHz
+  SDIOCK_SDR25  = SDIOCK_25MHZ,  // 50 MHz
+  SDIOCK_SDR50  = SDIOCK_50MHZ,  // 100 MHz
+  SDIOCK_SDR104 = SDIOCK_100MHZ; // 200 MHz
 #else
-  SDIOCK_SDR12 = SDIOCK_25MHZ,
-  SDIOCK_SDR25 = SDIOCK_50MHZ;
+  SDIOCK_SDR12  = SDIOCK_25MHZ,
+  SDIOCK_SDR25  = SDIOCK_50MHZ;
 #endif
 #define SDIOCK_DEFAULT SDIOCK_SDR12
 
@@ -54,13 +54,14 @@ static unsigned command(unsigned cmd, unsigned arg) {
   return SDCARD_REGS->data;
 }
 
-static unsigned rca, size_in_sectors;
+static unsigned rca;
+extern unsigned sdcard_sector_count;
 
 unsigned get_sdcard_rca() { return rca; }
-unsigned get_sdcard_sector_count() { return size_in_sectors; }
+unsigned get_sdcard_sector_count() { return sdcard_sector_count; }
 
 void init_sdcard() {
-  size_in_sectors = 0;
+  sdcard_sector_count = 0;
   printf("SD card: ");
 
   if (SDCARD_REGS->cmd & SDIO_PRESENTN) {
@@ -124,8 +125,8 @@ void init_sdcard() {
     return;
   }
   unsigned csize = ((CSD[1] & 0x3f) << 16) | (CSD[2] >> 16);
-  size_in_sectors = (csize + 1) * 1024;
-  printf(" %u MB\n", size_in_sectors / 2048);
+  sdcard_sector_count = (csize + 1) * 1024;
+  printf(" %u MB\n", sdcard_sector_count / 2048);
 
   // CMD7 - select card
   command(SDIO_R1b | 7, rca);
@@ -203,7 +204,7 @@ static void sd_wait_ready() {
   }
 }
 
-unsigned sdread_impl(unsigned* dst, unsigned sector, unsigned sector_count) {
+unsigned sdread(unsigned* dst, unsigned sector, unsigned sector_count) {
   if (sector_count == 0) return 0;
   sd_wait_ready();
   command(SDIO_R1 | SDIO_MEM | 18, sector);
@@ -225,7 +226,7 @@ unsigned sdread_impl(unsigned* dst, unsigned sector, unsigned sector_count) {
   return sector_count;
 }
 
-unsigned sdwrite_impl(const unsigned* src, unsigned sector, unsigned sector_count) {
+unsigned sdwrite(const unsigned* src, unsigned sector, unsigned sector_count) {
   if (sector_count == 0) return 0;
   sd_wait_ready();
   src = send_sector(src, &SDCARD_REGS->fifo0);

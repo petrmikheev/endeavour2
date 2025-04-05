@@ -1,12 +1,13 @@
 #include <endeavour2/defs.h>
-#include <endeavour2/bios.h>
+
+#include "bios_internal.h"
 
 // generated with python ', '.join(['0x%x' % int(math.sin(x/32*math.pi/2)*0x800) for x in range(32)])
 static const unsigned short sin_table[32] = {
     0x0, 0x64, 0xc8, 0x12c, 0x18f, 0x1f1, 0x252, 0x2b1, 0x30f, 0x36b, 0x3c5, 0x41c, 0x471, 0x4c3, 0x513, 0x55f,
     0x5a8, 0x5ed, 0x62f, 0x66c, 0x6a6, 0x6dc, 0x70e, 0x73b, 0x764, 0x788, 0x7a7, 0x7c2, 0x7d8, 0x7e9, 0x7f6, 0x7fd};
 
-void beep_impl(unsigned duration_ms, unsigned frequency, int volume) {
+void beep(unsigned duration_ms, unsigned frequency, int volume) {
   int step = 1;
   int rate = frequency * 128;
   while (rate > 44100) {

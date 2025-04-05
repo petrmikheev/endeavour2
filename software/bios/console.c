@@ -1,4 +1,4 @@
-#include <endeavour2/bios.h>
+#include <endeavour2/defs.h>
 
 #include "bios_internal.h"
 
@@ -10,14 +10,14 @@
 static int cmd_write(const char* args) {
   unsigned long addr;
   unsigned val;
-  if (sscanf(args, "%x %x", &addr, &val) != 2) return CMD_INVALID_ARGS;
+  if (sscanf(args, "%lx %x", &addr, &val) != 2) return CMD_INVALID_ARGS;
   *(volatile unsigned*)addr = val;
   return CMD_OK;
 }
 
 static int cmd_read(const char* args) {
   unsigned long addr;
-  if (sscanf(args, "%x", &addr) != 1) return CMD_INVALID_ARGS;
+  if (sscanf(args, "%lx", &addr) != 1) return CMD_INVALID_ARGS;
   printf("%08x\n", *(volatile unsigned*)addr);
   return CMD_OK;
 }
@@ -38,24 +38,23 @@ static int cmd_benchmark() {
 static int cmd_uart(const char* args) {
   unsigned long addr;
   unsigned size;
-  if (sscanf(args, "%x %u", &addr, &size) != 2) return CMD_INVALID_ARGS;
-  return bios_read_uart((char*)addr, size, UART_BAUD_RATE(12000000)) == 0 ? CMD_OK : CMD_FAILED;
+  if (sscanf(args, "%lx %u", &addr, &size) != 2) return CMD_INVALID_ARGS;
+  return read_uart((char*)addr, size, UART_BAUD_RATE(12000000)) == 0 ? CMD_OK : CMD_FAILED;
   return CMD_OK;
 }
 
 static int cmd_run(const char* args) {
   unsigned long addr;  // TODO load from file
-  if (sscanf(args, "%x", &addr) != 1) return CMD_INVALID_ARGS;
-  asm("fence.i");
-  ((void (*)())addr)();
+  if (sscanf(args, "%lx", &addr) != 1) return CMD_INVALID_ARGS;
+  run_binary((void*)addr, 0, 0);
   return CMD_OK;
 }
 
 static int cmd_crc32(const char* args) {
   unsigned long addr;
   unsigned size, expected = 0;
-  if (sscanf(args, "%x %u %x", &addr, &size, &expected) < 2) return CMD_INVALID_ARGS;
-  unsigned crc = bios_crc32((char*)addr, size);
+  if (sscanf(args, "%lx %u %x", &addr, &size, &expected) < 2) return CMD_INVALID_ARGS;
+  unsigned crc = crc32((char*)addr, size);
   printf("%08x", crc);
   if (expected) {
     printf(crc == expected ? " OK" : " ERROR");
@@ -67,14 +66,14 @@ static int cmd_crc32(const char* args) {
 static int cmd_beep(const char* args) {
   unsigned time_ms, freq = 300, volume = 6;
   if (sscanf(args, "%u %u %u", &time_ms, &freq, &volume) == 0) return CMD_INVALID_ARGS;
-  bios_beep(time_ms, freq, volume);
+  beep(time_ms, freq, volume);
   return CMD_OK;
 }
 
 static int cmd_sound(const char* args) {
   unsigned long addr;  // TODO load from file
   int volume = 6;
-  if (sscanf(args, "%x %d", &addr, &volume) == 0) return CMD_INVALID_ARGS;
+  if (sscanf(args, "%lx %d", &addr, &volume) == 0) return CMD_INVALID_ARGS;
   playWav((void*)addr, volume);
   return CMD_OK;
 }
@@ -169,7 +168,7 @@ void run_console() {
   while (1) {
     #define CMD_BUF_SIZE 120
     char cmd[CMD_BUF_SIZE];
-    bios_readline("> ", cmd, CMD_BUF_SIZE);
+    readline("> ", cmd, CMD_BUF_SIZE);
     if (*cmd == 0) continue;
     int res = run_command(cmd);
     if (res != CMD_OK) uart_flush();

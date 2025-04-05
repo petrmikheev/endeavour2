@@ -1,34 +1,33 @@
 #include <endeavour2/defs.h>
-#include <endeavour2/bios.h>
 
 #include "bios_internal.h"
 
 void print_cpu_info() {
-  printf("CPU: rv32im");
-  unsigned isa;
-  asm volatile("csrr %0, misa" : "=r" (isa));
-  isa &= ~0x1100;  // exclude 'i', 'm'
-  for (int i = 0; i < 26; ++i) {
-    if (isa & 1) putchar('a' + i);
-    isa = isa >> 1;
+  for (int hartid = 0; hartid < BOARD_REGS->hart_count; ++hartid) {
+    printf(hartid == 0 ? "CPU " : "\t");
+    printf("core%u: rv32im", hartid);
+    unsigned isa;
+    asm volatile("csrr %0, misa" : "=r" (isa));
+    isa &= ~0x1100;  // exclude 'i', 'm'
+    for (int i = 0; i < 26; ++i) {
+      if (isa & 1) putchar('a' + i);
+      isa = isa >> 1;
+    }
+    printf(", zicsr, zifencei");
+    unsigned features = BOARD_REGS->cpu_features[hartid];
+    if (features & CPU_FEATURES_ZBA) printf(", zba");
+    if (features & CPU_FEATURES_ZBB) printf(", zbb");
+    if (features & CPU_FEATURES_ZBC) printf(", zbc");
+    if (features & CPU_FEATURES_ZBS) printf(", zbs");
+    if (features & CPU_FEATURES_ZICBOP) printf(", zicbop");
+    if (features & CPU_FEATURES_ZICBOM) printf(", zicbom");
+    printf(", %u MHz\n", BOARD_REGS->cpu_frequency / 1000000);
   }
-  int cores = BOARD_REGS->hart_count;
-  printf(", %d core", cores);
-  if (cores > 1) putchar('s');
-  printf(", %u MHz\nExtensions: zicsr, zifencei", BOARD_REGS->cpu_frequency / 1000000);
-  unsigned features = BOARD_REGS->cpu_features;
-  if (features & CPU_FEATURES_ZBA) printf(", zba");
-  if (features & CPU_FEATURES_ZBB) printf(", zbb");
-  if (features & CPU_FEATURES_ZBC) printf(", zbc");
-  if (features & CPU_FEATURES_ZBS) printf(", zbs");
-  if (features & CPU_FEATURES_ZICBOP) printf(", zicbop");
-  if (features & CPU_FEATURES_ZICBOM) printf(", zicbom");
-  printf("\n");
 }
 
 int main() {
   BOARD_REGS->leds = 0;
-  bios_beep(333, 300, 6);
+  beep(333, 300, 6);
   unsigned ram_size = BOARD_REGS->ram_size;
   if (ram_size >= (1<<20)) {
     unsigned* ram = (unsigned*)RAM_BASE;
@@ -47,7 +46,7 @@ int main() {
   } else {
     printf("RAM: %u MB\t", ram_size >> 20);
     if (fast_memtest() != 0) {
-      bios_beep(1000, 300, 6);
+      beep(1000, 300, 6);
     }
   }
 
