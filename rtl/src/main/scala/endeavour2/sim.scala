@@ -31,7 +31,7 @@ object FileUtil {
 }
 
 class EndeavourSocSim extends EndeavourSoc(
-        coreParam=Core.small(withCaches=true),
+        coresParams=List(Core.small(withCaches=true)/*, Core.small(withCaches=true)*/),
         internalRam=true, ramSize=65536,
         internalRamContent=Some(Files.readAllBytes(Paths.get("../software/bios/bios.bin"))),
         //bootRomContent=Some(Files.readAllBytes(Paths.get("../software/bios/microloader.bin"))),
@@ -63,9 +63,9 @@ class EndeavourSocSim extends EndeavourSoc(
 object EndeavourSocSim extends App {
   val sim = SimConfig.withTimeSpec(1 ns, 1 ps).withWave
 
-  sim.compile(new EndeavourSocSim(/*withCaches=false, internalRam=true*/)).doSimUntilVoid("test", seed = 42){dut =>
+  sim.compile(new EndeavourSocSim()).doSimUntilVoid("test", seed = 42){dut =>
     val probe = new VexiiRiscvProbe(
-      cpu = dut.cpu0.vexii(),
+      cpu = dut.cpus(0).vexii(),
       kb = None // Option(new vexiiriscv.test.konata.Backend(new File(currentTestPath, "konata.log")).spinalSimFlusher(hzToLong(1000 Hz)))
     )
     probe.autoRegions()

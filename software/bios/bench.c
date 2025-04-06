@@ -48,7 +48,12 @@ static void test_memcpy_check(const unsigned* data) {
 
 unsigned dhrystone();
 
-void run_benchmarks() {
+static void run_benchmarks_th() {
+  int hartid = get_hartid();
+  if (BOARD_REGS->hart_count > 1) {
+    printf("\n[core%u]\n", hartid);
+  }
+
   unsigned mDMIPS = dhrystone();
   unsigned mDMIPS_MHz = (mDMIPS * 1000) / (BOARD_REGS->cpu_frequency / 1000);
   printf("\nDhrystone Benchmark\t: %u.%02u DMIPS (%u.%03u DMIPS/MHz)\n",
@@ -72,7 +77,7 @@ void run_benchmarks() {
   print_bench_res("memset", start);
   test_memset(page1, 0x222);
 
-  if (BOARD_REGS->cpu_features[0] & CPU_FEATURES_ZICBOP) {
+  if (BOARD_REGS->cpu_features[hartid] & CPU_FEATURES_ZICBOP) {
     start = time_100nsec();
     memset_1mb_prefetch(page1, 0x333);
     print_bench_res("memset prefetch", start);
@@ -87,7 +92,7 @@ void run_benchmarks() {
   print_bench_res("memcpy", start);
   test_memcpy_check(page1);
 
-  if (BOARD_REGS->cpu_features[0] & CPU_FEATURES_ZICBOP) {
+  if (BOARD_REGS->cpu_features[hartid] & CPU_FEATURES_ZICBOP) {
     test_memcpy_fill(page2);
     memset_1mb(page1, 0x222);
     start = time_100nsec();
@@ -105,7 +110,7 @@ void run_benchmarks() {
   sparse_inplace_xor_1mb(page2, 0xa5a5a5a5);
   print_bench_res("sparse_inplace_xor", start);
 
-  if (BOARD_REGS->cpu_features[0] & CPU_FEATURES_ZICBOP) {
+  if (BOARD_REGS->cpu_features[hartid] & CPU_FEATURES_ZICBOP) {
     start = time_100nsec();
     sparse_agg_xor_1mb_prefetch(page1);
     print_bench_res("sparse_agg_xor     prefetch", start);
@@ -116,12 +121,29 @@ void run_benchmarks() {
   }
 
   // *** sdcard
-  if (get_sdcard_sector_count() >= 2048) {
+  if (hartid == 0 && get_sdcard_sector_count() >= 2048) {
     start = time_100nsec();
     unsigned count = sdread(page1, 0, 2048);
     print_bench_res("SD card read", start);
     if (count != 2048) {
       printf("[ERROR] SD card read failed, transfered %u of 2048 sectors\n", count);
+    }
+  }
+}
+
+void run_benchmarks() {
+  run_benchmarks_th();
+  for (int hartid = 1; hartid < BOARD_REGS->hart_count; ++hartid) {
+    volatile struct HartCfg* cfg = &hart_cfg[hartid - 1];
+    cfg->jump_to = run_benchmarks_th;
+    software_interrupt(hartid);
+    while (1) {
+      wait(2000000);
+      if (cfg->jump_to != 0) {
+        printf("\n[ERROR] Can't start benchmarks on core%u\n", hartid);
+        break;
+      }
+      if (cfg->ready) break;
     }
   }
 }

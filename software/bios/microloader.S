@@ -30,6 +30,8 @@ B111 no BIOS_MAGIC
 .section .text.startup
 .global _start
 _start:
+    csrr t0, mhartid
+    bne t0, zero, not_main_thread
     li BBOARD, BOARD_BASE
     li BUART, UART_BASE
     li t0, 1
@@ -133,3 +135,17 @@ dump_loop:
     addi PTR, PTR, 1
     bne PTR, PTR_END, dump_loop
     j error
+
+not_main_thread:
+    la t0, not_main_thread_go
+    csrw mtvec, t0
+    csrsi mie, 1<<3      # allow machine software interrupt
+    csrsi mstatus, 1<<3  # allow interrupts in M mode
+    wfi
+    j not_main_thread
+
+.align 2
+not_main_thread_go:
+    fence.i
+    li t0, RAM_BASE
+    jr t0

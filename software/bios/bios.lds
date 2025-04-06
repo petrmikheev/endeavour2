@@ -7,10 +7,12 @@ SECTIONS
    .text : { *(.text) }
    . = ALIGN(4);
    PROVIDE( __global_pointer$ = . + 0x800 );
-   .data.tmp_gp : { *(.data.tmp_gp) }
+   .data.data_start : { *(.data.data_start) }
    .data : { *(.data) }
    .bss : { *(.bss) }
    .rodata : { *(.rodata) }
+   . = 0x80007000;
+   .bss.worker_stack : { *(.bss.worker_stack) }
    . = 0x80007300;
    .bss.ohci_hcca : { *(.bss.ohci_hcca) }
    . = 0x80007400;

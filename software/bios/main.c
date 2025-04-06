@@ -5,9 +5,16 @@
 void print_cpu_info() {
   for (int hartid = 0; hartid < BOARD_REGS->hart_count; ++hartid) {
     printf(hartid == 0 ? "CPU " : "\t");
-    printf("core%u: rv32im", hartid);
     unsigned isa;
-    asm volatile("csrr %0, misa" : "=r" (isa));
+    if (hartid == 0) {
+      asm volatile("csrr %0, misa" : "=r" (isa));
+    } else if (hart_cfg[hartid - 1].ready) {
+      isa = hart_cfg[hartid - 1].isa;
+    } else {
+      printf("core%u: error\n", hartid);
+      continue;
+    }
+    printf("core%u: rv32im", hartid);
     isa &= ~0x1100;  // exclude 'i', 'm'
     for (int i = 0; i < 26; ++i) {
       if (isa & 1) putchar('a' + i);
@@ -27,6 +34,8 @@ void print_cpu_info() {
 
 int main() {
   BOARD_REGS->leds = 0;
+  for (int hartid = 1; hartid < BOARD_REGS->hart_count; ++hartid)
+    software_interrupt(hartid);  // triggers initilization code
   beep(333, 300, 6);
   unsigned ram_size = BOARD_REGS->ram_size;
   if (ram_size >= (1<<20)) {

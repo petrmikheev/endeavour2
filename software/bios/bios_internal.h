@@ -41,4 +41,19 @@ unsigned sdwrite(const unsigned* src, unsigned sector, unsigned sector_count);
 void init_usb_keyboard();
 int get_keyboard_report(volatile struct KeyboardReport* data);
 
+struct HartCfg {
+  unsigned ready;
+  void* jump_to;
+  unsigned isa;
+  // debug info
+  unsigned cause;
+  unsigned tval;
+  unsigned epc;
+  unsigned sp;
+  unsigned ra;
+};
+extern struct HartCfg hart_cfg[3];
+
+void hart_run(int hartid, void* addr);
+
 #endif  // BIOS_INTERNAL_H

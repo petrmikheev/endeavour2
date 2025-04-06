@@ -24,6 +24,7 @@ class EndeavourUSB(phyCd: ClockDomain, usb1: USB, usb2: USB, sim : Boolean = fal
     useSlaveError = false
   ))
   val dma = tilelink.fabric.Node.down()
+  dma.setDownConnection(a = StreamPipe.HALF, d = StreamPipe.HALF)
 
   val ctrl_bmbp = BmbParameter(
     addressWidth = 12,

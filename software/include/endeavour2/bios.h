@@ -32,6 +32,9 @@
 
 #define bios_get_keyboard_report API_FN(9, int, struct KeyboardReport*)) /* -> err */
 
+// bios_hart_run(hartid, addr)  - jumps to addr in given hart; doesn't affect main hart, hartid should be > 0.
+#define bios_hart_run   API_FN(10, void,    int /*hartid*/, const void* /*addr*/)
+
 inline unsigned bios_get_sdcard_sector_count() { return *(unsigned*)(RAM_BASE + 4); }
 
 inline char bios_get_text_style() { return *(unsigned*)(RAM_BASE + 8); }

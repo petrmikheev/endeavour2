@@ -119,14 +119,14 @@ object Core {
   }
 }
 
-class VexiiCore(val param: ParamSimple, resetVector: Long, jtag: Option[Jtag] = None) extends Core {
+class VexiiCore(val param: ParamSimple, resetVector: Long, hartId: Int = 0, jtag: Option[Jtag] = None) extends Core {
   param.resetVector = resetVector
   if (jtag.isDefined) {
     param.embeddedJtagTap = true
     param.embeddedJtagCd = ClockDomain.current
     param.privParam.withDebug = true
   }
-  val plugins = param.plugins()
+  val plugins = param.plugins(hartId)
   val tlcore = new TilelinkVexiiRiscvFiber(plugins)
   tlcore.priv match {
     case Some(priv) => new Area {

@@ -2,7 +2,7 @@
 
 #define STACK_ADDR (RAM_BASE + BIOS_SIZE)
 
-.section .data.tmp_gp
+.section .data.data_start
 .align 2
 tmp_gp:
     .word 0
@@ -10,6 +10,10 @@ tmp_ra:
     .word 0
 tmp_sp:
     .word 0
+
+.global hart_cfg
+hart_cfg:
+    .zero 32*3
 
 .section .text.startup
 .global _start
@@ -49,6 +53,7 @@ cursor_ptr:          .word 0
     API_FN  7, sdread
     API_FN  8, sdwrite
     API_FN  9, get_keyboard_report
+    API_FN 10, hart_run
 .option pop
 
 .global printf
@@ -89,11 +94,50 @@ start:
 .option norelax
     la gp, __global_pointer$
 .option pop
-    li sp, STACK_ADDR
+    csrr tp, mhartid
+    bne tp, zero, not_main_thread
     la t0, trap
     csrw mtvec, t0
+    li sp, STACK_ADDR
     jal main
     j infloop
+
+not_main_thread:
+    slli t0, tp, 2
+    li t1, CLINT_BASE
+    add t0, t0, t1
+    sw zero, 0(t0)   # clear pending IPI
+    addi t0, tp, -1
+    slli t0, t0, 5
+    la t1, hart_cfg
+    add s0, t0, t1   # struct HartCfg of this hart
+    csrr t0, misa
+    sw t0,  0x8(s0)
+
+    # store debug info
+    csrr t1, mcause
+    csrr t2, mtval
+    csrr t3, mepc
+    sw t1,  0xC(s0)
+    sw t2, 0x10(s0)
+    sw t3, 0x14(s0)
+    sw sp, 0x18(s0)
+    sw ra, 0x1C(s0)
+
+    lw t0, 4(s0) # jump_to
+    seqz t1, t0
+    sw t1, 0(s0) # set 'ready' if jump_to == 0
+    csrsi mstatus, 1<<3  # allow interrupts in M mode
+    beq t0, zero, not_main_thread_wait
+    sw zero, 4(s0)
+    la sp, worker_stack
+    la ra, start
+    fence.i
+    jr t0
+
+not_main_thread_wait:
+    wfi
+    j not_main_thread_wait
 
 .global run_binary
 run_binary:
@@ -217,6 +261,10 @@ fatal_trap:
     jal fatal_trap_handler
 infloop:
     j infloop
+
+.section .bss.worker_stack
+    .zero 0x300
+worker_stack:
 
 .section .bss.ohci_hcca
 .global ohci_hcca

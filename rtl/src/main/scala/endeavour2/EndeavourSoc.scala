@@ -32,7 +32,7 @@ class FrequencyCounter extends Component {
   io.freq := res @@ U(0, 12 bits)
 }
 
-class EndeavourSoc(coreParam: ParamSimple,
+class EndeavourSoc(coresParams: List[ParamSimple],
                    bootRomContent : Option[Array[Byte]] = None,
                    internalRam : Boolean = false,
                    internalRamContent : Option[Array[Byte]] = None,
@@ -184,7 +184,7 @@ class EndeavourSoc(coreParam: ParamSimple,
   cbus at (ramBaseAddr, ramSize) of dbus
 
   val usb_ctrl = new EndeavourUSB(cd60mhz, io.usb1, io.usb2, sim=sim)
-  cbus at (ramBaseAddr, ramSize) of usb_ctrl.dma
+  dbus << usb_ctrl.dma
 
   val miscApb = Apb3(Apb3Config(
     addressWidth  = 6,
@@ -199,16 +199,21 @@ class EndeavourSoc(coreParam: ParamSimple,
   miscCtrl.onWrite(0)(softResetRequested := True)
   miscCtrl.read(cpu_freq_counter.io.freq, address = 0x4)
   miscCtrl.read(dvi_freq_counter.io.freq, address = 0x8)
-  miscCtrl.read(U(1, 32 bits), address = 0xC)  // hart count
+  miscCtrl.read(U(coresParams.length, 32 bits), address = 0xC)  // hart count
 
-  miscCtrl.read(B(32 bits,
-      0 -> coreParam.withRvZb,            // zba
-      1 -> coreParam.withRvZb,            // zbb
-      2 -> coreParam.withRvZb,            // zbc
-      3 -> coreParam.withRvZb,            // zbs
-      4 -> coreParam.lsuSoftwarePrefetch, // zicbop
-      5 -> coreParam.withRvcbm,           // zicbom
-      default -> False), address = 0x10)
+  def cpuFeatures(p: ParamSimple): Bits = B(32 bits,
+      0 -> p.withRvZb,            // zba
+      1 -> p.withRvZb,            // zbb
+      2 -> p.withRvZb,            // zbc
+      3 -> p.withRvZb,            // zbs
+      4 -> p.lsuSoftwarePrefetch, // zicbop
+      5 -> p.withRvcbm,           // zicbom
+      default -> False)
+
+  assert(coresParams.length <= 4)
+  for (i <- 0 to coresParams.length - 1) {
+    miscCtrl.read(cpuFeatures(coresParams(i)), address = 0x10 + i * 4)
+  }
 
   val keyReg = RegNext(io.key)
   val ledReg = Reg(Bits(4 bits)) init(0)
@@ -305,28 +310,37 @@ class EndeavourSoc(coreParam: ParamSimple,
     )
   }
 
-  val cpu0 : Core = new VexiiCore(param=coreParam, resetVector=resetVector)
+  val ibus = tilelink.fabric.Node()
+  dbus << ibus
 
-  clint.connectCore(cpu0, hartId=0)
-  dbus << cpu0.iBus
-  toApb.up at (0, ioSize) of cpu0.dBus
+  var hasL1 = false
+  var hartId = 0
 
-  if (cpu0.hasL1) {
-    dbus.forceDataWidth(64)
-    dbus << cpu0.lsuL1Bus
-  } else {
-    dbus.forceDataWidth(32)
-    dbus << cpu0.dBus
-  }
+  val cpus = coresParams.map(p => {
+    val cpu : Core = new VexiiCore(param=p, resetVector=resetVector, hartId=hartId)
+    if (cpu.hasL1) {
+      hasL1 = true
+      dbus << cpu.lsuL1Bus
+    } else {
+      dbus << cpu.dBus
+    }
+    clint.connectCore(cpu, hartId=hartId)
+    ibus << cpu.iBus
+    toApb.up at (0, ioSize) of cpu.dBus
+    hartId += 1
+    cpu
+  })
+
+  dbus.forceDataWidth(if (hasL1) 64 else 32)
 
   val mbus = tilelink.fabric.Node()
 
-  if (cpu0.hasL1 && internalRam) {
+  if (hasL1 && internalRam) {
     val tl_hub = new tilelink.coherent.HubFiber()
     tl_hub.parameter.downPendingMax = 8
     tl_hub.up << cbus
     mbus << tl_hub.down
-  } else if (cpu0.hasL1) {
+  } else if (hasL1) {
     val tl_cache = new tilelink.coherent.CacheFiber()
     tl_cache.parameter.downPendingMax = 8
     tl_cache.up << cbus
@@ -339,7 +353,7 @@ class EndeavourSoc(coreParam: ParamSimple,
     case Some(content) => {
       val rom = new SlowRomFiber(content)
       println(s"ROM at ${romBaseAddr.toHexString} - ${(romBaseAddr + (1<<rom.addressWidth)).toHexString}")
-      rom.up at (romBaseAddr, 1<<rom.addressWidth) of cpu0.iBus
+      rom.up at (romBaseAddr, 1<<rom.addressWidth) of ibus
     }
     case None =>
   }
@@ -350,7 +364,7 @@ class EndeavourSoc(coreParam: ParamSimple,
     io.ddr.not_connected()
     ramStat := 3  // calibration_ok, calibration_done
   } else {
-    assert(cpu0.hasL1);
+    assert(hasL1);
     println(s"RAM at ${ramBaseAddr.toHexString} - ${(ramBaseAddr + ramSize).toHexString}")
     val ram = new Ddr3Fiber(ramSize, io.ddr)
     ram.up << mbus
@@ -362,10 +376,11 @@ object EndeavourSoc {
   def main(args: Array[String]): Unit = {
     val bootRomContent = Files.readAllBytes(Paths.get("../software/bios/microloader.bin"))
     SpinalConfig(mode=Verilog, targetDirectory="verilog").generate(new EndeavourSoc(
-        //coreParam=Core.small(withCaches=false), internalRam=true, ramSize=65536,
-        //coreParam=Core.small(withCaches=true),
-        coreParam=Core.medium(),
-        //coreParam=Core.full(),
+        //coresParams=List(Core.small(withCaches=false)), internalRam=true, ramSize=65536,
+        //coresParams=List(Core.small(withCaches=true)),
+        coresParams=List(Core.medium()),
+        //coresParams=List(Core.medium(), Core.small(withCaches=true)),
+        //coresParams=List(Core.full()),
         bootRomContent=Some(bootRomContent)
         ))
   }

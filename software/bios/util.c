@@ -285,3 +285,10 @@ int i2c_read(int addr, int size, char* data) {
   }
   return err;
 }
+
+void hart_run(int hartid, void* addr) {
+  if (hartid < 1 || hartid >= BOARD_REGS->hart_count) return;
+  volatile struct HartCfg* cfg = &hart_cfg[hartid - 1];
+  cfg->jump_to = addr;
+  software_interrupt(hartid);
+}

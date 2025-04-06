@@ -196,6 +196,16 @@ static inline unsigned time_100nsec() {
   asm volatile("csrr %0, time" : "=r" (t));
   return t;
 }
+
+static inline unsigned get_hartid() {
+  unsigned i;
+  asm volatile("csrr %0, mhartid" : "=r" (i));
+  return i;
+}
+
+static inline void software_interrupt(int hartid) {
+  *(volatile unsigned*)(long)CLINT_IPI(hartid) = 1;
+}
 #endif
 
 #endif  // ENDEAVOUR2_DEFS_H
