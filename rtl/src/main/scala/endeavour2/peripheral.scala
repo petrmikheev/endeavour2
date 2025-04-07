@@ -123,3 +123,39 @@ class SdcardController extends BlackBox {
   addRTLPath("./sdspi/rtl/sdrxframe.v")
   addRTLPath("./sdspi/rtl/sdfrontend.v")
 }
+
+class VideoController extends BlackBox {
+  addGeneric("ADDRESS_WIDTH", 30)
+  val io = new Bundle {
+    val clk = in Bool()
+    val reset = in Bool()
+    val pixel_clk = in Bool()
+    val data_red = out Bits(8 bits)
+    val data_green = out Bits(8 bits)
+    val data_blue = out Bits(8 bits)
+    val data_enable = out Bool()
+    val hSync = out Bool()
+    val vSync = out Bool()
+    val apb = slave(Apb3(Apb3Config(
+      addressWidth  = 6,
+      dataWidth     = 32,
+      useSlaveError = false
+    )))
+    val tl_bus = master(tilelink.Bus(tilelink.BusParameter(
+      addressWidth = 30,
+      dataWidth    = 64,
+      sizeBytes    = 64,
+      sourceWidth  = 2,
+      sinkWidth    = 0,
+      withBCE      = false,
+      withDataA    = false,
+      withDataB    = false,
+      withDataC    = false,
+      withDataD    = true,
+      node         = null
+    )))
+  }
+  noIoPrefix()
+  mapClockDomain(clock=io.clk, reset=io.reset)
+  addRTLPath("./verilog/video_controller.v")
+}

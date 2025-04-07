@@ -37,10 +37,10 @@ int main() {
   for (int hartid = 1; hartid < BOARD_REGS->hart_count; ++hartid)
     software_interrupt(hartid);  // triggers initilization code
   beep(333, 300, 6);
+
   unsigned ram_size = BOARD_REGS->ram_size;
-  if (ram_size >= (1<<20)) {
-    unsigned* ram = (unsigned*)RAM_BASE;
-    for (int i = BIOS_SIZE/4; i < (1<<20)/4; ++i) ram[i] = 0;
+  if (ram_size >= (2<<20)) {
+    init_display();
   }
 
   printf(
@@ -54,7 +54,7 @@ int main() {
     printf("RAM: %u KB\n", ram_size >> 10);
   } else {
     printf("RAM: %u MB\t", ram_size >> 20);
-    if (fast_memtest() != 0) {
+    if (ram_size >= (8<<20) && fast_memtest() != 0) {
       beep(1000, 300, 6);
     }
   }

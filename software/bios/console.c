@@ -78,6 +78,35 @@ static int cmd_sound(const char* args) {
   return CMD_OK;
 }
 
+static int cmd_display(const char* args) {
+  char modestr[16];
+  struct VideoMode mode;
+  int count = sscanf(args, "%15s %u %u %u %u %u %u %u %u %u", modestr, &mode.clock,
+         &mode.hResolution, &mode.hSyncStart, &mode.hSyncEnd, &mode.hTotal,
+         &mode.vResolution, &mode.vSyncStart, &mode.vSyncEnd, &mode.vTotal);
+  if (count == 0) return CMD_INVALID_ARGS;
+  if (strcmp(modestr, "off") == 0) {
+    set_video_mode(0, 0);
+  } else if (strcmp(modestr, "640x480") == 0) {
+    set_video_mode(VIDEO_MODE_640x480, 0);
+  } else if (strcmp(modestr, "800x600") == 0) {
+    set_video_mode(VIDEO_MODE_800x600, 0);
+  } else if (strcmp(modestr, "1024x768") == 0) {
+    set_video_mode(VIDEO_MODE_1024x768, 0);
+  } else if (strcmp(modestr, "1280x720") == 0) {
+    set_video_mode(VIDEO_MODE_1280x720, 0);
+  } else if (strcmp(modestr, "1920x1080") == 0 || strcmp(modestr, "1920x1080_50") == 0) {
+    set_video_mode(VIDEO_MODE_1920x1080, 0);
+  } else if (strcmp(modestr, "1920x1080_25") == 0) {
+    set_video_mode(VIDEO_MODE_1920x1080_25, 0);
+  } else if (strcmp(modestr, "custom") == 0 && count == 10) {
+    set_video_mode(VIDEO_MODE_CUSTOM, &mode);
+  } else {
+    return CMD_INVALID_ARGS;
+  }
+  return CMD_OK;
+}
+
 int cmd_date(const char* args);  // implemented in time.c
 
 static int cmd_no_impl() {
@@ -103,9 +132,8 @@ static const struct ConsoleCommand commands[] = {
   {cmd_uart,       "uart",        "addr size",               "receive size (decimal) bytes via UART with baud rate 12 MHz"},
   {cmd_crc32,      "crc32",       "addr size [expected]",    "calculate crc32 of data in RAM"},
   {cmd_date,       "date",        "[new_date]",              "print or set date and time"},
-  /*{cmd_no_impl,    "sdread",      "addr sector [count]",     "read from sdcard to given address in RAM"},
-  {cmd_no_impl,    "display",     "WIDTHxHEIGHT",            "set display resolution"},
-  {cmd_no_impl,    "textstyle",   "fg bg",                   "set text style; fg and bg range is [0:15]"},
+  {cmd_display,    "display",     "WIDTHxHEIGHT",            "set display resolution; supports custom mode, e.g.: \"display custom 25175000 640 656 752 800 480 490 492 525\""},
+  /*{cmd_no_impl,    "textstyle",   "fg bg",                   "set text style; fg and bg range is [0:15]"},
   {cmd_no_impl,    "disk",        "sd/sd1/sd2/sd3/sd4",      "select sdcard partition for file access (only EXT2 supported)"},
   {cmd_no_impl,    "ls",          "path",                    "show files"},
   {cmd_no_impl,    "cat",         "path",                    "print text file"},

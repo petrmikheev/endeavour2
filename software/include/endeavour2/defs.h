@@ -144,6 +144,59 @@ struct EndeavourBoard {
 #define BOARD_ESP32_SPI_BOOT    2
 
 #ifndef __ASSEMBLER__
+struct VideoMode {
+// clock flags
+#define HSYNC_INV (1<<31)
+#define VSYNC_INV (1<<30)
+  unsigned clock;        // 0
+  unsigned hResolution;  // 1
+  unsigned hSyncStart;   // 2
+  unsigned hSyncEnd;     // 3
+  unsigned hTotal;       // 4
+  unsigned vResolution;  // 5
+  unsigned vSyncStart;   // 6
+  unsigned vSyncEnd;     // 7
+  unsigned vTotal;       // 8
+};
+
+struct EndeavourVideo {
+  struct VideoMode mode;
+// cfg flags
+#define VIDEO_TEXT_ON     1
+#define VIDEO_GRAPHIC_ON  2
+#define VIDEO_RGB565      0
+#define VIDEO_RGAB5515    4
+#define VIDEO_FONT_HEIGHT(X) ((((X)-1)&15) << 4) // allowed range [6, 16]
+  unsigned cfg;          // 9
+  unsigned regIndex;     // 10
+  unsigned regValue;     // 11
+  void*    textAddr;     // 12
+  void*    graphicAddr;  // 13
+  unsigned textOffset;   // 14
+};
+#define VIDEO_REGS ((volatile struct EndeavourVideo*)(VIDEO_BASE))
+
+#define TEXT_BUFFER_SIZE 0x40000  // 256KB
+#define TEXT_LINE_SIZE     1024   // 1KB
+
+#define GRAPHIC_BUFFER_SIZE 0x800000 // 8MB
+#define GRAPHIC_LINE_SIZE     4096   // 4KB
+
+#define TEXT_BG(X) ((X)<<24)
+#define TEXT_FG(X) ((X)<<16)
+
+// VIDEO_REG_INDEX
+#define VIDEO_COLORMAP(X) (X)  // RGBA (8, 8, 8, 7); bit 7 unused; X in range [0, 127]
+#define VIDEO_CHARMAP(CHAR, WORD) ((CHAR) << 2 | (WORD))  // WORD range is [0, 3]; CHAR range is [0, 511], but [0, 31] intersects with colormap
+
+// COLORMAP values
+#define COLORMAP_TEXT_COLOR(R, G, B) ((R)<<24 | (G)<<16 | (B)<<8)
+#define COLORMAP_TEXT_ALPHA(A) (A)     // 0 - 64
+
+// VIDEO_TEXT_OFFSET
+#define VIDEO_TEXT_OFFSET_X(X) (X)
+#define VIDEO_TEXT_OFFSET_Y(Y) ((Y)<<8)
+
 // *** SD card, see https://github.com/ZipCPU/sdspi
 struct EndeavourSDCard {
   unsigned cmd;

@@ -63,6 +63,9 @@ class EndeavourSoc(coresParams: List[ParamSimple],
 
     val dvi_data_HI = out Bits(12 bits)
     val dvi_data_LO = out Bits(12 bits)
+    val dvi_de = out Bool()
+    val dvi_hsync = out Bool()
+    val dvi_vsync = out Bool()
 
     val snd_scl_OUT = out Bool()
     val snd_scl_OE = out Bool()
@@ -96,9 +99,6 @@ class EndeavourSoc(coresParams: List[ParamSimple],
     val esp32_io7_OUT = out Bool()
     val esp32_io7_OE = out Bool()*/
   }
-
-  io.dvi_data_HI := B(0, 12 bits)
-  io.dvi_data_LO := B(0, 12 bits)
 
   val rst_area = new ClockingArea(ClockDomain(
     clock = io.clk25,
@@ -185,6 +185,38 @@ class EndeavourSoc(coresParams: List[ParamSimple],
 
   val usb_ctrl = new EndeavourUSB(cd60mhz, io.usb1, io.usb2, sim=sim)
   dbus << usb_ctrl.dma
+
+  val video_ctrl = new VideoController()
+  video_ctrl.io.pixel_clk <> io.dyn_clk0
+  io.dvi_data_LO(11 downto 4) := video_ctrl.io.data_red
+  (io.dvi_data_LO(3 downto 0), io.dvi_data_HI(11 downto 8)) := video_ctrl.io.data_green
+  io.dvi_data_HI(7 downto 0) := video_ctrl.io.data_blue
+  io.dvi_de := video_ctrl.io.data_enable
+  io.dvi_hsync := video_ctrl.io.hSync
+  io.dvi_vsync := video_ctrl.io.vSync
+
+  val video_bus = tilelink.fabric.Node.down()
+  val video_bus_fiber = fiber.Fiber build new Area {
+    video_bus.m2s forceParameters tilelink.M2sParameters(
+      addressWidth = 30,
+      dataWidth = 64,
+      masters = List(
+        tilelink.M2sAgent(
+          name = video_ctrl,
+          mapping = List(
+            tilelink.M2sSource(
+              id = SizeMapping(0, 4),
+              emits = tilelink.M2sTransfers(get = tilelink.SizeRange(64, 64))
+            )
+          )
+        )
+      )
+    )
+    video_bus.s2m.supported load tilelink.S2mSupport.none()
+    video_bus.bus << video_ctrl.io.tl_bus
+  }
+  video_bus.setDownConnection(a = StreamPipe.HALF, d = StreamPipe.M2S_KEEP)
+  cbus << video_bus
 
   val miscApb = Apb3(Apb3Config(
     addressWidth  = 6,
@@ -301,7 +333,7 @@ class EndeavourSoc(coresParams: List[ParamSimple],
         apb_60mhz_bridge.io.input  -> (0x0, 0x800),
         // spi?
         miscApb                    -> (0x1000, 1<<miscApb.config.addressWidth),
-        // display 0x2000
+        video_ctrl.io.apb          -> (0x2000, 64),
         apb_sdcard_bridge.io.input -> (0x3000, 32),
         usb_ctrl.apb_ctrl          -> (0x4000, 0x1000),
         clintApb                   -> (0x10000, 0x10000),

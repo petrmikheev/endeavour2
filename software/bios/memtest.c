@@ -49,7 +49,7 @@ static void check_1mb(const unsigned* data, unsigned modifier, int* err_count) {
   *err_count = ec;
 }
 
-#define MEMTEST_FROM ((void*)RAM_BASE + (1<<20))  // skip first mb
+#define MEMTEST_FROM ((void*)RAM_BASE + (8<<20))  // skip first 8 mb
 #define MEMTEST_TO   ((void*)RAM_BASE + BOARD_REGS->ram_size)
 
 static int memtest_iteration(unsigned step, unsigned modifier, unsigned random_access_steps) {

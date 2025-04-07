@@ -1,4 +1,4 @@
-sources = asm.S main.c util.c bench.c memtest.c readline.c sound.c time.c sdcard.c usb.c console.c charmap.S
+sources = asm.S main.c util.c bench.c memtest.c readline.c sound.c time.c display.c sdcard.c usb.c console.c charmap.S
 
 TOOLCHAIN=../../../endeavour-tools/rv32imac-linux-toolchain/bin/riscv32-unknown-linux-gnu-
 

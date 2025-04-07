@@ -2,6 +2,7 @@
 #define ENDEAVOUR2_BIOS_H
 
 #include <endeavour2/defs.h>
+#include <endeavour2/bios_defs.h>
 
 #define API_FN(ID, RET, ...) ((RET (*)(__VA_ARGS__))(RAM_BASE + 64 + ID * 36))
 
@@ -30,18 +31,29 @@
 // bios_sdwrite(src, sector, sector_count) -> sector_count
 #define bios_sdwrite    API_FN(8, unsigned, const void*, unsigned, unsigned)
 
-#define bios_get_keyboard_report API_FN(9, int, struct KeyboardReport*)) /* -> err */
+#define bios_get_keyboard_report API_FN(9, int,              struct KeyboardReport*)) /* -> err */
 
-// bios_hart_run(hartid, addr)  - jumps to addr in given hart; doesn't affect main hart, hartid should be > 0.
-#define bios_hart_run   API_FN(10, void,    int /*hartid*/, const void* /*addr*/)
+// hartid should be in range [1, hart_count-1]; hart0 can't be controlled through hartcfg
+#define bios_get_hart_cfg        API_FN(10, struct HartCfg*, int /*hartid*/)
 
-inline unsigned bios_get_sdcard_sector_count() { return *(unsigned*)(RAM_BASE + 4); }
+#define bios_set_video_mode      API_FN(11, int,             enum VideModeId, const VideoMode*)
 
-inline char bios_get_text_style() { return *(unsigned*)(RAM_BASE + 8); }
-inline void bios_set_text_style(char v) { *(unsigned*)(RAM_BASE + 8) = v; }
+static inline unsigned bios_get_sdcard_sector_count() { return *(unsigned*)(RAM_BASE + 4); }
 
-inline unsigned short* bios_get_cursor_ptr() { return *(unsigned short**)(RAM_BASE + 12); }
-inline void bios_set_cursor_ptr(unsigned short* v) { *(unsigned short**)(RAM_BASE + 12) = v; }
+static inline unsigned bios_get_text_style() { return *(unsigned*)(RAM_BASE + 8); }
+static inline void bios_set_text_style(unsigned v) { *(unsigned*)(RAM_BASE + 8) = v; }
+
+static inline unsigned* bios_get_cursor_ptr() { return *(unsigned**)(RAM_BASE + 12); }
+static inline void bios_set_cursor_ptr(unsigned* v) { *(unsigned**)(RAM_BASE + 12) = v; }
+
+static inline struct HartCfg* bios_hart_run(int hartid, const void* addr) {
+  struct HartCfg* cfg = bios_get_hart_cfg(hartid);
+  if (cfg) {
+    cfg->jump_to = addr;
+    software_interrupt(hartid);
+  }
+  return cfg;
+}
 
 #define putchar bios_putchar
 #define printf bios_printf

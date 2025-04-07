@@ -13,6 +13,7 @@ void putchar(char c) {
     uart_putc(' ');
   }
   uart_putc(c);
+  display_putchar(c);
 }
 
 static void print_number(unsigned v, unsigned base, int width, int leading_zero, int sign) {
@@ -286,9 +287,7 @@ int i2c_read(int addr, int size, char* data) {
   return err;
 }
 
-void hart_run(int hartid, void* addr) {
-  if (hartid < 1 || hartid >= BOARD_REGS->hart_count) return;
-  volatile struct HartCfg* cfg = &hart_cfg[hartid - 1];
-  cfg->jump_to = addr;
-  software_interrupt(hartid);
+struct HartCfg* get_hart_cfg(int hartid) {
+  if (hartid < 1 || hartid >= BOARD_REGS->hart_count) return 0;
+  return &hart_cfg[hartid - 1];
 }

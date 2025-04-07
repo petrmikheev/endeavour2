@@ -22,7 +22,7 @@ _start:
 
 . = _start + 4
 
-.global sdcard_sector_count
+.global sdcard_sector_count, text_style, cursor_ptr
 sdcard_sector_count: .word 0
 text_style:          .word 0
 cursor_ptr:          .word 0
@@ -53,7 +53,8 @@ cursor_ptr:          .word 0
     API_FN  7, sdread
     API_FN  8, sdwrite
     API_FN  9, get_keyboard_report
-    API_FN 10, hart_run
+    API_FN 10, get_hart_cfg
+    API_FN 11, set_video_mode
 .option pop
 
 .global printf
