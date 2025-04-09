@@ -1,0 +1,5 @@
+# minicom configuration file; copy to $HOME/.minirc.dfl
+pu port             /dev/ttyUSB0
+pu parity           E
+pu backspace        BS
+pu rtscts           No

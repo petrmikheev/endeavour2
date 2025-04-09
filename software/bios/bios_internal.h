@@ -31,9 +31,11 @@ void playWav(void* filePtr, int volume);
 
 void run_console();
 
-int i2c_write(int addr, int size, const char* data);
 int i2c_read(int addr, int size, char* data);
+int i2c_write(int addr, int size, const char* data);
+int i2c_set_reg(int addr, char reg, char value);
 
+extern unsigned* cursor_ptr;
 void init_display();
 int set_video_mode(enum VideoModeId modeid, const struct VideoMode* mode);
 

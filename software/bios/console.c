@@ -167,7 +167,8 @@ static int cmd_help() {
 static void print_available_commands() {
   printf("Available commands: %s", commands[0].name);
   for (const struct ConsoleCommand* cmd = &commands[1]; cmd->handler; cmd++) {
-    printf(", %s", cmd->name);
+    int next_line = ((cmd - &commands[0]) & 7) == 0;
+    printf(next_line ? "\n\t\t%s" : ", %s", cmd->name);
   }
   putchar('\n');
 }

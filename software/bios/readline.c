@@ -9,7 +9,19 @@ struct {
   int finished;
 } state;
 
+int blink_state = 0;
+
+static void blink_set(int v) {
+  if (blink_state == v) return;
+  blink_state = v;
+  unsigned c = *cursor_ptr;
+  unsigned bg = (c >> 24) & 127;
+  unsigned fg = (c >> 16) & 127;
+  *cursor_ptr = TEXT_BG(fg) | TEXT_FG(bg) | (c & 0x8080ffff);
+}
+
 static void process(int c) {
+  blink_set(0);
   if (c == '\r') c = '\n';
   if (c == '\b' && state.size > 0) {
     state.size--;
@@ -56,6 +68,7 @@ void readline(const char* prompt, char* buffer, unsigned max_size) {
         printf("\nUART error %d\n", c >> 8);
         *buffer = 0;
         uart_flush();
+        blink_set(0);
         return;
       }
       process(c);
@@ -63,6 +76,7 @@ void readline(const char* prompt, char* buffer, unsigned max_size) {
     }
     if (time_100nsec() - last_kb_time < 200000) continue;  // max every 20ms
     last_kb_time = time_100nsec();
+    blink_set((last_kb_time >> 22) & 1);
     struct KeyboardReport kb;
     if (get_keyboard_report(&kb) != 0) continue;
     int all_same = 1;

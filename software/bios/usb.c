@@ -120,6 +120,7 @@ static int process_tds(int td_count) {
   ed.head = (long)&tds[0];
   ed.tail = 0;
 
+  wait(10);  // wait a bit to make sure that changes to ED are now visible to the controller
   USB_OHCI_REGS->HcControlHeadED = (long)&ed;
   USB_OHCI_REGS->HcCommandStatus = 2;
 

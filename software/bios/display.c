@@ -6,7 +6,6 @@
 
 extern const unsigned charmap[94*4];
 extern unsigned text_style;
-extern unsigned* cursor_ptr;
 
 void init_display() {
   set_video_mode(VIDEO_MODE_640x480, 0);
@@ -54,11 +53,6 @@ void display_putchar(unsigned c) {
     unsigned* next_line = (void*)(frame + (((unsigned long)cursor_ptr + TEXT_LINE_SIZE) & (TEXT_BUFFER_SIZE - 1)));
     for (int i = 0; i < TEXT_LINE_SIZE/4; ++i) next_line[i] = DEFAULT_TEXT_STYLE | ' ';
   }
-}
-
-static void i2c_set_reg(int addr, char reg, char value) {
-  char buf[2] = {reg, value};
-  i2c_write(addr, 2, buf);
 }
 
 static const char SI5351A_p10_17[] = {0x10, 0x4c, 0x8c, 0x8c, 0x8c, 0x8c, 0x8c, 0x8c, 0x8c};

@@ -22,40 +22,6 @@ const char c2[] = {0x00, 0xe0, 0xf8, 0xfc, 0xfc, 0xfe, 0xfe, 0xfe, 0xff, 0xff, 0
 const char c3[] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x7f, 0x7f, 0x7f, 0x3f, 0x3f, 0x1f, 0x07, 0x00};
 const char c4[] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xfe, 0xfe, 0xfe, 0xfc, 0xfc, 0xf8, 0xe0, 0x00};
 
-static int i2c_wait() {
-  int cmd;
-  while ((cmd = I2C_REGS->cmd) < 0);
-  return cmd & (I2C_CMD_DATA_ERR|I2C_CMD_ADDR_ERR);
-}
-
-int i2c_write(int addr, int size, const char* data) {
-  int err = 0;
-  I2C_REGS->cmd = I2C_CMD_WRITE | addr;
-  I2C_REGS->counter = size;
-  for (int i = 0; i < size; ++i) {
-    err |= i2c_wait();
-    I2C_REGS->data = *data++;
-  }
-  err |= i2c_wait();
-  return err;
-}
-
-int i2c_read(int addr, int size, char* data) {
-  int err = 0;
-  I2C_REGS->cmd = I2C_CMD_READ | addr;
-  I2C_REGS->counter = size;
-  for (int i = 0; i < size; ++i) {
-    err |= i2c_wait();
-    *data++ = I2C_REGS->data;
-  }
-  return err;
-}
-
-static void i2c_set_reg(int addr, char reg, char value) {
-  char buf[2] = {reg, value};
-  i2c_write(addr, 2, buf);
-}
-
 int main() {
   VIDEO_REGS->regIndex = VIDEO_COLORMAP(126);
   VIDEO_REGS->regValue = COLORMAP_TEXT_COLOR(40, 40, 20) | COLORMAP_TEXT_ALPHA(48);
@@ -76,8 +42,8 @@ int main() {
   hello_line("\t\t\t\t\t |/\t\t\t\t\t\t\t\t ");
   hello_line("\t\t\t\t\t\t\t\t\t\t\t\t\t\t");
   unsigned* cursor = bios_get_cursor_ptr();
-  unsigned* first_line = cursor - 8 * 256 + 8;
-  unsigned* last_line  = cursor - 1 * 256 + 8;
+  unsigned* first_line = bios_cursor_offset(bios_get_cursor_ptr(), -8, 8);
+  unsigned* last_line = bios_cursor_offset(bios_get_cursor_ptr(), -1, 8);
   first_line[0]  = 0x1fc | TEXT_BG(0) | TEXT_FG(126);
   first_line[63] = 0x1fd | TEXT_BG(0) | TEXT_FG(126);
   last_line[0]   = 0x1fe | TEXT_BG(0) | TEXT_FG(126);

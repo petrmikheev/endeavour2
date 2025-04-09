@@ -45,9 +45,15 @@ static inline void bios_set_text_style(unsigned v) { *(unsigned*)(RAM_BASE + 8) 
 
 static inline unsigned* bios_get_cursor_ptr() { return *(unsigned**)(RAM_BASE + 12); }
 static inline void bios_set_cursor_ptr(unsigned* v) { *(unsigned**)(RAM_BASE + 12) = v; }
+static inline unsigned* bios_cursor_offset(unsigned* ptr, int line, int column) {
+  unsigned long c = (unsigned long)ptr;
+  unsigned long frame = c & ~(TEXT_BUFFER_SIZE-1);
+  c = frame | ((c + line * TEXT_LINE_SIZE + column * 4) & (TEXT_BUFFER_SIZE-1));
+  return (unsigned*)c;
+}
 
-static inline struct HartCfg* bios_hart_run(int hartid, const void* addr) {
-  struct HartCfg* cfg = bios_get_hart_cfg(hartid);
+static inline volatile struct HartCfg* bios_hart_run(int hartid, const void* addr) {
+  volatile struct HartCfg* cfg = bios_get_hart_cfg(hartid);
   if (cfg) {
     cfg->jump_to = addr;
     software_interrupt(hartid);

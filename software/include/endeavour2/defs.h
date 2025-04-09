@@ -148,15 +148,15 @@ struct VideoMode {
 // clock flags
 #define HSYNC_INV (1<<31)
 #define VSYNC_INV (1<<30)
-  unsigned clock;        // 0
-  unsigned hResolution;  // 1
-  unsigned hSyncStart;   // 2
-  unsigned hSyncEnd;     // 3
-  unsigned hTotal;       // 4
-  unsigned vResolution;  // 5
-  unsigned vSyncStart;   // 6
-  unsigned vSyncEnd;     // 7
-  unsigned vTotal;       // 8
+  unsigned clock;        //  0
+  unsigned hResolution;  //  4
+  unsigned hSyncStart;   //  8
+  unsigned hSyncEnd;     //  C
+  unsigned hTotal;       // 10
+  unsigned vResolution;  // 14
+  unsigned vSyncStart;   // 18
+  unsigned vSyncEnd;     // 1C
+  unsigned vTotal;       // 20
 };
 
 struct EndeavourVideo {
@@ -167,12 +167,12 @@ struct EndeavourVideo {
 #define VIDEO_RGB565      0
 #define VIDEO_RGAB5515    4
 #define VIDEO_FONT_HEIGHT(X) ((((X)-1)&15) << 4) // allowed range [6, 16]
-  unsigned cfg;          // 9
-  unsigned regIndex;     // 10
-  unsigned regValue;     // 11
-  void*    textAddr;     // 12
-  void*    graphicAddr;  // 13
-  unsigned textOffset;   // 14
+  unsigned cfg;          // 24
+  unsigned regIndex;     // 28
+  unsigned regValue;     // 2C
+  void*    textAddr;     // 30
+  void*    graphicAddr;  // 34
+  unsigned textOffset;   // 38
 };
 #define VIDEO_REGS ((volatile struct EndeavourVideo*)(VIDEO_BASE))
 

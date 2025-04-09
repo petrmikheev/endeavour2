@@ -258,6 +258,11 @@ int read_uart(char* dst, int size, int divisor) {
   return 0;
 }
 
+struct HartCfg* get_hart_cfg(int hartid) {
+  if (hartid < 1 || hartid >= BOARD_REGS->hart_count) return 0;
+  return &hart_cfg[hartid - 1];
+}
+
 static int i2c_wait() {
   int cmd;
   while ((cmd = I2C_REGS->cmd) < 0);
@@ -287,7 +292,7 @@ int i2c_read(int addr, int size, char* data) {
   return err;
 }
 
-struct HartCfg* get_hart_cfg(int hartid) {
-  if (hartid < 1 || hartid >= BOARD_REGS->hart_count) return 0;
-  return &hart_cfg[hartid - 1];
+int i2c_set_reg(int addr, char reg, char value) {
+  char buf[2] = {reg, value};
+  return i2c_write(addr, 2, buf);
 }

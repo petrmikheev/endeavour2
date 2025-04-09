@@ -59,10 +59,10 @@ static void run_benchmarks_th() {
   printf("\nDhrystone Benchmark\t: %u.%02u DMIPS (%u.%03u DMIPS/MHz)\n",
          mDMIPS / 1000, (mDMIPS % 1000) / 10,  mDMIPS_MHz / 1000, mDMIPS_MHz % 1000);
 
-  if (BOARD_REGS->ram_size < 0x300000) return;
+  if (BOARD_REGS->ram_size < 0x800000) return;
 
   printf("\nMemory benchmarks\n");
-  unsigned* page1 = (unsigned*)(RAM_BASE + 0x600000);
+  unsigned* page1 = (unsigned*)(RAM_BASE + 0x0C0000);
   unsigned* page2 = (unsigned*)(RAM_BASE + 0x700000);
   unsigned start;
 
