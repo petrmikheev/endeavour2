@@ -39,8 +39,12 @@ module SdcardController (
   assign sdcard_data_OE = ~dat_tristate;
   assign sdcard_vdd_sel_3v3 = ~vdd_1v8;
 
+  wire inverse = &apb_PADDR[4:3];
+  wire [31:0] rdata_be;
+  assign apb_PRDATA = inverse ? {rdata_be[7:0], rdata_be[15:8], rdata_be[23:16], rdata_be[31:24]} : rdata_be;
+
   sdio_top #(
-    .OPT_LITTLE_ENDIAN(1),
+    //.OPT_LITTLE_ENDIAN(1),  doesn't work - with this option i_wb_data, o_wb_data are still big endian
     .LGFIFO(9),
     .OPT_EMMC(0),
     .OPT_SERDES(0),
@@ -48,9 +52,8 @@ module SdcardController (
     .OPT_CARD_DETECT(1),
     .OPT_1P8V(1)
   ) impl(
-    .i_clk(clk), // 96-104mhz
+    .i_clk(clk),
     .i_reset(reset),
-    //.i_hsclk() clk x4
 
     .o_ck(sdcard_clk),
 
@@ -68,9 +71,9 @@ module SdcardController (
     .o_int(interrupt),
     .o_1p8v(vdd_1v8), .i_1p8v(vdd_1v8),
 
-    .i_wb_addr(apb_PADDR[4:2]),
-    .i_wb_data(apb_PWDATA),
-    .o_wb_data(apb_PRDATA),
+    .i_wb_addr({apb_PADDR[4] & ~apb_PADDR[3], apb_PADDR[3:2]}),
+    .i_wb_data(inverse ? {apb_PWDATA[7:0], apb_PWDATA[15:8], apb_PWDATA[23:16], apb_PWDATA[31:24]} : apb_PWDATA),
+    .o_wb_data(rdata_be),
     .o_wb_ack(apb_PREADY),
     .o_wb_stall(apb_PSLVERROR),
     .i_wb_we(apb_PWRITE),

@@ -173,6 +173,7 @@ struct EndeavourVideo {
   void*    textAddr;     // 30
   void*    graphicAddr;  // 34
   unsigned textOffset;   // 38
+  unsigned frameNumber;  // 3c
 };
 #define VIDEO_REGS ((volatile struct EndeavourVideo*)(VIDEO_BASE))
 
@@ -201,9 +202,12 @@ struct EndeavourVideo {
 struct EndeavourSDCard {
   unsigned cmd;
   unsigned data;
-  unsigned fifo0;
-  unsigned fifo1;
+  unsigned fifo0;    // big endian
+  unsigned fifo1;    // big endian
   unsigned phy;
+  unsigned unused;
+  unsigned fifo0_le; // same data as fifo0, but little endian
+  unsigned fifo1_le; // same data as fifo1, but little endian
 };
 #define SDCARD_REGS ((volatile struct EndeavourSDCard*)(SDCARD_BASE))
 

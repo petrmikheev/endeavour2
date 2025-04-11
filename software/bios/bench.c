@@ -62,7 +62,7 @@ static void run_benchmarks_th() {
   if (BOARD_REGS->ram_size < 0x800000) return;
 
   printf("\nMemory benchmarks\n");
-  unsigned* page1 = (unsigned*)(RAM_BASE + 0x0C0000);
+  unsigned* page1 = (unsigned*)(RAM_BASE + 0x080000);
   unsigned* page2 = (unsigned*)(RAM_BASE + 0x700000);
   unsigned start;
 

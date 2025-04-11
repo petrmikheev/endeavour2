@@ -1,6 +1,7 @@
 #include <endeavour2/defs.h>
 
 #include "bios_internal.h"
+#include "ext2.h"
 
 void print_cpu_info() {
   for (int hartid = 0; hartid < BOARD_REGS->hart_count; ++hartid) {
@@ -48,6 +49,7 @@ int main() {
       "\t\t\tEndeavour2\n"
       "\t\t\t==========\n\n"
   );
+  show_logo(cursor_ptr, -3, 25);
   print_cpu_info();
 
   if (ram_size < (1<<20)) {
@@ -60,9 +62,15 @@ int main() {
   }
 
   init_sdcard();
+  if (get_sdcard_sector_count() > 0) {
+    int p = search_and_select_ext2_fs();
+    if (p == 0) {
+      printf("\tSelected EXT2 filesystem in first sector\n");
+    } else if (p > 0) {
+      printf("\tSelected EXT2 filesystem on partition %u\n", p);
+    }
+  }
   init_usb_keyboard();
-
-  run_benchmarks();
 
   run_console();
   while(1);

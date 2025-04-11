@@ -4,6 +4,57 @@
 
 #define DEFAULT_TEXT_STYLE (TEXT_BG(0) | TEXT_FG(15))
 
+static const unsigned logo[] =  {
+  0x000e0000, 0x1f1f0e1f, 0x181f191f, 0x181f181f,
+  0x00000000, 0x00c00080, 0xdfe099e1, 0x7fe0cff0,
+  0x00000000, 0x03000000, 0xff00e7e0, 0xff03ff01,
+  0x30080000, 0xc03cf008, 0x00fc807c, 0x00f800fc,
+  0x1c1f181f, 0x0f0f0e0f, 0x07040700, 0x0f080704,
+  0x7fc07fe0, 0xff00ff00, 0xff7cff00, 0xff00ff40,
+  0xfe01fe03, 0xff00ff00, 0xff78ff0c, 0xff00ff40,
+  0x18e818e0, 0xf000f800, 0xf010f010, 0xf818f818,
+  0x1f101f18, 0x3f3e7f70, 0x1f0f3f1f, 0x07000f03,
+  0xc33cc33c, 0xff00e31c, 0xfff8ffc0, 0xfffcfff8,
+  0xe31ce11e, 0xff01c738, 0xff1fff03, 0x3fc0ff1f,
+  0xff07fc0c, 0xffc7fe02, 0xfec0fee0, 0xe000f800,
+  0x00000100, 0x00000000, 0x00000000, 0x00000000,
+  0x3e0ffe0d, 0x03000700, 0x00000000, 0x00000000,
+  0x18e01ee0, 0xe000f000, 0x00000000, 0x00000000,
+  0x00000000, 0x00000000, 0x00000000, 0x00000000};
+
+static void register_logo() {
+  VIDEO_REGS->regIndex = VIDEO_COLORMAP(124);
+  VIDEO_REGS->regValue = 0;
+  VIDEO_REGS->regIndex = VIDEO_COLORMAP(125);
+  VIDEO_REGS->regValue = COLORMAP_TEXT_COLOR(242, 82, 0) | COLORMAP_TEXT_ALPHA(64);
+  VIDEO_REGS->regIndex = VIDEO_COLORMAP(126);
+  VIDEO_REGS->regValue = COLORMAP_TEXT_COLOR(55, 22, 11) | COLORMAP_TEXT_ALPHA(64);
+  VIDEO_REGS->regIndex = VIDEO_COLORMAP(127);
+  VIDEO_REGS->regValue = COLORMAP_TEXT_COLOR(255, 255, 255) | COLORMAP_TEXT_ALPHA(64);
+
+  for (int i = 0; i < 64; ++i) {
+    VIDEO_REGS->regIndex = (0x1f0 << 2) + i;
+    VIDEO_REGS->regValue = logo[i];
+  }
+}
+
+static unsigned* cursor_offset(unsigned* ptr, int line, int column) {
+  unsigned long c = (unsigned long)ptr;
+  unsigned long frame = c & ~(TEXT_BUFFER_SIZE-1);
+  c = frame | ((c + line * TEXT_LINE_SIZE + column * 4) & (TEXT_BUFFER_SIZE-1));
+  return (unsigned*)c;
+}
+
+void show_logo(unsigned* base_ptr, int line, int column) {
+  const int base = 0xf0;
+  for (int y = 0; y < 2; ++y) {
+    for (int x = 0; x < 4; ++x) {
+      unsigned* ptr = cursor_offset(base_ptr, line + y, column + x);
+      *ptr = (1<<31) | TEXT_BG(124) | TEXT_FG(126) | ((base + y*8 + 4 + x) << 8) | (base + y*8 + x);
+    }
+  }
+}
+
 extern const unsigned charmap[94*4];
 extern unsigned text_style;
 
@@ -28,6 +79,7 @@ void init_display() {
   VIDEO_REGS->graphicAddr = (void*)(RAM_BASE + 0x200000);
   VIDEO_REGS->textAddr = text_buf;
   VIDEO_REGS->textOffset = 0;
+  register_logo();
   VIDEO_REGS->cfg = VIDEO_TEXT_ON | VIDEO_FONT_HEIGHT(16);
 }
 

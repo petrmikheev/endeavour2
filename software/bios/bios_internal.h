@@ -38,6 +38,7 @@ int i2c_set_reg(int addr, char reg, char value);
 extern unsigned* cursor_ptr;
 void init_display();
 int set_video_mode(enum VideoModeId modeid, const struct VideoMode* mode);
+void show_logo(unsigned* base_ptr, int line, int column);
 
 void init_sdcard();
 unsigned get_sdcard_rca();

@@ -211,31 +211,31 @@ unsigned sdread(unsigned* dst, unsigned sector, unsigned sector_count) {
   unsigned fifo = SDIO_FIFO;
   for (unsigned b = 0; b < sector_count - 1; ++b) {
     if (SDCARD_REGS->cmd & SDIO_ERR) {
-      command(SDIO_R1 | 12, 0);
+      command(SDIO_R1b | 12, 0);
       return b;
     }
     SDCARD_REGS->cmd = SDIO_MEM | fifo;
-    dst = receive_sector(dst, fifo ? &SDCARD_REGS->fifo0 : &SDCARD_REGS->fifo1);
+    dst = receive_sector(dst, fifo ? &SDCARD_REGS->fifo0_le : &SDCARD_REGS->fifo1_le);
     fifo ^= SDIO_FIFO;
     while (SDCARD_REGS->cmd & SDIO_BUSY);
   }
   int err = SDCARD_REGS->cmd & SDIO_ERR;
   command(SDIO_R1b | 12, 0);
   if (err) return sector_count - 1;
-  receive_sector(dst, fifo ? &SDCARD_REGS->fifo0 : &SDCARD_REGS->fifo1);
+  receive_sector(dst, fifo ? &SDCARD_REGS->fifo0_le : &SDCARD_REGS->fifo1_le);
   return sector_count;
 }
 
 unsigned sdwrite(const unsigned* src, unsigned sector, unsigned sector_count) {
   if (sector_count == 0) return 0;
   sd_wait_ready();
-  src = send_sector(src, &SDCARD_REGS->fifo0);
+  src = send_sector(src, &SDCARD_REGS->fifo0_le);
   SDCARD_REGS->data = sector;
   SDCARD_REGS->cmd = SDIO_CMD | SDIO_ERR | SDIO_R1 | SDIO_WRITE | SDIO_ACK | SDIO_MEM | 25;
   unsigned fifo = 0;
   for (unsigned b = 0; b < sector_count - 1; ++b) {
     fifo ^= SDIO_FIFO;
-    src = send_sector(src, fifo ? &SDCARD_REGS->fifo1 : &SDCARD_REGS->fifo0);
+    src = send_sector(src, fifo ? &SDCARD_REGS->fifo1_le : &SDCARD_REGS->fifo0_le);
     while (SDCARD_REGS->cmd & SDIO_BUSY);
     if (SDCARD_REGS->cmd & SDIO_ERR) {
       command(SDIO_R1b | 12, 0);

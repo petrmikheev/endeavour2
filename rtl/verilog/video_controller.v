@@ -60,6 +60,8 @@ module VideoController #(parameter ADDRESS_WIDTH) (
   reg [31:6] graphic_addr, graphic_addr_next;
   reg [3:0] vTextOffset;
   reg [7:0] hTextOffset;
+  reg [31:0] frame_number;
+  reg odd_frame, odd_frame_buf;
 
   reg [10:0] charmap_index;
 
@@ -86,7 +88,10 @@ module VideoController #(parameter ADDRESS_WIDTH) (
       use_graphic_alpha <= 0;
       vTextOffset <= 0;
       hTextOffset <= 0;
+      frame_number <= 0;
     end else begin
+      odd_frame_buf <= odd_frame;
+      if (frame_number[0] != odd_frame) frame_number <= frame_number + 1'b1;
       if (apb_PSEL & apb_PENABLE & apb_PWRITE) begin
         case (apb_reg)
           4'h0: {hSyncInv, vSyncInv} <= apb_PWDATA[31:30];
@@ -116,6 +121,7 @@ module VideoController #(parameter ADDRESS_WIDTH) (
                       apb_reg == 4'hC ? {text_addr_next, 6'd0} :
                       apb_reg == 4'hD ? {graphic_addr_next, hOffsetNext, 1'd0} :
                       apb_reg == 4'hE ? {20'b0, vTextOffset, hTextOffset} :
+                      apb_reg == 4'hF ? frame_number :
                                         32'b0;
 
   // *** Counters
@@ -142,59 +148,64 @@ module VideoController #(parameter ADDRESS_WIDTH) (
   reg text_load = 1;
 
   always @(posedge pixel_clk) begin
-    if (hCounter == hLast) begin
-      hCounter <= 0;
-      if (vCounter >= vLast) begin
-        vCounter <= 0;
-        graphic_addr <= graphic_addr_next;
-        text_addr <= text_addr_next;
-        hOffset <= hOffsetNext;
-        hDrawStartO <= hOffsetNext + PIXEL_DELAY;
-        hDrawEndO <= hDrawEnd + hOffsetNext + PIXEL_DELAY;
-        hSyncStartO <= hSyncStart + hOffsetNext + PIXEL_DELAY;
-        hSyncEndO <= hSyncEnd + hOffsetNext + PIXEL_DELAY;
-      end else begin
-        vCounter <= vCounter + 1'd1;
-        if (vCounter == 0) vDraw <= 1;
-        if (vCounter == vDrawEnd) begin vDraw <= 0; text_load <= 0; end
-        if (vCounter == vSyncStart) vSync <= ~vSyncInv;
-        if (vCounter == vSyncEnd) vSync <= vSyncInv;
-      end
+    if (reset) begin
+      odd_frame <= 0;
     end else begin
-      hCounter <= hCounter + 1'd1;
-      if (show_graphic && hDraw && &hCounter[6:0] && vCounter < vDrawEnd) pixel_group_request_counter <= pixel_group_request_counter + 1'b1;
-      if (show_graphic && vDraw && hCounter == 1'd1 && (|hOffset || hOddMode)) pixel_new_line_parity <= ~pixel_new_line_parity;
-      if (hCounter == hDrawStartO) hDraw <= 1;
-      if (hCounter == hDrawEndO) begin
-        hDraw <= 0;
-        text_read_steps <= ((hCharCounter[7:2] - 1'd1)>>3) + 1'd1;
-      end
-      if (hCounter == hSyncStartO) hSync <= ~hSyncInv;
-      if (hCounter == hSyncEndO) begin
-        hSync <= hSyncInv;
-        if (vCounter == vLast - vTextOffset - 3'd4) begin
-          text_load <= 1;
-          vCharCounter <= 0;
-          char_py <= font_height - 3'd4;
-          hCharInit <= hOffsetNext >= font_width + hTextOffset + 2'd2 ? hOffsetNext - (font_width + hTextOffset + 2'd2) : hLast + hOffsetNext - font_width - hTextOffset - 1'b1;
+      if (hCounter == hLast) begin
+        hCounter <= 0;
+        if (vCounter >= vLast) begin
+          vCounter <= 0;
+          odd_frame <= ~odd_frame;
+          graphic_addr <= graphic_addr_next;
+          text_addr <= text_addr_next;
+          hOffset <= hOffsetNext;
+          hDrawStartO <= hOffsetNext + PIXEL_DELAY;
+          hDrawEndO <= hDrawEnd + hOffsetNext + PIXEL_DELAY;
+          hSyncStartO <= hSyncStart + hOffsetNext + PIXEL_DELAY;
+          hSyncEndO <= hSyncEnd + hOffsetNext + PIXEL_DELAY;
+        end else begin
+          vCounter <= vCounter + 1'd1;
+          if (vCounter == 0) vDraw <= 1;
+          if (vCounter == vDrawEnd) begin vDraw <= 0; text_load <= 0; end
+          if (vCounter == vSyncStart) vSync <= ~vSyncInv;
+          if (vCounter == vSyncEnd) vSync <= vSyncInv;
+        end
+      end else begin
+        hCounter <= hCounter + 1'd1;
+        if (show_graphic && hDraw && &hCounter[6:0] && vCounter < vDrawEnd) pixel_group_request_counter <= pixel_group_request_counter + 1'b1;
+        if (show_graphic && vDraw && hCounter == 1'd1 && (|hOffset || hOddMode)) pixel_new_line_parity <= ~pixel_new_line_parity;
+        if (hCounter == hDrawStartO) hDraw <= 1;
+        if (hCounter == hDrawEndO) begin
+          hDraw <= 0;
+          text_read_steps <= ((hCharCounter[7:2] - 1'd1)>>3) + 1'd1;
+        end
+        if (hCounter == hSyncStartO) hSync <= ~hSyncInv;
+        if (hCounter == hSyncEndO) begin
+          hSync <= hSyncInv;
+          if (vCounter == vLast - vTextOffset - 3'd4) begin
+            text_load <= 1;
+            vCharCounter <= 0;
+            char_py <= font_height - 3'd4;
+            hCharInit <= hOffsetNext >= font_width + hTextOffset + 2'd2 ? hOffsetNext - (font_width + hTextOffset + 2'd2) : hLast + hOffsetNext - font_width - hTextOffset - 1'b1;
+          end
         end
       end
-    end
-    if (hCounter == hCharInit && hCounter != hSyncEndO) begin
-      hCharCounter <= 0;
-      char_px <= 0;
-      if (char_py == font_height) begin
-        char_py <= 0;
-        vCharCounter <= vCharCounter + 1'b1;
-      end else
-        char_py <= char_py + 1'b1;
-    end else begin
-      if (char_px == font_width) begin
+      if (hCounter == hCharInit && hCounter != hSyncEndO) begin
+        hCharCounter <= 0;
         char_px <= 0;
-        hCharCounter <= hCharCounter + 1'b1;
-        if (show_text && text_load && hCharCounter == 1'd1) text_line_request_parity <= ~text_line_request_parity;
-      end else
-        char_px <= char_px + 1'b1;
+        if (char_py == font_height) begin
+          char_py <= 0;
+          vCharCounter <= vCharCounter + 1'b1;
+        end else
+          char_py <= char_py + 1'b1;
+      end else begin
+        if (char_px == font_width) begin
+          char_px <= 0;
+          hCharCounter <= hCharCounter + 1'b1;
+          if (show_text && text_load && hCharCounter == 1'd1) text_line_request_parity <= ~text_line_request_parity;
+        end else
+          char_px <= char_px + 1'b1;
+      end
     end
   end
 
@@ -300,12 +311,16 @@ module VideoController #(parameter ADDRESS_WIDTH) (
   wire [8:0] tchar = tword32[8:0];
   wire [6:0] tfg_index = tword32[22:16];
   wire [6:0] tbg_index = tword32[30:24];
+  reg t_4color_mode;
   reg [10:0] charmap_rindex;
   reg [31:0] charmap_rdata;
-  reg [31:0] tfg, tbg, charmap_word;
-  reg [7:0] char_shift = 0;
-  reg [31:0] char_fg, char_bg;
-  wire [31:0] tcolor = char_shift[7] ? char_fg : char_bg;
+  reg [31:0] tfg, tbg, tfg2, tbg2, charmap_word;
+  reg [7:0] char_shift, char_shift2;
+  reg [31:0] char_fg, char_bg, char_fg2, char_bg2;
+  reg char_4color_mode;
+  wire [31:0] tcolor_2c = char_shift[7] ? char_fg : char_bg;
+  wire [31:0] tcolor_4c = char_shift2[7] ? (char_shift[7] ? char_fg2 : char_bg2) : tcolor_2c;
+  wire [31:0] tcolor = char_4color_mode ? tcolor_4c : tcolor_2c;
   wire [15:0] gcolor16 = hCounter[1:0] == 2'b01 ? gword[15:0]  :
                          hCounter[1:0] == 2'b10 ? gword[31:16] :
                          hCounter[1:0] == 2'b11 ? gword[47:32] :
@@ -332,28 +347,50 @@ module VideoController #(parameter ADDRESS_WIDTH) (
         charmap_rindex <= {4'd0, tfg_index};
       else if (char_px == 3'd2) begin
         charmap_rindex <= {4'd0, tbg_index};
+        t_4color_mode <= tword32[31];
       end else if (char_px == 3'd3) begin
         tfg <= charmap_rdata;
-        charmap_rindex <= {tchar, char_py[3:2]};
+        if (t_4color_mode)
+          charmap_rindex <= {1'b1, char_py[3] ? tword32[15:8] : tword32[7:0], char_py[2:1]};
+        else
+          charmap_rindex <= {tchar, char_py[3:2]};
       end else if (char_px == 3'd4) begin
         tbg <= charmap_rdata;
+        charmap_rindex <= {4'd0, tfg_index[6:1], 1'b1};
       end else if (char_px == 3'd5) begin
-        charmap_word <= charmap_rdata; //|charmap_rindex[10:5] ? charmap_rdata : 32'd0;
+        charmap_word <= charmap_rdata;
+        charmap_rindex <= {4'd0, tbg_index[6:1], 1'b1};
+      end else if (char_px == 3'd6) begin
+        tfg2 <= charmap_rdata;
+      end else if (char_px == 3'd7) begin
+        tbg2 <= charmap_rdata;
       end
       if (char_px == 0) begin
         tword <= text_line[{vCharCounter[0], hCharCounter[7:1]}];
-        case (char_py[1:0])
-          2'd0: char_shift <= charmap_word[7:0];
-          2'd1: char_shift <= charmap_word[15:8];
-          2'd2: char_shift <= charmap_word[23:16];
-          2'd3: char_shift <= charmap_word[31:24];
-        endcase
+        if (t_4color_mode) begin
+          {char_shift2, char_shift} <= char_py[0] ? charmap_word[31:16] : charmap_word[15:0];
+        end else begin
+          case (char_py[1:0])
+            2'd0: char_shift <= charmap_word[7:0];
+            2'd1: char_shift <= charmap_word[15:8];
+            2'd2: char_shift <= charmap_word[23:16];
+            2'd3: char_shift <= charmap_word[31:24];
+          endcase
+        end
         char_fg <= tfg;
         char_bg <= tbg;
-      end else char_shift[7:1] <= char_shift[6:0];
+        char_fg2 <= tfg2;
+        char_bg2 <= tbg2;
+        char_4color_mode <= t_4color_mode;
+      end else begin
+        char_shift[7:1] <= char_shift[6:0];
+        char_shift2[7:1] <= char_shift2[6:0];
+      end
     end else begin
       char_fg <= 0;
       char_bg <= 0;
+      char_fg2 <= 0;
+      char_bg2 <= 0;
     end
 
     {gred1, ggreen1, gblue1} <= gcolor24;
