@@ -109,6 +109,7 @@ module VideoController #(parameter ADDRESS_WIDTH) (
           4'hC: text_addr_next <= apb_PWDATA[31:6];
           4'hD: {graphic_addr_next, hOffsetNext} <= apb_PWDATA[31:1];
           4'hE: {vTextOffset, hTextOffset} <= apb_PWDATA[11:0];
+          default:;
         endcase
       end
     end

@@ -84,13 +84,16 @@ class I2cController extends BlackBox {
 }
 
 case class SdcardPhy() extends Bundle {
-  val clk = out Bool()
+  val clk_LO = out Bool()
+  val clk_HI = out Bool()
 
-  val cmd_IN = in Bool()
+  val cmd_IN_LO = in Bool()
+  val cmd_IN_HI = in Bool()
   val cmd_OUT = out Bool()
   val cmd_OE = out Bool()
 
-  val data_IN = in Bits(4 bits)
+  val data_IN_LO = in Bits(4 bits)
+  val data_IN_HI = in Bits(4 bits)
   val data_OUT = out Bits(4 bits)
   val data_OE = out Bits(4 bits)
 
