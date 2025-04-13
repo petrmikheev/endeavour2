@@ -48,7 +48,7 @@ int main() {
   beep(333, 300, 6);
 
   unsigned ram_size = BOARD_REGS->ram_size;
-  if (ram_size >= (2<<20)) {
+  if (ram_size >= (8<<20)) {
     init_display();
   }
 
@@ -70,7 +70,7 @@ int main() {
   }
 
   init_sdcard();
-  if (get_sdcard_sector_count() > 0) {
+  if (get_sdcard_sector_count() > 0 && ram_size >= (2<<20)) {
     int p = search_and_select_ext2_fs();
     if (p == 0) {
       printf("\tSelected EXT2 filesystem in first sector\n");

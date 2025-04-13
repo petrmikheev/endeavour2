@@ -59,8 +59,19 @@ class EndeavourSoc(coresParams: List[ParamSimple],
     val uart = UART()
     val usb1 = USB()
     val usb2 = USB()
-    val key = in Bits(3 bits)
+
+    val cbsel = in Bits(2 bits)
+    val boot_en = in Bool()
+    val key = in Bits(2 bits)
     val led = out Bits(4 bits)
+
+    val spi_flash_ncs_IN = in Bool()
+    val spi_flash_ncs_OUT = out Bool()
+    val spi_flash_ncs_OE = out Bool()
+    /*val spi_flash_clk = out Bool()
+    val spi_flash_data_IN = in Bits(4 bits)
+    val spi_flash_data_OUT = out Bits(4 bits)
+    val spi_flash_data_OE = out Bits(4 bits)*/
 
     val sd = SdcardPhy()
     val TL_MODE_SEL = out Bool()
@@ -103,6 +114,9 @@ class EndeavourSoc(coresParams: List[ParamSimple],
     val esp32_io7_OUT = out Bool()
     val esp32_io7_OE = out Bool()*/
   }
+
+  io.spi_flash_ncs_OUT := False
+  io.spi_flash_ncs_OE := False
 
   val rst_area = new ClockingArea(ClockDomain(
     clock = io.clk25,
@@ -190,37 +204,46 @@ class EndeavourSoc(coresParams: List[ParamSimple],
   val usb_ctrl = new EndeavourUSB(cd60mhz, io.usb1, io.usb2, sim=sim)
   dbus << usb_ctrl.dma
 
-  val video_ctrl = new VideoController()
-  video_ctrl.io.pixel_clk <> io.dyn_clk0
-  io.dvi_data_LO(11 downto 4) := video_ctrl.io.data_red
-  (io.dvi_data_LO(3 downto 0), io.dvi_data_HI(11 downto 8)) := video_ctrl.io.data_green
-  io.dvi_data_HI(7 downto 0) := video_ctrl.io.data_blue
-  io.dvi_de := video_ctrl.io.data_enable
-  io.dvi_hsync := video_ctrl.io.hSync
-  io.dvi_vsync := video_ctrl.io.vSync
+  val video = (ramSize >= (1<<23)) generate new Area {
+    val ctrl = new VideoController()
+    ctrl.io.pixel_clk <> io.dyn_clk0
+    io.dvi_data_LO(11 downto 4) := ctrl.io.data_red
+    (io.dvi_data_LO(3 downto 0), io.dvi_data_HI(11 downto 8)) := ctrl.io.data_green
+    io.dvi_data_HI(7 downto 0) := ctrl.io.data_blue
+    io.dvi_de := ctrl.io.data_enable
+    io.dvi_hsync := ctrl.io.hSync
+    io.dvi_vsync := ctrl.io.vSync
 
-  val video_bus = tilelink.fabric.Node.down()
-  val video_bus_fiber = fiber.Fiber build new Area {
-    video_bus.m2s forceParameters tilelink.M2sParameters(
-      addressWidth = 30,
-      dataWidth = 64,
-      masters = List(
-        tilelink.M2sAgent(
-          name = video_ctrl,
-          mapping = List(
-            tilelink.M2sSource(
-              id = SizeMapping(0, 4),
-              emits = tilelink.M2sTransfers(get = tilelink.SizeRange(64, 64))
+    val bus = tilelink.fabric.Node.down()
+    val bus_fiber = fiber.Fiber build new Area {
+      bus.m2s forceParameters tilelink.M2sParameters(
+        addressWidth = 30,
+        dataWidth = 64,
+        masters = List(
+          tilelink.M2sAgent(
+            name = ctrl,
+            mapping = List(
+              tilelink.M2sSource(
+                id = SizeMapping(0, 4),
+                emits = tilelink.M2sTransfers(get = tilelink.SizeRange(64, 64))
+              )
             )
           )
         )
       )
-    )
-    video_bus.s2m.supported load tilelink.S2mSupport.none()
-    video_bus.bus << video_ctrl.io.tl_bus
+      bus.s2m.supported load tilelink.S2mSupport.none()
+      bus.bus << ctrl.io.tl_bus
+    }
+    bus.setDownConnection(a = StreamPipe.HALF, d = StreamPipe.M2S_KEEP)
+    cbus << bus
   }
-  video_bus.setDownConnection(a = StreamPipe.HALF, d = StreamPipe.M2S_KEEP)
-  cbus << video_bus
+  if (video == null) {
+    io.dvi_data_LO := 0
+    io.dvi_data_HI := 0
+    io.dvi_de := False
+    io.dvi_hsync := False
+    io.dvi_vsync := False
+  }
 
   val miscApb = Apb3(Apb3Config(
     addressWidth  = 6,
@@ -257,6 +280,7 @@ class EndeavourSoc(coresParams: List[ParamSimple],
   val ramStat = Bits(15 bits)
   when (ramTacShiftOverrideRequest) { ramTacShiftOverrideRequest := False }
 
+  val cbKeyReg = RegNext((io.cbsel, io.boot_en, io.spi_flash_ncs_IN).asBits)
   val keyReg = RegNext(io.key)
   val ledReg = Reg(Bits(4 bits)) init(0)
   val esp32CfgReg = Reg(Bits(2 bits)) init(0)
@@ -265,6 +289,7 @@ class EndeavourSoc(coresParams: List[ParamSimple],
   io.esp32_spi_boot := esp32CfgReg(1)
   miscCtrl.driveAndRead(ledReg, address = 0x20)
   miscCtrl.read(keyReg, address = 0x24)
+  miscCtrl.read(cbKeyReg, address = 0x24, bitOffset = 28)
   miscCtrl.read((Mux(ramTacShiftOverridden, ramTacShiftOverride, ramStat(14 downto 12)), False, ramStat).asBits, address = 0x28)
   miscCtrl.onWrite(0x28)({
     ramTacShiftOverrideRequest := True
@@ -341,18 +366,23 @@ class EndeavourSoc(coresParams: List[ParamSimple],
   toApb.down.addTag(new system.tag.MemoryEndpointTag(SizeMapping(0, ioSize)))
   toApb.up.forceDataWidth(32)
   fiber.Handle {
+    var apbSlaves = List[(Apb3, SizeMapping)](
+      apb_60mhz_bridge.io.input  -> (0x0, 0x800),
+      // spi?
+      miscApb                    -> (0x1000, 1<<miscApb.config.addressWidth),
+      apb_sdcard_bridge.io.input -> (0x3000, 32),
+      usb_ctrl.apb_ctrl          -> (0x4000, 0x1000),
+      clintApb                   -> (0x10000, 0x10000),
+      plicApb                    -> (0x4000000, 0x4000000)
+    )
+    if (video != null) {
+      apbSlaves ++= List[(Apb3, SizeMapping)](
+        video.ctrl.io.apb        -> (0x2000, 64)
+      )
+    }
     val apbDecoder = Apb3Decoder(
       master = toApb.down.get,
-      slaves = List(
-        apb_60mhz_bridge.io.input  -> (0x0, 0x800),
-        // spi?
-        miscApb                    -> (0x1000, 1<<miscApb.config.addressWidth),
-        video_ctrl.io.apb          -> (0x2000, 64),
-        apb_sdcard_bridge.io.input -> (0x3000, 32),
-        usb_ctrl.apb_ctrl          -> (0x4000, 0x1000),
-        clintApb                   -> (0x10000, 0x10000),
-        plicApb                    -> (0x4000000, 0x4000000)
-      )
+      slaves = apbSlaves
     )
   }
 

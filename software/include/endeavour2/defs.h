@@ -129,7 +129,10 @@ struct EndeavourBoard {
 #endif
 
 // BOARD_KEYS flags
-#define BOARD_KEY_BOOT_EN 4
+#define BOARD_KEY_SPI_EN   (1<<28)
+#define BOARD_KEY_BOOT_EN  (1<<29)
+#define BOARD_KEY_CBSEL0   (1<<30)
+#define BOARD_KEY_CBSEL1   (1<<31)
 
 // BOARD_CPU_FEATURES flags
 #define CPU_FEATURES_ZBA        1  // Address calculation extension.

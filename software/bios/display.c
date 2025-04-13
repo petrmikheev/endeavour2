@@ -46,6 +46,7 @@ static unsigned* cursor_offset(unsigned* ptr, int line, int column) {
 }
 
 void show_logo(unsigned* base_ptr, int line, int column) {
+  if (!cursor_ptr) return;
   const int base = 0xf0;
   for (int y = 0; y < 2; ++y) {
     for (int x = 0; x < 4; ++x) {
@@ -84,6 +85,7 @@ void init_display() {
 }
 
 void display_putchar(unsigned c) {
+  if (!cursor_ptr) return;
   unsigned long frame = (unsigned long)cursor_ptr & ~(TEXT_BUFFER_SIZE-1);
   if (c == '\n') {
     cursor_ptr = (void*)(((unsigned long)cursor_ptr & ~(TEXT_LINE_SIZE-1)) + TEXT_LINE_SIZE);
