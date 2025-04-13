@@ -51,8 +51,12 @@ class EndeavourSoc(coresParams: List[ParamSimple],
     val pll_core_LOCKED = in Bool()
     val pll_ddr_LOCKED = in Bool()
 
-    val uart = UART()
     val ddr = Ddr3_Phy()
+    val ddr_tac_shift = out Bits(3 bits)
+    val ddr_tac_shift_ena = out Bool()
+    val ddr_tac_shift_sel = out Bits(5 bits)
+
+    val uart = UART()
     val usb1 = USB()
     val usb2 = USB()
     val key = in Bits(3 bits)
@@ -247,16 +251,26 @@ class EndeavourSoc(coresParams: List[ParamSimple],
     miscCtrl.read(cpuFeatures(coresParams(i)), address = 0x10 + i * 4)
   }
 
+  val ramTacShiftOverridden = RegInit(False)
+  val ramTacShiftOverrideRequest = RegInit(False)
+  val ramTacShiftOverride = Reg(Bits(3 bits))
+  val ramStat = Bits(15 bits)
+  when (ramTacShiftOverrideRequest) { ramTacShiftOverrideRequest := False }
+
   val keyReg = RegNext(io.key)
   val ledReg = Reg(Bits(4 bits)) init(0)
-  val ramStat = Bits(12 bits)
   val esp32CfgReg = Reg(Bits(2 bits)) init(0)
   io.led := ledReg
   io.esp32_en := esp32CfgReg(0)
   io.esp32_spi_boot := esp32CfgReg(1)
   miscCtrl.driveAndRead(ledReg, address = 0x20)
   miscCtrl.read(keyReg, address = 0x24)
-  miscCtrl.read(ramStat, address = 0x28)
+  miscCtrl.read((Mux(ramTacShiftOverridden, ramTacShiftOverride, ramStat(14 downto 12)), False, ramStat).asBits, address = 0x28)
+  miscCtrl.onWrite(0x28)({
+    ramTacShiftOverrideRequest := True
+    ramTacShiftOverridden := True
+  })
+  miscCtrl.write(ramTacShiftOverride, address = 0x28, bitOffset = 16)
   miscCtrl.read(U(ramSize, 32 bits), address = 0x2C)
   miscCtrl.driveAndRead(esp32CfgReg, address = 0x30)
 
@@ -394,6 +408,8 @@ class EndeavourSoc(coresParams: List[ParamSimple],
     val ram = new RamFiber(ramSize, initialContent=internalRamContent)
     ram.up << mbus
     io.ddr.not_connected()
+    io.ddr_tac_shift := 0
+    io.ddr_tac_shift_ena := False
     ramStat := 3  // calibration_ok, calibration_done
   } else {
     assert(hasL1);
@@ -401,7 +417,10 @@ class EndeavourSoc(coresParams: List[ParamSimple],
     val ram = new Ddr3Fiber(ramSize, io.ddr)
     ram.up << mbus
     ramStat := ram.cal_stat
+    io.ddr_tac_shift_ena := ram.ddr_ctrl.io.tac_shift_ena | ramTacShiftOverrideRequest
+    io.ddr_tac_shift := Mux(ramTacShiftOverridden, ramTacShiftOverride, ram.ddr_ctrl.io.tac_shift)
   }
+  io.ddr_tac_shift_sel := 4
 }
 
 object EndeavourSoc {

@@ -16,10 +16,6 @@ case class Ddr3_Phy() extends Bundle {
   val tac_clk = in Bool()
   val twd_clk = in Bool()
 
-  val tac_shift = out Bits(3 bits)
-  val tac_shift_sel = out Bits(5 bits)
-  val tac_shift_ena = out Bool()
-
   val reset = out Bool()
   val cs = out Bool()
   val ras = out Bool()
@@ -45,9 +41,9 @@ case class Ddr3_Phy() extends Bundle {
 
   def not_connected() = {
     cs := True
-    List(reset, cke, ras, cas, we, odt, tac_shift_ena).foreach(v => v := False)
+    List(reset, cke, ras, cas, we, odt).foreach(v => v := False)
     List(addr, ba, dm_HI, dm_LO, dqs_OUT_HI, dqs_OUT_LO, dqs_OE, dqs_OEN,
-         dq_OUT_HI, dq_OUT_LO, dq_OE, tac_shift, tac_shift_sel).foreach(v => v := 0)
+         dq_OUT_HI, dq_OUT_LO, dq_OE).foreach(v => v := 0)
   }
 }
 
@@ -81,6 +77,9 @@ class Ddr3Controller extends BlackBox {
     val clk = in Bool()
     val reset_n = in Bool()
 
+    val tac_shift = out Bits(3 bits)
+    val tac_shift_ena = out Bool()
+
     val phy = Ddr3_Phy()
     val native = slave(Ddr3_Native())
 
@@ -95,7 +94,7 @@ class Ddr3Controller extends BlackBox {
   private def renameIO(): Unit = {
     io.flatten.foreach(bt => {
       bt.setName(bt.getName()
-          .replace("phy_tac_shift", "shift")
+          .replace("tac_shift", "shift")
           .replace("phy_", "")
           .replace("dm_HI", "o_dm_hi").replace("dm_LO", "o_dm_lo")
           .replace("dqs_IN_HI", "i_dqs_hi").replace("dqs_IN_LO", "i_dqs_lo")
@@ -160,7 +159,10 @@ class Ddr3Fiber(val bytes : BigInt, phy : Ddr3_Phy) extends Area {
   ddr_ctrl.io.phy <> phy
   ddr_ctrl.io.cal_ena := True
 
-  def cal_stat = (ddr_ctrl.io.cal_fail_log, B(0, 2 bits), ddr_ctrl.io.cal_pass, ddr_ctrl.io.cal_done).asBits
+  val proposed_tac_shift = Reg(Bits(3 bits))
+  when (ddr_ctrl.io.tac_shift_ena) { proposed_tac_shift := ddr_ctrl.io.tac_shift }
+
+  def cal_stat = (proposed_tac_shift, ddr_ctrl.io.cal_fail_log, B(0, 2 bits), ddr_ctrl.io.cal_pass, ddr_ctrl.io.cal_done).asBits
 
   fiber.Handle {
     val transfers = tilelink.M2sTransfers(
