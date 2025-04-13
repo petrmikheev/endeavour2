@@ -15,8 +15,16 @@ void print_cpu_info() {
       printf("core%u: error\n", hartid);
       continue;
     }
-    printf("core%u: rv32im", hartid);
-    isa &= ~0x1100;  // exclude 'i', 'm'
+    printf("core%u: rv32", hartid);
+    const char* seq = "iemafdc";
+    while (*seq) {
+      unsigned bit = 1u << (*seq - 'a');
+      if (isa & bit) {
+        putchar(*seq);
+        isa &= ~bit;
+      }
+      seq++;
+    }
     for (int i = 0; i < 26; ++i) {
       if (isa & 1) putchar('a' + i);
       isa = isa >> 1;
