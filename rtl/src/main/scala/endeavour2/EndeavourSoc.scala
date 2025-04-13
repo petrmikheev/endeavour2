@@ -412,6 +412,7 @@ object EndeavourSoc {
         //coresParams=List(Core.small(withCaches=true)),
         coresParams=List(Core.medium()),
         //coresParams=List(Core.medium(), Core.small(withCaches=true)),
+        //coresParams=List(Core.medium(withFpu=false, withBiggerCache=false), Core.medium(withFpu=false, withBiggerCache=false)),
         //coresParams=List(Core.full()),
         bootRomContent=Some(bootRomContent)
         ))

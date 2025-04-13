@@ -2,11 +2,11 @@ sources = asm.S main.c util.c bench.c memtest.c readline.c sound.c time.c displa
 
 TOOLCHAIN=../../../endeavour-tools/rv32imac-linux-toolchain/bin/riscv32-unknown-linux-gnu-
 
-OPTIONS=-mabi=ilp32 -nostdlib -ffreestanding -I../include -T bios.lds
+OPTIONS=-nostdlib -ffreestanding -I../include -T bios.lds
 OPTIONS+= -fomit-frame-pointer -fno-exceptions -fno-asynchronous-unwind-tables -fno-unwind-tables
 
-BASE_ARCH=-march=rv32imc_zicsr_zifencei_zicbop
-BENCH_ARCH=-march=rv32imc_zicsr_zifencei_zicbop_zba_zbb_zbc_zbs
+BASE_ARCH=-march=rv32imfdc_zicsr_zifencei_zicbop -mabi=ilp32d
+BENCH_ARCH=${BASE_ARCH}
 
 # zicsr		Control and status register access extension.
 # zifencei	Instruction-fetch fence extension.

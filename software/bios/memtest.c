@@ -28,7 +28,7 @@ static void fill_1mb(unsigned* dst, unsigned modifier) {
     asm volatile("prefetch.w 64(%0)" :: "r" (dst+i));
     unsigned base = ((unsigned long)(dst + i) << 4) ^ modifier;
     unsigned* line = dst + i;
-    for (int j = 0; j < 16; ++j) line[j] = base ^ i;
+    for (int j = 0; j < 16; ++j) line[j] = base ^ j;
   }
 }
 
@@ -39,7 +39,7 @@ static void check_1mb(const unsigned* data, unsigned modifier, int* err_count) {
     unsigned base = ((unsigned long)(data + i) << 4) ^ modifier;
     const unsigned* line = data + i;
     for (int j = 0; j < 16; ++j) {
-      unsigned expected = base ^ i;
+      unsigned expected = base ^ j;
       unsigned actual = line[j];
       if (actual != expected && ++ec <= 8) {
         printf("\n\tmem[%08x] = %08x, expected %08x", line + j, actual, expected);

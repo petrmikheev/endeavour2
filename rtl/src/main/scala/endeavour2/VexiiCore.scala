@@ -48,7 +48,7 @@ object Core {
     param
   }
 
-  def medium(): ParamSimple = {  // 1.606 DMIPS/MHz
+  def medium(withFpu: Boolean = true, withBiggerCache: Boolean = true): ParamSimple = {  // 1.622 DMIPS/MHz
     val param = small(withCaches = true)
 
     // needed to run linux
@@ -59,14 +59,22 @@ object Core {
     param.privParam.withUser = true
 
     // cache performance
-    param.fetchL1RefillCount = 3
-    param.lsuL1RefillCount = 4
-    param.lsuL1WritebackCount = 4
     param.fetchL1Prefetch = "nl"
-    param.lsuHardwarePrefetch = "nl"
+    param.fetchL1RefillCount = 3
     param.lsuSoftwarePrefetch = true
     param.lsuStoreBufferSlots = 4
     param.lsuStoreBufferOps = 32
+    if (withBiggerCache) {
+      param.lsuL1RefillCount = 8
+      param.lsuL1WritebackCount = 8
+      param.lsuHardwarePrefetch = "rpt"
+      param.fetchL1Ways = 4
+      param.lsuL1Ways = 4
+    } else {
+      param.lsuL1RefillCount = 4
+      param.lsuL1WritebackCount = 4
+      param.lsuHardwarePrefetch = "nl"
+    }
 
     // branch prediction
     param.withBtb = true
@@ -79,11 +87,18 @@ object Core {
     param.withLsuBypass = true
     param.withLateAlu = true
     param.storeRs2Late = true
+    param.divRadix = 4
 
     // fMax
     param.relaxedBranch = true
-    //param.relaxedSrc = true  // ??
-    param.relaxedBtb = true
+
+    // FPU
+    if (withFpu) {
+      param.withRvf = true
+      param.withRvd = true
+      param.fpuMulParam.fmaFullAccuracy = false
+      param.fpuIgnoreSubnormal = true
+    }
 
     param
   }
@@ -92,20 +107,11 @@ object Core {
     val param = medium()
 
     // performance
-    param.divRadix = 4
-    param.lsuL1RefillCount = 8
-    param.lsuL1WritebackCount = 8
-    param.lsuHardwarePrefetch = "rpt"
     param.decoders = 2
     param.lanes = 2
-    param.fetchL1Ways = 4
-    param.lsuL1Ways = 4
 
     // features
-    /*param.withRvZb = true
-    param.withRvd = true
-    param.fpuFmaFullAccuracy = false
-    param.fpuIgnoreSubnormal = true*/
+    //param.withRvZb = true
 
     // fMax
     /*param.relaxedBranch = true
@@ -160,10 +166,10 @@ class VexiiCore(val param: ParamSimple, resetVector: Long, hartId: Int = 0, jtag
     down.a << up.a.halfPipe().halfPipe()
     up.d << down.d.m2sPipe()
   }
-  /*tlcore.dBus.setDownConnection(a = StreamPipe.HALF, d = StreamPipe.M2S_KEEP)
   if (param.lsuL1Enable) {
     tlcore.lsuL1Bus.setDownConnection(a = StreamPipe.HALF, b = StreamPipe.HALF_KEEP, c = StreamPipe.FULL, d = StreamPipe.M2S_KEEP, e = StreamPipe.HALF)
-  }*/
+  }
+  //tlcore.dBus.setDownConnection(a = StreamPipe.HALF, d = StreamPipe.M2S_KEEP)
 
   override def vexii() : VexiiRiscv = tlcore.logic.core
 

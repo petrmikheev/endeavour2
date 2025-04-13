@@ -99,6 +99,8 @@ start:
     bne tp, zero, not_main_thread
     la t0, trap
     csrw mtvec, t0
+    li t0, 1<<13
+    csrs mstatus, t0  # enable FPU
     li sp, STACK_ADDR
     jal main
     j infloop

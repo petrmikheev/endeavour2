@@ -132,7 +132,7 @@ static int cmd_wallpaper(const char* args) {
   unsigned short bits_per_pixel = *(unsigned short*)(wallpaper_bmp + 28);
   unsigned bytes_per_line = (width * 2 + 3) & ~3;
   if ((size && size != bitmap_offset + bytes_per_line * height) || bits_per_pixel != 16) {
-    printf("Usupported image. Expected RGB565 BMP without color table.\n");
+    printf("Unsupported image. Expected RGB565 BMP without color table.\n");
     return CMD_FAILED;
   }
   char* frame_buffer  = VIDEO_REGS->graphicAddr;

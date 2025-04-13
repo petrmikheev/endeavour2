@@ -31,7 +31,8 @@ object FileUtil {
 }
 
 class EndeavourSocSim extends EndeavourSoc(
-        coresParams=List(Core.small(withCaches=true)/*, Core.small(withCaches=true)*/),
+        //coresParams=List(Core.small(withCaches=true)/*, Core.small(withCaches=true)*/),
+        coresParams=List(Core.medium()),
         internalRam=true, ramSize=65536,
         internalRamContent=Some(Files.readAllBytes(Paths.get("../software/bios/bios.bin"))),
         //bootRomContent=Some(Files.readAllBytes(Paths.get("../software/bios/microloader.bin"))),
