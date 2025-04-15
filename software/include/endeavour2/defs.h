@@ -7,6 +7,7 @@
 #define AUDIO_BASE      0x200
 #define I2C_BASE        0x300
 #define ESP32_UART_BASE 0x400
+#define SPI_FLASH_BASE  0x500
 #define BOARD_BASE     0x1000
 #define VIDEO_BASE     0x2000
 #define SDCARD_BASE    0x3000
@@ -50,6 +51,23 @@ struct EndeavourUart {
 // UART_RX flags
 #define UART_PARITY_ERROR  0x100
 #define UART_FRAMING_ERROR 0x200
+
+// *** SPI Flash
+
+#ifdef __ASSEMBLER__
+  #define REG_SPI_FLASH_CNT   0
+  #define REG_SPI_FLASH_WHAS  4
+  #define REG_SPI_FLASH_RHAS  8
+  #define REG_SPI_FLASH_DATA  12
+#else
+struct EndeavourSpi {
+  unsigned cnt;
+  unsigned writeHasData;
+  unsigned readHasData;
+  unsigned data;
+};
+#define SPI_FLASH_REGS ((volatile struct EndeavourSpi*)(SPI_FLASH_BASE))
+#endif
 
 // *** Audio
 

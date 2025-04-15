@@ -68,10 +68,10 @@ class EndeavourSoc(coresParams: List[ParamSimple],
     val spi_flash_ncs_IN = in Bool()
     val spi_flash_ncs_OUT = out Bool()
     val spi_flash_ncs_OE = out Bool()
-    /*val spi_flash_clk = out Bool()
+    val spi_flash_clk = out Bool()
     val spi_flash_data_IN = in Bits(4 bits)
     val spi_flash_data_OUT = out Bits(4 bits)
-    val spi_flash_data_OE = out Bits(4 bits)*/
+    val spi_flash_data_OE = out Bits(4 bits)
 
     val sd = SdcardPhy()
     val TL_MODE_SEL = out Bool()
@@ -100,7 +100,7 @@ class EndeavourSoc(coresParams: List[ParamSimple],
     val esp32_rx = out Bool()
     val esp32_tx = in Bool()
 
-    // ESP32 GPIO 4-7, can be used for spi x4 or for second uart
+    // ESP32 GPIO 4-7
     /*val esp32_io4_IN = in Bool()
     val esp32_io4_OUT = out Bool()
     val esp32_io4_OE = out Bool()
@@ -114,9 +114,6 @@ class EndeavourSoc(coresParams: List[ParamSimple],
     val esp32_io7_OUT = out Bool()
     val esp32_io7_OE = out Bool()*/
   }
-
-  io.spi_flash_ncs_OUT := False
-  io.spi_flash_ncs_OE := False
 
   val rst_area = new ClockingArea(ClockDomain(
     clock = io.clk25,
@@ -168,6 +165,14 @@ class EndeavourSoc(coresParams: List[ParamSimple],
     io.i2c_sda_OE := ~i2c_ctrl.io.i2c_sda
     i2c_ctrl.io.i2c_sda_IN := io.i2c_sda_IN
 
+    val spi_flash_ctrl = new SpiController()
+    io.spi_flash_ncs_OUT := spi_flash_ctrl.io.spi_ncs
+    io.spi_flash_ncs_OE := spi_flash_ctrl.io.spi_ncs_en
+    io.spi_flash_clk := spi_flash_ctrl.io.spi_clk
+    spi_flash_ctrl.io.spi_d1 := io.spi_flash_data_IN(1)
+    io.spi_flash_data_OUT := (B"110", spi_flash_ctrl.io.spi_d0).asBits
+    io.spi_flash_data_OE := Mux(spi_flash_ctrl.io.spi_ncs_en, B"1101", B"0000")
+
     val apb = Apb3(Apb3Config(
       addressWidth  = 11,
       dataWidth     = 32,
@@ -179,7 +184,8 @@ class EndeavourSoc(coresParams: List[ParamSimple],
         uart_ctrl.io.apb       -> (0x100, 16),
         audio_ctrl.io.apb      -> (0x200, 8),
         i2c_ctrl.io.apb        -> (0x300, 16),
-        esp32_uart_ctrl.io.apb -> (0x400, 16)
+        esp32_uart_ctrl.io.apb -> (0x400, 16),
+        spi_flash_ctrl.io.apb  -> (0x500, 16)
       )
     )
   }
@@ -287,7 +293,7 @@ class EndeavourSoc(coresParams: List[ParamSimple],
   io.led := ledReg
   io.esp32_en := esp32CfgReg(0)
   io.esp32_spi_boot := esp32CfgReg(1)
-  miscCtrl.driveAndRead(ledReg, address = 0x20)
+  miscCtrl.readAndWrite(ledReg, address = 0x20)
   miscCtrl.read(keyReg, address = 0x24)
   miscCtrl.read(cbKeyReg, address = 0x24, bitOffset = 28)
   miscCtrl.read((Mux(ramTacShiftOverridden, ramTacShiftOverride, ramStat(14 downto 12)), False, ramStat).asBits, address = 0x28)
@@ -297,7 +303,7 @@ class EndeavourSoc(coresParams: List[ParamSimple],
   })
   miscCtrl.write(ramTacShiftOverride, address = 0x28, bitOffset = 16)
   miscCtrl.read(U(ramSize, 32 bits), address = 0x2C)
-  miscCtrl.driveAndRead(esp32CfgReg, address = 0x30)
+  miscCtrl.readAndWrite(esp32CfgReg, address = 0x30)
 
   val plicSize = 0x4000000
   val plicPriorityWidth = 1
@@ -368,7 +374,6 @@ class EndeavourSoc(coresParams: List[ParamSimple],
   fiber.Handle {
     var apbSlaves = List[(Apb3, SizeMapping)](
       apb_60mhz_bridge.io.input  -> (0x0, 0x800),
-      // spi?
       miscApb                    -> (0x1000, 1<<miscApb.config.addressWidth),
       apb_sdcard_bridge.io.input -> (0x3000, 32),
       usb_ctrl.apb_ctrl          -> (0x4000, 0x1000),

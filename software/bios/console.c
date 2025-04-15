@@ -233,9 +233,72 @@ static int cmd_cat(const char* args) {
 
 int cmd_date(const char* args);  // implemented in time.c
 
-static int cmd_no_impl() {
-  printf("Not implemented\n");
-  return CMD_FAILED;
+static int wait_spi_busy() {
+  unsigned start = time_100nsec();
+  while (1) {
+    wait(100);
+    SPI_FLASH_REGS->data = 0x05000000;
+    SPI_FLASH_REGS->cnt = (1<<16) | 1;
+    while (!SPI_FLASH_REGS->readHasData);
+    unsigned status1 = SPI_FLASH_REGS->data & 0xff;
+    if (!(status1 & 1)) return 0;
+    if (time_100nsec() - start > 100000000) {
+      printf("Time limit. Status1: %02x\n", status1);
+      return -1;
+    }
+  }
+}
+
+static int cmd_flash_bios(const char* args) {
+  unsigned long addr;
+  unsigned expected_crc;
+  if (sscanf(args, "%lx %x", &addr, &expected_crc) != 2) return CMD_INVALID_ARGS;
+  if (crc32((void*)addr, BIOS_SIZE) != expected_crc) {
+    printf("Incorrect CRC\n");
+    return CMD_FAILED;
+  }
+  unsigned* data = (void*)addr;
+  if (data[BIOS_SIZE / 4 - 1] != BIOS_MAGIC) {
+    printf("Invalid BIOS image, no magic number\n");
+    return CMD_FAILED;
+  }
+  SPI_FLASH_REGS->data = 0xAB<<24;  // power up
+  SPI_FLASH_REGS->cnt = 1<<16;
+  wait(100);
+  printf("Erasing old data...\n");
+  SPI_FLASH_REGS->data = 0x06<<24; // write enable
+  SPI_FLASH_REGS->cnt = 1<<16;
+  wait(20);
+  SPI_FLASH_REGS->data = (0x52<<24) | ((16<<20) - BIOS_SIZE); // erase block
+  SPI_FLASH_REGS->cnt = 4<<16;
+  if (wait_spi_busy() != 0) return CMD_FAILED;
+  printf("Writing new data...\n");
+  for (int i = 0; i < BIOS_SIZE / 4; i += 256 / 4) {
+    SPI_FLASH_REGS->data = 0x06<<24; // write enable
+    SPI_FLASH_REGS->cnt = (1<<16);
+    wait(20);
+    SPI_FLASH_REGS->data = (0x02<<24) | ((16<<20) - BIOS_SIZE) | (i<<2);
+    SPI_FLASH_REGS->cnt = 260<<16;
+    for (int j = 0; j < 256 / 4; ++j) {
+      while (SPI_FLASH_REGS->writeHasData);
+      SPI_FLASH_REGS->data = *data++;
+    }
+    if (wait_spi_busy() != 0) return CMD_FAILED;
+  }
+  printf("Verification...\n");
+  data = (void*)(RAM_BASE + BIOS_SIZE);
+  SPI_FLASH_REGS->data = 0x03000000 | ((16<<20) - BIOS_SIZE);
+  SPI_FLASH_REGS->cnt = (4<<16) | BIOS_SIZE;
+  for (int i = 0; i < BIOS_SIZE / 4; ++i) {
+    while (!SPI_FLASH_REGS->readHasData);
+    data[i] = SPI_FLASH_REGS->data;
+  }
+  if (crc32((void*)data, BIOS_SIZE) != expected_crc) {
+    printf("CRC check failed\n");
+    return CMD_FAILED;
+  }
+  printf("DONE\n");
+  return CMD_OK;
 }
 
 struct ConsoleCommand {
@@ -255,6 +318,7 @@ static const struct ConsoleCommand commands[] = {
   {cmd_benchmark,  "benchmark",   "",                        "run benchmarks"},
   {cmd_uart,       "uart",        "addr size",               "receive size (decimal) bytes via UART with baud rate 12 MHz"},
   {cmd_crc32,      "crc32",       "addr size [expected]",    "calculate crc32 of data in RAM"},
+  {cmd_flash_bios, "flash_bios",  "addr crc32",              "write BIOS image (32 KB) from given address in RAM to SPI flash"},
   {cmd_date,       "date",        "[new_date]",              "print or set date and time"},
   {cmd_display,    "display",     "WIDTHxHEIGHT",            "set display resolution; supports custom mode, e.g.: \"display custom 25175000 640 656 752 800 480 490 492 525\""},
   {cmd_textstyle,  "textstyle",   "fg bg",                   "set text style; fg and bg are colors in hex format RRGGBBAA; alpha range is from 0 (transparent) to 64"},

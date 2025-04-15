@@ -2,9 +2,98 @@ package endeavour2
 
 import spinal.core._
 import spinal.lib._
-import spinal.lib.bus.amba3.apb.{Apb3, Apb3Config}
+import spinal.lib.fsm._
+import spinal.lib.bus.amba3.apb.{Apb3, Apb3Config, Apb3SlaveFactory}
 import spinal.lib.bus.amba4.axi._
 import spinal.lib.bus.tilelink
+
+class SpiController extends Component {
+  val io = new Bundle {
+    val spi_ncs = out Bool()
+    val spi_ncs_en = out Bool()
+    val spi_clk = out Bool()
+    val spi_d0 = out Bool()
+    val spi_d1 = in Bool()
+    val apb = slave(Apb3(Apb3Config(
+      addressWidth  = 4,
+      dataWidth     = 32,
+      useSlaveError = false
+    )))
+  }
+
+  val apb = Apb3SlaveFactory(io.apb)
+
+  val writeCnt = RegInit(U(0, 16 bits))
+  val readCnt = RegInit(U(0, 16 bits))
+  val data = Reg(Bits(32 bits))
+  val writeHasData = RegInit(False)
+  val readHasData = RegInit(False)
+
+  apb.readAndWrite(writeCnt, address = 0, bitOffset = 16)
+  apb.readAndWrite(readCnt, address = 0, bitOffset = 0)
+  apb.read(writeHasData, address = 4)
+  apb.read(readHasData, address = 8)
+  apb.readAndWrite(data, address = 12)
+  apb.onWrite(12)( writeHasData := True )
+  apb.onRead(12)( readHasData := False )
+
+  val fsm = new StateMachine {
+    val data_shift = Reg(Bits(32 bits))
+    val counter = RegInit(U(0, 4 bits))
+    counter := counter + 1
+
+    io.spi_ncs_en := True
+    io.spi_ncs := False
+    io.spi_clk := counter(0)
+    io.spi_d0 := data_shift(31)
+
+    val Idle : State = new State with EntryPoint {
+      whenIsActive {
+        io.spi_ncs_en := False
+        io.spi_clk := True
+        when (writeCnt =/= 0 && counter === 15) { goto(Write) }
+      }
+    }
+    val Write : State = new State {
+      onEntry {
+        data_shift := data
+        writeHasData := False
+      }
+      whenIsActive {
+        when (counter(0)) { data_shift := data_shift(30 downto 0) ## io.spi_d1 }
+        when (counter === 15) {
+          writeCnt := writeCnt - 1
+          when (writeCnt(1 downto 0) === 1) {
+            data_shift := data
+            writeHasData := False
+          }
+          when (writeCnt === 1 && readCnt === 0) { goto(Stop) }
+          when (writeCnt === 1 && readCnt =/= 0) { goto(Read) }
+        }
+      }
+    }
+    val Read : State = new State {
+      whenIsActive {
+        when (!counter(0)) { data_shift := data_shift(30 downto 0) ## io.spi_d1 }
+        when (counter === 15) {
+          readCnt := readCnt - 1
+          when (readCnt(1 downto 0) === 1) {
+            data := data_shift
+            readHasData := True
+          }
+          when (readCnt === 1) { goto(Stop) }
+        }
+      }
+    }
+    val Stop : State = new State {
+      whenIsActive {
+        io.spi_ncs := counter(3)
+        io.spi_clk := True
+        when (counter === 15) { goto(Idle) }
+      }
+    }
+  }
+}
 
 class ApbClockBridge(awidth: Int) extends BlackBox {
   addGeneric("AWIDTH", awidth)

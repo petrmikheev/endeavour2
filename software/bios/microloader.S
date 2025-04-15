@@ -85,9 +85,33 @@ uart_loop:
     j check
 
 spi_boot:
-    li t1, 8
-    sw t1, REG_BOARD_LEDS(BBOARD)  # leds 1000 -> spi boot not implemented
-    j spi_boot
+    li HASH, 0
+    li PTR, RAM_BASE
+    li t0, SPI_FLASH_BASE
+    li t1, 0xAB000000  # power up
+    sw t1, REG_SPI_FLASH_DATA(t0)
+    li t1, (1<<16)
+    sw t1, REG_SPI_FLASH_CNT(t0)
+    li t1, 2048
+spi_pa_wait:
+    addi t1, t1, -1
+    bne t1, zero, spi_pa_wait
+    li t1, 0x03000000 | ((16<<20) - BIOS_SIZE)
+    sw t1, REG_SPI_FLASH_DATA(t0)
+    li t1, (4<<16) | BIOS_SIZE
+    sw t1, REG_SPI_FLASH_CNT(t0)
+spi_loop:
+    lw t1, REG_SPI_FLASH_RHAS(t0)
+    beq t1, zero, spi_loop
+    lw t1, REG_SPI_FLASH_DATA(t0)
+    sw t1, 0(PTR)
+    xor HASH, HASH, t1
+    addi PTR, PTR, 4
+    bne PTR, PTR_END, spi_loop
+    li t1, 0xB9000000  # power down
+    sw t1, REG_SPI_FLASH_DATA(t0)
+    li t1, (1<<16)
+    sw t1, REG_SPI_FLASH_CNT(t0)
 
 check:
     li t0, 7
