@@ -258,10 +258,7 @@ int read_uart(char* dst, int size, int divisor) {
   return 0;
 }
 
-struct HartCfg* get_hart_cfg(int hartid) {
-  if (hartid < 1 || hartid >= BOARD_REGS->hart_count) return 0;
-  return &hart_cfg[hartid - 1];
-}
+volatile struct HartCfg* get_hart_cfg(unsigned hartid) { return hartid > 2 ? 0 : &hart_cfg[hartid]; }
 
 static int i2c_wait() {
   int cmd;

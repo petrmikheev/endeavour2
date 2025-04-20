@@ -111,7 +111,7 @@ void display_putchar(unsigned c) {
 
 static const char SI5351A_p10_17[] = {0x10, 0x4c, 0x8c, 0x8c, 0x8c, 0x8c, 0x8c, 0x8c, 0x8c};
 
-static void set_dvi_frequency(unsigned freq) {
+void set_dvi_frequency(unsigned freq) {
   if (freq < 1000000 || freq > 200000000) {
     i2c_set_reg(I2C_ADDR_SI5351A, 3, -1);
     i2c_set_reg(I2C_ADDR_TFP410, 8, 0);

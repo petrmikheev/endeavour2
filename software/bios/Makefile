@@ -1,11 +1,11 @@
-sources = asm.S main.c util.c bench.c memtest.c readline.c sound.c time.c display.c sdcard.c usb.c console.c ext2.c charmap.S
+sources = asm.S main.c sbi.c util.c bench.c memtest.c readline.c sound.c time.c display.c sdcard.c usb.c console.c ext2.c charmap.S
 
 TOOLCHAIN=../../../endeavour-tools/rv32imac-linux-toolchain/bin/riscv32-unknown-linux-gnu-
 
 OPTIONS=-nostdlib -ffreestanding -I../include -T bios.lds
 OPTIONS+= -fomit-frame-pointer -fno-exceptions -fno-asynchronous-unwind-tables -fno-unwind-tables
 
-BASE_ARCH=-march=rv32imfdc_zicsr_zifencei_zicbop -mabi=ilp32d
+BASE_ARCH=-march=rv32imfc_zicsr_zifencei_zicbop -mabi=ilp32f
 BENCH_ARCH=${BASE_ARCH}
 
 # zicsr		Control and status register access extension.

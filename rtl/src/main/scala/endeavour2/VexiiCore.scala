@@ -48,7 +48,7 @@ object Core {
     param
   }
 
-  def medium(withFpu: Boolean = true, withBiggerCache: Boolean = true): ParamSimple = {  // 1.622 DMIPS/MHz
+  def medium(withFpu: Boolean = true, withRvd: Boolean = true, withBiggerCache: Boolean = true): ParamSimple = {  // 1.622 DMIPS/MHz
     val param = small(withCaches = true)
 
     // needed to run linux
@@ -64,16 +64,12 @@ object Core {
     param.lsuSoftwarePrefetch = true
     param.lsuStoreBufferSlots = 4
     param.lsuStoreBufferOps = 32
+    param.lsuL1RefillCount = 8
+    param.lsuL1WritebackCount = 8
+    param.lsuHardwarePrefetch = "rpt"
     if (withBiggerCache) {
-      param.lsuL1RefillCount = 8
-      param.lsuL1WritebackCount = 8
-      param.lsuHardwarePrefetch = "rpt"
       param.fetchL1Ways = 4
       param.lsuL1Ways = 4
-    } else {
-      param.lsuL1RefillCount = 4
-      param.lsuL1WritebackCount = 4
-      param.lsuHardwarePrefetch = "nl"
     }
 
     // branch prediction
@@ -95,7 +91,7 @@ object Core {
     // FPU
     if (withFpu) {
       param.withRvf = true
-      param.withRvd = true
+      param.withRvd = withRvd
       param.fpuMulParam.fmaFullAccuracy = false
       param.fpuIgnoreSubnormal = true
     }
@@ -111,7 +107,7 @@ object Core {
     param.lanes = 2
 
     // features
-    //param.withRvZb = true
+    param.withRvZb = true
 
     // fMax
     /*param.relaxedBranch = true

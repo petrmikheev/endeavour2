@@ -325,18 +325,19 @@ class EndeavourSoc(coresParams: List[ParamSimple],
   )
 
   val time_area = new ClockingArea(cd60mhz) {
-    val time = Reg(UInt(64 bits)) init(0)
+    val t0 = RegInit(False)
     val counter = Reg(UInt(3 bits)) init(0)
     when (counter === 5) {
       counter := 0
-      time := time + 1
+      t0 := !t0
     } otherwise {
       counter := counter + 1
     }
   }
 
-  val time = Reg(UInt(64 bits)) init(0) addTag(crossClockDomain)
-  when (time_area.counter(1)) { time := time_area.time }  // time step: 100ns
+  val t0b = RegNext(time_area.t0) addTag(crossClockDomain)
+  val time = Reg(UInt(64 bits)) init(0)
+  when (t0b =/= time(0)) { time := time + 1 }  // time step: 100ns
   cpu_freq_counter.io.time := time(15 downto 0)
   dvi_freq_counter.io.time := time(15 downto 0)
 
@@ -355,13 +356,14 @@ class EndeavourSoc(coresParams: List[ParamSimple],
     clintCtrl.readMultiWord(time, TIME_ADDR)
 
     def connectCore(core: Core, hartId: Int) = {
+      val t = RegNext(time)
       val timecmp = Reg(UInt(64 bits)) init(0xffffffffL)
       val softInterrupt = RegInit(False)
       clintCtrl.readAndWrite(timecmp(31 downto 0), CMP_ADDR + 8 * hartId)
       clintCtrl.readAndWrite(timecmp(63 downto 32), CMP_ADDR + 8 * hartId + 4)
       clintCtrl.readAndWrite(softInterrupt, IPI_ADDR + 4 * hartId)
-      core.time := time
-      core.interrupts.timer := RegNext(time >= timecmp)
+      core.time := t
+      core.interrupts.timer := RegNext(t >= timecmp)
       core.interrupts.software := softInterrupt
       core.interrupts.external := plic_target.iep
     }
@@ -464,9 +466,9 @@ object EndeavourSoc {
     SpinalConfig(mode=Verilog, targetDirectory="verilog").generate(new EndeavourSoc(
         //coresParams=List(Core.small(withCaches=false)), internalRam=true, ramSize=65536,
         //coresParams=List(Core.small(withCaches=true)),
-        coresParams=List(Core.medium()),
+        //coresParams=List(Core.medium()),
         //coresParams=List(Core.medium(), Core.small(withCaches=true)),
-        //coresParams=List(Core.medium(withFpu=false, withBiggerCache=false), Core.medium(withFpu=false, withBiggerCache=false)),
+        coresParams=List(Core.medium(withRvd=false, withBiggerCache=false), Core.medium(withRvd=false, withBiggerCache=false)),
         //coresParams=List(Core.full()),
         bootRomContent=Some(bootRomContent)
         ))

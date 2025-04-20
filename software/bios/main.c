@@ -6,12 +6,8 @@
 void print_cpu_info() {
   for (int hartid = 0; hartid < BOARD_REGS->hart_count; ++hartid) {
     printf(hartid == 0 ? "CPU " : "\t");
-    unsigned isa;
-    if (hartid == 0) {
-      asm volatile("csrr %0, misa" : "=r" (isa));
-    } else if (hart_cfg[hartid - 1].ready) {
-      isa = hart_cfg[hartid - 1].isa;
-    } else {
+    unsigned isa = hartid < 2 ? hart_cfg[hartid].isa : 0;
+    if (isa == 0) {
       printf("core%u: error\n", hartid);
       continue;
     }
@@ -43,8 +39,7 @@ void print_cpu_info() {
 
 int main() {
   BOARD_REGS->leds = 0;
-  for (int hartid = 1; hartid < BOARD_REGS->hart_count; ++hartid)
-    software_interrupt(hartid);  // triggers initilization code
+  if (BOARD_REGS->hart_count > 1) software_interrupt(1);  // triggers initilization code for second core
   beep(333, 300, 6);
 
   unsigned ram_size = BOARD_REGS->ram_size;
@@ -85,44 +80,7 @@ int main() {
 }
 
 void fatal_trap_handler(unsigned cause, unsigned tval, unsigned epc, unsigned sp, unsigned ra) {
-  printf("\nTRAP\n\tcause = %08x\n\ttval  = %08x\n\tepc   = %08x\n\tsp\t= %08x\n\tra\t= %08x\n", cause, tval, epc, sp, ra);
-  run_console();
-}
-
-#define SBI_DEBUG
-
-#define SBI_OK 0
-#define SBI_NOT_SUPPORTED -2
-
-#define SBI_EXT_TIMER 0x54494D45
-#define SBI_EXT_RESET 0x53525354
-
-struct sbiret {
-  int error;
-  int value;
-};
-
-struct sbiret sbi_handler(int arg, int argh, int fn_id, int ext_id) {
-  if (ext_id == 0x10) {
-    if (fn_id == 0) return (struct sbiret){SBI_OK, 2}; // SBI spec version = 0.2
-    if (fn_id == 3) {
-      if (arg == SBI_EXT_TIMER) return (struct sbiret){SBI_OK, 1};
-      if (arg == SBI_EXT_RESET) return (struct sbiret){SBI_OK, 1};
-#ifdef SBI_DEBUG
-      printf("[SBI] Probing extension 0x%x\n", arg);
-#endif
-      return (struct sbiret){SBI_OK, 0};
-    }
-    return (struct sbiret){SBI_OK, 0};
-  }
-  // Note: SBI_EXT_TIMER is handled in asm.S
-  if (ext_id == SBI_EXT_RESET) {
-    printf("[SBI] Reset requested.\n");
-    wait(10000000);
-    BOARD_REGS->reset = 1;
-  }
-#ifdef SBI_DEBUG
-  printf("[SBI] Function not supported ext=0x%x, fn=0x%x, arg=0x%x\n", ext_id, fn_id, arg);
-#endif
-  return (struct sbiret){SBI_NOT_SUPPORTED, 0};
+  unsigned hartid = get_hartid();
+  printf("\nTRAP (hart %u)\n\tcause = %08x\n\ttval  = %08x\n\tepc   = %08x\n\tsp\t= %08x\n\tra\t= %08x\n", hartid, cause, tval, epc, sp, ra);
+  if (hartid == 0) run_console();
 }

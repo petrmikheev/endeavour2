@@ -37,6 +37,7 @@ int i2c_set_reg(int addr, char reg, char value);
 
 extern unsigned* cursor_ptr;
 void init_display();
+void set_dvi_frequency(unsigned freq);
 int set_video_mode(enum VideoModeId modeid, const struct VideoMode* mode);
 void show_logo(unsigned* base_ptr, int line, int column);
 
@@ -49,8 +50,7 @@ unsigned sdwrite(const unsigned* src, unsigned sector, unsigned sector_count);
 void init_usb_keyboard();
 int get_keyboard_report(volatile struct KeyboardReport* data);
 
-extern struct HartCfg hart_cfg[3];
-
-void hart_run(int hartid, void* addr);
+extern volatile struct HartCfg hart_cfg[2];
+void run_in_supervisor_mode(void* addr, unsigned long arg);
 
 #endif  // BIOS_INTERNAL_H

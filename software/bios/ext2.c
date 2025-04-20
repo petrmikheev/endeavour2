@@ -244,14 +244,6 @@ static const char* init_ext2_reader(unsigned start_sector) {
   }
   partition_start = start_sector;
   if (superblock->version_major == 0) superblock->inode_size = 128;
-  if (superblock->inode_size & 3) {
-    printf("Invalid inode_size %u\n", superblock->inode_size);
-    return "Bad superblock";
-  }
-  if (superblock->log_block_size > 2) {
-    printf("Invalid log_block_size %u\n", superblock->log_block_size);
-    return "Bad superblock";
-  }
   inode_buf_loaded_block = -1;
   if (!read_block(group_desc_table, superblock->log_block_size ? 1 : 2)) {
     partition_start = -1;

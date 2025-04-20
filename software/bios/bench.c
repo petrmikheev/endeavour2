@@ -17,9 +17,7 @@ unsigned sparse_agg_xor_1mb_prefetch(const unsigned* src);
 void sparse_inplace_xor_1mb_prefetch(unsigned* data, unsigned v);
 
 void mul_vec4_mat4_float_384kflop(float* out, const float* in, const float* mat);
-void mul_vec4_mat4_double_384kflop(double* out, const double* in, const double* mat);
 void dummy_mul_float_384kflop(float* data, float v);
-void dummy_mul_double_384kflop(double* data, double v);
 
 static void print_mem_bench_res(const char* bench_name, unsigned start_time) {
   unsigned time = time_100nsec() - start_time;
@@ -94,33 +92,19 @@ static void run_benchmarks_th() {
   unsigned isa;
   asm volatile("csrr %0, misa" : "=r" (isa));
   int hasFloat = isa & (1<<5);
-  int hasDouble = isa & (1<<3);
-
-  if (hasFloat || hasDouble) printf("\nFPU benchmarks\n");
 
   if (hasFloat) {
+    printf("\nFPU benchmarks\n");
+
     fill_float((void*)page1, 24);
     start = time_100nsec();
     dummy_mul_float_384kflop((float*)page1, 1.0f);
     print_fpu_bench_res("fmul.s (no load/store)", start);
-  }
-  if (hasDouble) {
-    fill_double((void*)page1, 24);
-    start = time_100nsec();
-    dummy_mul_double_384kflop((double*)page1, 1.0);
-    print_fpu_bench_res("fmul.d (no load/store)", start);
-  }
-  if (hasFloat) {
+
     fill_float((void*)page1, 16 + 8192 * 3 * 4);
     start = time_100nsec();
     mul_vec4_mat4_float_384kflop((float*)page2, (float*)page1 + 16, (float*)page1);
     print_fpu_bench_res("vector4 * matrix4x4, fp32", start);
-  }
-  if (hasDouble) {
-    fill_double((void*)page1, 16 + 8192 * 3 * 4);
-    start = time_100nsec();
-    mul_vec4_mat4_double_384kflop((double*)page2, (double*)page1 + 16, (double*)page1);
-    print_fpu_bench_res("vector4 * matrix4x4, fp64", start);
   }
 
   printf("\nMemory benchmarks\n");
@@ -193,16 +177,14 @@ static void run_benchmarks_th() {
 void run_benchmarks() {
   run_benchmarks_th();
   for (int hartid = 1; hartid < BOARD_REGS->hart_count; ++hartid) {
-    volatile struct HartCfg* cfg = &hart_cfg[hartid - 1];
+    volatile struct HartCfg* cfg = &hart_cfg[hartid];
+    if (!cfg->isa) continue;
     cfg->jump_to = run_benchmarks_th;
+    cfg->action = HART_ACTION_FENCEI | HART_ACTION_JUMP;
     software_interrupt(hartid);
     while (1) {
       wait(2000000);
-      if (cfg->jump_to != 0) {
-        printf("\n[ERROR] Can't start benchmarks on core%u\n", hartid);
-        break;
-      }
-      if (cfg->ready) break;
+      if (!cfg->jump_to) break;
     }
   }
 }

@@ -56,6 +56,7 @@ static inline volatile struct HartCfg* bios_hart_run(int hartid, const void* add
   volatile struct HartCfg* cfg = bios_get_hart_cfg(hartid);
   if (cfg) {
     cfg->jump_to = addr;
+    cfg->action = HART_ACTION_FENCEI | HART_ACTION_START;
     software_interrupt(hartid);
   }
   return cfg;

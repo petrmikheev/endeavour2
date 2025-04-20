@@ -1,35 +1,49 @@
 #include <endeavour2/defs.h>
 
-#define STACK_ADDR (RAM_BASE + BIOS_SIZE)
+#define CORE0_STACK_ADDR (RAM_BASE + BIOS_SIZE)
+#define CORE1_STACK_ADDR (RAM_BASE + BIOS_SIZE - 0xD00)
 
 .section .data.data_start
 .align 2
-tmp_gp:
-    .word 0
-tmp_ra:
-    .word 0
-tmp_sp:
-    .word 0
-
-.global hart_cfg
-hart_cfg:
-    .zero 32*3
-
-.section .text.startup
-.global _start
-_start:
-    j start
-
-. = _start + 4
+tmp_gp:              .word 0
+tmp_ra:              .word 0
+tmp_sp:              .word 0
 
 .global sdcard_sector_count, text_style, cursor_ptr
 sdcard_sector_count: .word 0
 text_style:          .word 0
 cursor_ptr:          .word 0
 
+.align 6
+.global hart_cfg
+hart_cfg:
+    .zero 32*2
+
+.section .text.start
+.global _start
+_start:
+    .option push
+.option norelax
+    la gp, __global_pointer$
+.option pop
+    li t0, 1<<13
+    csrs mstatus, t0  # enable FPU
+    la t0, hart_cfg
+    csrr t1, misa
+    csrr tp, mhartid
+    beq tp, zero, start_core0
+# start_core1:
+    sw t1, 40(t0)
+    la t0, trap_core1
+    csrw mtvec, t0
+    j stop_core
+
+.section .text.api
+_api_start:
+
 .macro API_FN id fn
-  . = _start + 64 + 36 * \id
-  # store gp and ra to global variables rather than to stack
+  . = _api_start + 36 * \id
+  # store gp and ra to global variables rather than on stack
   # because stack may contain variadic arguments for printf/sscanf
     la t1, __global_pointer$
     sw gp, -0x800(t1)  # tmp_gp
@@ -56,6 +70,8 @@ cursor_ptr:          .word 0
     API_FN 10, get_hart_cfg
     API_FN 11, set_video_mode
 .option pop
+
+.section .text
 
 .global printf
 printf:
@@ -90,57 +106,27 @@ sscanf:
     addi sp, sp, 32
     ret
 
-start:
+start_core0:
+    li sp, CORE0_STACK_ADDR
+    sw sp, 4(t0)
+    sw t1, 8(t0)
+    la t0, trap_core0
+    csrw mtvec, t0
+    jal main
+
+.global stop_core
+stop_core:
 .option push
 .option norelax
-    la gp, __global_pointer$
+    la t0, hart_cfg
 .option pop
-    csrr tp, mhartid
-    bne tp, zero, not_main_thread
-    la t0, trap
-    csrw mtvec, t0
-    li t0, 1<<13
-    csrs mstatus, t0  # enable FPU
-    li sp, STACK_ADDR
-    jal main
-    j infloop
-
-not_main_thread:
-    slli t0, tp, 2
-    li t1, CLINT_BASE
+    csrr t1, mhartid
+    slli t1, t1, 5
     add t0, t0, t1
-    sw zero, 0(t0)   # clear pending IPI
-    addi t0, tp, -1
-    slli t0, t0, 5
-    la t1, hart_cfg
-    add s0, t0, t1   # struct HartCfg of this hart
-    csrr t0, misa
-    sw t0,  0x8(s0)
-
-    # store debug info
-    csrr t1, mcause
-    csrr t2, mtval
-    csrr t3, mepc
-    sw t1,  0xC(s0)
-    sw t2, 0x10(s0)
-    sw t3, 0x14(s0)
-    sw sp, 0x18(s0)
-    sw ra, 0x1C(s0)
-
-    lw t0, 4(s0) # jump_to
-    seqz t1, t0
-    sw t1, 0(s0) # set 'ready' if jump_to == 0
+    sw zero, 0(t0)
+    sw zero, 4(t0)
     csrsi mstatus, 1<<3  # allow interrupts in M mode
-    beq t0, zero, not_main_thread_wait
-    sw zero, 4(s0)
-    la sp, worker_stack
-    la ra, start
-    fence.i
-    jr t0
-
-not_main_thread_wait:
-    wfi
-    j not_main_thread_wait
+    j infloop
 
 .global run_binary
 run_binary:
@@ -162,18 +148,30 @@ run_binary:
     ret
 
 .align 2
-trap:
-    # save sp, t0, t1
+trap_core1:
     csrw mscratch, sp
-    li sp, STACK_ADDR - 64
+    li sp, CORE1_STACK_ADDR - 64
+    j trap
+
+.align 2
+trap_core0:
+    csrw mscratch, sp
+    li sp, CORE0_STACK_ADDR - 64
+
+trap:
     sw t0, 0(sp)
     sw t1, 4(sp)
 
-    # check timer interrupt
-    li t0, (1<<31) | 7
     csrr t1, mcause
-    beq t0, t1, timer_interrupt
 
+    li t0, (1<<31) | 3
+    beq t0, t1, software_interrupt
+    addi t0, t0, (7 - 3)
+    beq t0, t1, timer_interrupt
+    li t0, 4
+    beq t0, t1, misaligned_load
+    li t0, 6
+    beq t0, t1, misaligned_store
     li t0, 9
     bne t0, t1, fatal_trap
 
@@ -205,8 +203,8 @@ trap:
     la gp, __global_pointer$
 .option pop
 
-    mv a2, a6
-    mv a3, a7
+    mv a3, a6
+    mv a4, a7
     jal sbi_handler
 
     # restore context
@@ -225,8 +223,61 @@ trap:
     lw gp, 56(sp)
     j trap_ret
 
+#define HART_ACTION_IPI    1
+#define HART_ACTION_FENCEI 2
+#define HART_ACTION_JUMP   4
+
+software_interrupt:
+    sw t2, 8(sp)
+    csrr t1, mhartid
+    slli t1, t1, 2
+    li t0, CLINT_BASE
+    add t0, t0, t1
+    sw zero, 0(t0)   # clear pending IPI
+    slli t1, t1, 3
+.option push
+.option norelax
+    la t0, hart_cfg
+.option pop
+    add t0, t0, t1
+    lw t1, 0(t0)  # action
+    sw zero, 0(t0)
+    andi t2, t1, HART_ACTION_FENCEI
+    beq t2, zero, skip_fencei
+    fence.i
+skip_fencei:
+    andi t2, t1, HART_ACTION_IPI
+    beq t2, zero, skip_ipi
+    li t2, 1<<1
+    csrs mip, t2  # trigger S software interrupt
+skip_ipi:
+    andi t2, t1, HART_ACTION_JUMP
+    bne t2, zero, hart_jump
+
+    # store debug info
+    csrr t1, mepc
+    csrr t2, mscratch
+    sw t1, 0x14(t0)   # epc
+    sw t2, 0x18(t0)   # sp
+    sw ra, 0x1C(t0)   # ra
+
+    lw t2, 8(sp)
+    j trap_ret
+
+hart_jump:
+    lw t1, 4(t0)  # jump_to
+    beq t1, zero, stop_core
+    # args for run_in_supervisor_mode
+    lw a0, 0x14(t0)
+    lw a1, 0x10(t0)
+    jalr t1
+    j stop_core
+
 set_timer:
-    la t0, CLINT_TIMECMP(0)
+    csrr t1, mhartid
+    slli t1, t1, 3
+    li t0, CLINT_TIMECMP(0)
+    add t0, t0, t1
     li t1, -1
     sw t1, 4(t0)
     sw a0, 0(t0)
@@ -238,7 +289,10 @@ set_timer:
     j trap_ret
 
 timer_interrupt:
-    la t0, CLINT_TIMECMPH(0)
+    csrr t1, mhartid
+    slli t1, t1, 3
+    li t0, CLINT_TIMECMPH(0)
+    add t0, t0, t1
     li t1, -1
     sw t1, 0(t0)  # disable timer to prevent loop
     li t0, 1<<5
@@ -250,6 +304,10 @@ trap_ret:
     lw t1, 4(sp)
     csrr sp, mscratch
     mret
+
+misaligned_load:
+misaligned_store:
+    # TODO emulate misaligned
 
 fatal_trap:
     mv   a0, t1       # mcause
@@ -263,11 +321,38 @@ fatal_trap:
 .option pop
     jal fatal_trap_handler
 infloop:
+    wfi
     j infloop
 
-.section .bss.worker_stack
+.global run_in_supervisor_mode  # void run_in_supervisor_mode(void* addr, unsigned a1)
+run_in_supervisor_mode:
+    csrw mepc, a0
+    csrr a0, mhartid
+
+    # mstatus.mpp = 01 (S mode), unset mie/mpie
+    li t0, 0x1000 | (1<<3) | (1<<7)
+    li t1, 0x0800
+    csrc mstatus, t0
+    csrs mstatus, t1
+
+    csrci sstatus, (1<<1) # clear sie, so interrupt will not happen right after switching to S mode
+
+    # delegate interrupts to S mode
+    li t0, ~(1<<11) # ~((1<<3) | (1<<7) | (1<<11))
+    csrw mie, t0
+    li t0, -1
+    csrw mideleg, t0
+
+    # delegate exceptions to S mode
+    li t0, (1<<2) | (1<<3) | (1<<4) | (1<<5) | (1<<6) | (1<<8) | (1<<12) | (1<<13) | (1<<15)
+    csrw medeleg, t0
+
+    csrwi satp, 0  # turn off virtual memory in S mode
+    fence.i
+    mret           # switch to S mode and jump to addr
+
+.section .bss.core1_stack
     .zero 0x300
-worker_stack:
 
 .section .bss.ohci_hcca
 .global ohci_hcca

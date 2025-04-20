@@ -10,6 +10,7 @@
 
 #define TMP_BUF_1MB ((char*)(RAM_BASE +   0x8000))
 #define EVAL_BUF    ((char*)(RAM_BASE + 0x188000))
+#define DTB_BUF     ((char*)(RAM_BASE + 0x189000))
 #define MAIN_BUF    ((char*)(RAM_BASE + 0x800000))
 
 static int load_file(const char* path, void* addr, unsigned max_size) {
@@ -75,6 +76,50 @@ static int cmd_run(const char* args) {
   }
   run_binary((void*)addr, 0, 0);
   return CMD_OK;
+}
+
+struct dtb_header {
+    unsigned magic;
+    unsigned totalsize;
+    unsigned off_dt_struct;
+    unsigned off_dt_strings;
+    unsigned off_mem_rsvmap;
+    unsigned version;
+    unsigned last_comp_version;
+    unsigned boot_cpuid_phys;
+    unsigned size_dt_strings;
+    unsigned size_dt_struct;
+};
+
+static int cmd_dtb(const char* args) {
+  unsigned long addr;
+  if (args[0] != '8') {
+    if (load_file(args, DTB_BUF, 0x10000) <= 0) return CMD_FAILED;
+  } else {
+    if (sscanf(args, "%lx", &addr) != 1) return CMD_INVALID_ARGS;
+    unsigned size = ((struct dtb_header*)addr)->totalsize;
+    size = (size >> 24) | ((size >> 8) & 0xff00);
+    for (int i = 0; i < size / 4; ++i) {
+      ((unsigned*)DTB_BUF)[i] = ((unsigned*)addr)[i];
+    }
+  }
+  if (((struct dtb_header*)addr)->magic != 0xedfe0dd0) {
+    printf("Invalid DTB file\n");
+    return CMD_FAILED;
+  }
+  return CMD_OK;
+}
+
+static int cmd_boot(const char* args) {
+  unsigned long addr;
+  if (args[0] != '8') {
+    if (load_file(args, MAIN_BUF, -1) <= 0) return CMD_FAILED;
+    addr = (unsigned long)MAIN_BUF;
+  } else {
+    if (sscanf(args, "%lx", &addr) != 1) return CMD_INVALID_ARGS;
+  }
+  run_in_supervisor_mode((void*)addr, (unsigned long)DTB_BUF);
+  return CMD_OK;  // noreturn
 }
 
 static int cmd_crc32(const char* args) {
@@ -331,9 +376,9 @@ static const struct ConsoleCommand commands[] = {
   {cmd_beep,       "beep",        "time_ms [freq] [volume]", "beep sound"},
   {cmd_sound,      "sound",       "[-v volume] addr/path",   "play WAV file"},
   {cmd_run,        "run",         "addr/path",               "run binary"},
-  /*{cmd_no_impl,    "device_tree", "addr/path",               "specify DTB file"},
-  {cmd_no_impl,    "kernel_options", "*",                    "override kernel options in device tree"},
-  {cmd_no_impl,    "boot",        "addr/path",               "start kernel in supervisor mode"},*/
+  {cmd_dtb,        "device_tree", "addr/path",               "specify DTB file"},
+  //{cmd_no_impl,    "kernel_options", "*",                    "override kernel options in device tree"},
+  {cmd_boot,       "boot",        "addr/path",               "start kernel in supervisor mode"},
   {0}
 };
 

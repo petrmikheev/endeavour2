@@ -15,11 +15,14 @@ struct KeyboardReport {
 #define KEY_MOD_RSUPER  (1<<7)
 };
 
+#define HART_ACTION_IPI    1
+#define HART_ACTION_FENCEI 2
+#define HART_ACTION_JUMP   4
+
 struct HartCfg {
-  unsigned ready;
+  unsigned action;
   const void* jump_to;
   unsigned isa;
-  // debug info
   unsigned cause;
   unsigned tval;
   unsigned epc;
