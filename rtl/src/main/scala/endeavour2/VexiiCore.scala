@@ -99,7 +99,7 @@ object Core {
     param
   }
 
-  def full(): ParamSimple = {  // 2.451 DMIPS/MHz
+  def full(): ParamSimple = {  // 2.459 DMIPS/MHz
     val param = medium()
 
     // performance
@@ -107,7 +107,7 @@ object Core {
     param.lanes = 2
 
     // features
-    param.withRvZb = true
+    //param.withRvZb = true   // reduces fMax 220 MHz -> 136 MHz
 
     // fMax
     /*param.relaxedBranch = true

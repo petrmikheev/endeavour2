@@ -466,9 +466,9 @@ object EndeavourSoc {
     SpinalConfig(mode=Verilog, targetDirectory="verilog").generate(new EndeavourSoc(
         //coresParams=List(Core.small(withCaches=false)), internalRam=true, ramSize=65536,
         //coresParams=List(Core.small(withCaches=true)),
-        //coresParams=List(Core.medium()),
+        coresParams=List(Core.medium()),
         //coresParams=List(Core.medium(), Core.small(withCaches=true)),
-        coresParams=List(Core.medium(withRvd=false, withBiggerCache=false), Core.medium(withRvd=false, withBiggerCache=false)),
+        //coresParams=List(Core.medium(withRvd=false, withBiggerCache=false), Core.medium(withRvd=false, withBiggerCache=false)),
         //coresParams=List(Core.full()),
         bootRomContent=Some(bootRomContent)
         ))
