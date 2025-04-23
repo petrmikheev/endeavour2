@@ -134,8 +134,10 @@ class EndeavourSoc(coresParams: List[ParamSimple],
 
   val cpu_freq_counter = new FrequencyCounter()
   val dvi_freq_counter = new FrequencyCounter()
+  val ram_freq_counter = new FrequencyCounter()
   cpu_freq_counter.io.test_clk := io.clk_cpu
   dvi_freq_counter.io.test_clk := io.dyn_clk0
+  ram_freq_counter.io.test_clk := io.ddr.core_clk
 
   val cd60mhz = ClockDomain(
       clock = io.clk60, reset = rst_area.reset,
@@ -304,6 +306,7 @@ class EndeavourSoc(coresParams: List[ParamSimple],
   miscCtrl.write(ramTacShiftOverride, address = 0x28, bitOffset = 16)
   miscCtrl.read(U(ramSize, 32 bits), address = 0x2C)
   miscCtrl.readAndWrite(esp32CfgReg, address = 0x30)
+  miscCtrl.read(ram_freq_counter.io.freq(30 downto 0) @@ False, address = 0x34)
 
   val plicSize = 0x4000000
   val plicPriorityWidth = 1
@@ -340,6 +343,7 @@ class EndeavourSoc(coresParams: List[ParamSimple],
   when (t0b =/= time(0)) { time := time + 1 }  // time step: 100ns
   cpu_freq_counter.io.time := time(15 downto 0)
   dvi_freq_counter.io.time := time(15 downto 0)
+  ram_freq_counter.io.time := time(15 downto 0)
 
   val clintApb = Apb3(Apb3Config(
     addressWidth  = 16,

@@ -130,6 +130,7 @@ struct EndeavourI2C {
   #define REG_BOARD_RAM_STAT     0x28
   #define REG_BOARD_RAM_SIZE     0x2C
   #define REG_BOARD_ESP32_CFG    0x30
+  #define REG_BOARD_RAM_FREQ     0x34
 #else
 struct EndeavourBoard {
   unsigned reset;
@@ -142,6 +143,7 @@ struct EndeavourBoard {
   unsigned ram_stat;
   unsigned ram_size;
   unsigned esp32_cfg;
+  unsigned ram_frequency;
 };
 #define BOARD_REGS ((volatile struct EndeavourBoard*)(BOARD_BASE))
 #endif

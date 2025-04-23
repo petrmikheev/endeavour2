@@ -58,7 +58,7 @@ int main() {
   if (ram_size < (1<<20)) {
     printf("RAM: %u KB\n", ram_size >> 10);
   } else {
-    printf("RAM: %u MB\t", ram_size >> 20);
+    printf("RAM: %u MB, %u MHz\t", ram_size >> 20, BOARD_REGS->ram_frequency / 1000000);
     if (ram_size >= (8<<20) && fast_memtest() != 0) {
       beep(1000, 300, 6);
     }

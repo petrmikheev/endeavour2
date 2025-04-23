@@ -14,13 +14,13 @@
     ],
     "conf": {
         "data_width": "1",
-        "freq": "400",
+        "freq": "333",
         "col": "10",
         "row": "16",
         "bank": "3",
         "burst_length": "8",
         "read_burst_type": "1'b0",
-        "cas_latency": "6",
+        "cas_latency": "5",
         "dll_reset": "1",
         "precharge_pd": "1'b1",
         "dll_enable": "1'b1",
@@ -45,13 +45,13 @@
     },
     "output": {
         "external_source_source": [
-            "Ddr3Controller/Ddr3Controller_tmpl.vhd",
-            "Ddr3Controller/Ddr3Controller_tmpl.v",
             "Ddr3Controller/Ddr3Controller.v",
-            "Ddr3Controller/Ddr3Controller_define.vh"
+            "Ddr3Controller/Ddr3Controller_tmpl.vhd",
+            "Ddr3Controller/Ddr3Controller_define.vh",
+            "Ddr3Controller/Ddr3Controller_tmpl.v"
         ],
         "external_script_generator": []
     },
     "sw_version": "2024.2.294",
-    "generated_date": "2025-03-29T12:47:17.067934+00:00"
+    "generated_date": "2025-04-22T22:36:22.855835+00:00"
 }

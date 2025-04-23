@@ -16,88 +16,82 @@ static unsigned xorshift32() {
   return xorshift_state;
 }
 
-static void clear_1mb(unsigned* dst, unsigned v) {
-  for (int i = 0; i < 1024*1024/4; i += 16) {
-    asm volatile("prefetch.w 64(%0)" :: "r" (dst+i));
-    for (int j = i; j < i + 16; ++j) dst[j] = v;
-  }
-}
+void memset_1mb(unsigned* dst, unsigned v);  // implemented in bench_impl.c
 
-static void fill_1mb(unsigned* dst, unsigned modifier) {
-  for (int i = 0; i < 1024*1024/4; i += 16) {
-    asm volatile("prefetch.w 64(%0)" :: "r" (dst+i));
-    unsigned base = ((unsigned long)(dst + i) << 4) ^ modifier;
-    unsigned* line = dst + i;
-    for (int j = 0; j < 16; ++j) line[j] = base ^ j;
-  }
-}
-
-static void check_1mb(const unsigned* data, unsigned modifier, int* err_count) {
-  int ec = *err_count;
-  for (int i = 0; i < 1024*1024/4; i += 16) {
-    asm volatile("prefetch.r 64(%0)" :: "r" (data+i));
-    unsigned base = ((unsigned long)(data + i) << 4) ^ modifier;
-    const unsigned* line = data + i;
-    for (int j = 0; j < 16; ++j) {
-      unsigned expected = base ^ j;
-      unsigned actual = line[j];
-      if (actual != expected && ++ec <= 8) {
-        printf("\n\tmem[%08x] = %08x, expected %08x", line + j, actual, expected);
-      }
-    }
-  }
-  *err_count = ec;
-}
+// implemented in memtest_impl.c
+void check_clear_1mb(const unsigned* data, unsigned v, unsigned* err_count);
+void fill_and_check_sparse_1mb(unsigned* dst, unsigned old, unsigned new, unsigned step, unsigned* err_count);
+void fill_1mb(unsigned* dst, unsigned modifier);
+unsigned check_1mb(const unsigned* data, unsigned modifier, unsigned* err_count);
 
 #define MEMTEST_FROM ((void*)RAM_BASE + (8<<20))  // skip first 8 mb
 #define MEMTEST_TO   ((void*)RAM_BASE + BOARD_REGS->ram_size)
+#define RANDOM_ACCESS_BATCH_SIZE 2048
+
+static unsigned memtest_random_access(unsigned random_access_steps) {
+  unsigned err_count = 0;
+  unsigned* from = MEMTEST_FROM;
+  unsigned* to = MEMTEST_TO;
+  unsigned mask = (BOARD_REGS->ram_size - 1) & ~(RANDOM_ACCESS_BATCH_SIZE - 1);
+  for (int j = 0; j < random_access_steps; ++j) {
+    unsigned xstate = xorshift_state;
+    for (int i = 0; i < RANDOM_ACCESS_BATCH_SIZE; ++i) {
+      char* addr = (char*)(RAM_BASE + (long)(xorshift32() & mask)) + i;
+      if (addr < (char*)from) continue;
+      *addr = xorshift32();
+    }
+    xorshift_state = xstate;
+    for (int i = 0; i < RANDOM_ACCESS_BATCH_SIZE; ++i) {
+      char* addr = (char*)(RAM_BASE + (long)(xorshift32() & mask)) + i;
+      if (addr < (char*)from) continue;
+      unsigned char actual = *addr;
+      unsigned char expected = xorshift32();
+      if (__builtin_expect(actual != expected, 0) && ++err_count <= 8) {
+        printf("\n\tmem[%08x] = %02x, expected %02x", addr, actual, expected);
+      }
+    }
+  }
+  return err_count;
+}
 
 static int memtest_iteration(unsigned step, unsigned modifier, unsigned random_access_steps) {
   unsigned* from = MEMTEST_FROM;
   unsigned* to = MEMTEST_TO;
   step <<= 18;
   unsigned step_count = (to - from) / step;
-  unsigned* middle = from + (step_count / 2) * step;
-  int err_count = 0;
-  for (unsigned* base = from; base < middle; base += step) fill_1mb(base, modifier);
+  unsigned err_count_clear = 0;
+  unsigned err_count_sparse = 0;
+  unsigned err_count_fill = 0;
+  for (unsigned* base = from; base < to; base += step) memset_1mb(base, modifier);
   putchar('.');
-  for (unsigned* base = middle; base < to; base += step) fill_1mb(base, modifier);
+  for (unsigned* base = from; base < to; base += step) fill_and_check_sparse_1mb(base, modifier, ~modifier, 17, &err_count_sparse);
+  for (unsigned* base = from; base < to; base += step) fill_and_check_sparse_1mb(base, ~modifier, modifier, 17, &err_count_sparse);
   putchar('.');
-  for (unsigned* base = from; base < middle; base += step) check_1mb(base, modifier, &err_count);
-  if (err_count == 0) putchar('.');
-  for (unsigned* base = middle; base < to; base += step) check_1mb(base, modifier, &err_count);
-  if (err_count > 0) {
-    printf("\nFAILED batch access %u/%u errors, rerunning read stage...", err_count, step_count << 18);
-    int err_count2 = 0;
+  if (err_count_sparse > 0) {
+    printf("\nFAILED sparse stage %u/%u errors\n", err_count_sparse, step_count << 14);
+  }
+  for (unsigned* base = from; base < to; base += step) check_clear_1mb(base, modifier, &err_count_clear);
+  putchar('.');
+  if (err_count_clear > 0) {
+    printf("\nFAILED clear stage %u/%u errors\n", err_count_clear, step_count << 18);
+  }
+  for (unsigned* base = from; base < to; base += step) fill_1mb(base, modifier);
+  putchar('.');
+  for (unsigned* base = from; base < to; base += step) check_1mb(base, modifier, &err_count_fill);
+  putchar('.');
+  if (err_count_fill > 0) {
+    printf("\nFAILED batch access %u/%u errors, rerunning read stage...", err_count_fill, step_count << 18);
+    unsigned err_count2 = 0;
     for (unsigned* base = from; base < to; base += step) check_1mb(base, modifier, &err_count2);
     printf("\nREREAD %u/%u errors\n", err_count2, step_count << 18);
-    return err_count;
   }
-  putchar('.');
-  const unsigned batch_size = 2048;
-  for (int j = 0; j < random_access_steps; ++j) {  // random access stage
-    if (j == random_access_steps / 2) putchar('.');
-    unsigned xstate = xorshift_state;
-    unsigned mask = (BOARD_REGS->ram_size - 1) & ~(batch_size - 1);
-    for (int i = 0; i < batch_size; ++i) {
-      char* addr = (char*)(RAM_BASE + (long)(xorshift32() & mask)) + i;
-      if (addr < (char*)from) continue;
-      *addr = xorshift32();
-    }
-    xorshift_state = xstate;
-    for (int i = 0; i < batch_size; ++i) {
-      char* addr = (char*)(RAM_BASE + (long)(xorshift32() & mask)) + i;
-      if (addr < (char*)from) continue;
-      unsigned char actual = *addr;
-      unsigned char expected = xorshift32();
-      if (actual != expected && ++err_count <= 8) {
-        printf("\n\tmem[%08x] = %02x, expected %02x", addr, actual, expected);
-      }
-    }
+  unsigned err_count_random = memtest_random_access(random_access_steps);
+  if (err_count_random > 0) {
+    printf("\nFAILED random access %u/%u errors\n", err_count_random, random_access_steps * RANDOM_ACCESS_BATCH_SIZE);
   }
-  if (err_count > 0) {
-    printf("\nFAILED random access %u/%u errors\n", err_count, random_access_steps * batch_size);
-    return err_count;
+  if (err_count_clear | err_count_fill | err_count_random) {
+    printf(" FAILED\n");
+    return 1;
   }
   printf(" OK\n");
   return 0;
@@ -106,27 +100,17 @@ static int memtest_iteration(unsigned step, unsigned modifier, unsigned random_a
 int fast_memtest() {
   xorshift_init(0x3285a83d);
   printf("fast memtest");
-  int c = 0;
-  for (void* base = MEMTEST_FROM; base < MEMTEST_TO; base += 5<<20) {
-    clear_1mb(base, 0);
-    if ((++c & 127) == 0) putchar('.');
-  }
-  putchar('.');
-  return memtest_iteration(5, 0, 1024);
+  return memtest_iteration(5, 0, 512);
 }
 
 int full_memtest(unsigned iter_count, unsigned seed) {
-  int max_err = 0;
+  int err = 0;
   xorshift_init(seed);
-  unsigned clear_val = xorshift32();
-  printf("Memtest range %08x - %08x; initializing with %8x...", MEMTEST_FROM, MEMTEST_TO, clear_val);
-  for (void* base = MEMTEST_FROM; base < MEMTEST_TO; base += 1<<20) clear_1mb(base, clear_val);
-  printf(" DONE\n");
   for (unsigned iter = 0; iter < iter_count; ++iter) {
     unsigned modifier = xorshift32();
     printf("\titer=%-3u\txor=%08x\tmemtest", iter, modifier);
-    int err_count = memtest_iteration(1, modifier, 8192);
-    if (err_count > max_err) max_err = err_count;
+    err |= memtest_iteration(1, modifier, 2048);
+    if (BOARD_REGS->keys & 3) break;
   }
-  return max_err;
+  return err;
 }

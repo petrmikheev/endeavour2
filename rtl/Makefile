@@ -23,4 +23,3 @@ build_2a:
 .PHONY: write_2a
 write_2a:
 	cd endeavour2a && efx_run endeavour2a.xml --flow program --pgm_opts mode=jtag
-	../scripts/setup_uart.sh

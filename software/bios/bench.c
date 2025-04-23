@@ -34,7 +34,7 @@ static void print_fpu_bench_res(const char* bench_name, unsigned start_time) {
 static void test_memset(const unsigned* data, unsigned v) {
   for (int i = 0; i < 1024*1024/4; ++i) {
     if (data[i] != v) {
-      printf("[ERROR] incorrect result\n");
+      printf("[ERROR] incorrect result: mem[%08x] = %08x, expected %08x\n", data + i, data[i], v);
       break;
     }
   }
@@ -49,7 +49,7 @@ static void test_memcpy_fill(unsigned* data) {
 static void test_memcpy_check(const unsigned* data) {
   for (int i = 0; i < 1024*1024/4; ++i) {
     if (data[i] != i) {
-      printf("[ERROR] incorrect result\n");
+      printf("[ERROR] incorrect result: mem[%08x] = %08x, expected %08x\n", data + i, data[i], i);
       break;
     }
   }

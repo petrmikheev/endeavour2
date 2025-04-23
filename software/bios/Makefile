@@ -19,14 +19,17 @@ BENCH_ARCH=${BASE_ARCH}
 .PHONY: all
 all: bios.bin microloader.bin
 
-bios.elf: $(sources) bios_internal.h ext2.h bench_impl.o dhrystone/dhrystone.bin ../include/endeavour2/defs.h ../include/endeavour2/bios_defs.h
-	${TOOLCHAIN}gcc ${OPTIONS} ${BASE_ARCH} -Wl,--no-warn-rwx-segments -Os -o bios.elf $(sources) bench_impl.o
+bios.elf: $(sources) bios_internal.h ext2.h bench_impl.o memtest_impl.o dhrystone/dhrystone.bin ../include/endeavour2/defs.h ../include/endeavour2/bios_defs.h
+	${TOOLCHAIN}gcc ${OPTIONS} ${BASE_ARCH} -Wl,--no-warn-rwx-segments -Os -o bios.elf $(sources) bench_impl.o memtest_impl.o
 
 bios.bin: bios.elf
 	${TOOLCHAIN}objcopy -O binary bios.elf bios.bin
 
 bench_impl.o: bench_impl.c
 	${TOOLCHAIN}gcc ${OPTIONS} ${BENCH_ARCH} -O3 -c bench_impl.c
+
+memtest_impl.o: memtest_impl.c
+	${TOOLCHAIN}gcc ${OPTIONS} ${BASE_ARCH} -O3 -c memtest_impl.c
 
 dhrystone/dhrystone.bin:
 	cd dhrystone && make

@@ -38,6 +38,7 @@ _start:
     sw t0, REG_BOARD_LEDS(BBOARD)  # leds 0001 -> cpu started
     li t0, UART_BAUD_RATE(115200) | UART_PARITY_EVEN | UART_CSTOPB
     sw t0, REG_UART_CFG(BUART)
+    sw zero, REG_UART_RX(BUART)
 
 wait_ddr_calibration:
     lw t0, REG_BOARD_RAM_STAT(BBOARD)
