@@ -1,6 +1,7 @@
 hardware/*/endeavour2-backups
 hardware/*/#auto_saved_files#
 hardware/*/fp-info-cache
+hardware/*/*.kicad_prl
 rtl/endeavour2a/work_*
 rtl/endeavour2a/outflow
 rtl/endeavour2a/endeavour2a.f
