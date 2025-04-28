@@ -1,4 +1,4 @@
-#include <endeavour2/defs.h>
+#include <endeavour2/raw/defs.h>
 
 /* Microloader is placed in ROM.
 - Loads 32 KB to RAM_BASE from either UART (if boot_en=0) or SPI flash (boot_en=1 or key0=1).

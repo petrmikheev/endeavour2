@@ -1,8 +1,8 @@
 #ifndef BIOS_INTERNAL_H
 #define BIOS_INTERNAL_H
 
-#include <endeavour2/defs.h>
-#include <endeavour2/bios_defs.h>
+#include <endeavour2/raw/defs.h>
+#include <endeavour2/raw/bios_defs.h>
 
 void display_putchar(unsigned c);
 void putchar(char c);

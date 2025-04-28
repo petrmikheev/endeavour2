@@ -1,0 +1,13 @@
+CompileFlags:
+  Add:
+    - "-I/home/petya/linux/linux-6.9.2/include"
+    - "-I/home/petya/linux/linux-6.9.2/include/uapi"
+    - "-I/home/petya/linux/linux-6.9.2/arch/riscv/include"
+    - "-I/home/petya/linux/linux-6.9.2/arch/riscv/include/uapi"
+    - "-I/home/petya/linux/linux-6.9.2/include/generated"
+    - "-I/home/petya/linux/linux-6.9.2/include/generated/uapi"
+    - "-I/home/petya/linux/linux-6.9.2/arch/riscv/include/generated"
+    - "-I/home/petya/linux/linux-6.9.2/arch/riscv/include/generated/uapi"
+    - "-xc"
+    - "-m32"
+    - "--target=riscv32"

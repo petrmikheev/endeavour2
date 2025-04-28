@@ -1,4 +1,4 @@
-#include <endeavour2/defs.h>
+#include <endeavour2/raw/defs.h>
 
 #define CORE0_STACK_ADDR (RAM_BASE + BIOS_SIZE)
 #define CORE1_STACK_ADDR (RAM_BASE + BIOS_SIZE - 0xD00)

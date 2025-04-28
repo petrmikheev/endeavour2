@@ -1,0 +1,5 @@
+#!/bin/sh
+
+tty=/dev/ttyp$(($1 - 1))
+setsid sh -c "exec ${@:2} <${tty} >${tty} 2>&1" &
+

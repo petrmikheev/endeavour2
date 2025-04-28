@@ -17,6 +17,7 @@ rtl/simWorkspace
 software/.clangd
 software/bios/ter*
 software/bios/charmap.S
+software/textwm2/textwm2
 ~*
 *.log
 *.lock

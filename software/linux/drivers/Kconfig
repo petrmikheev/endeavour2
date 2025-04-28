@@ -1,0 +1,9 @@
+config ENDEAVOUR2_DRIVERS
+	bool "Drivers for Endeavour2 SoC"
+	depends on RISCV
+	default y
+	select SERIAL_CORE
+	select SERIAL_CORE_CONSOLE
+	select SERIAL_EARLYCON
+	help
+	  Drivers for Endeavour2 SoC.

@@ -1,4 +1,4 @@
-#include <endeavour2/defs.h>
+#include <endeavour2/raw/defs.h>
 
 #include "bios_internal.h"
 #include "ext2.h"
@@ -110,14 +110,18 @@ static int cmd_dtb(const char* args) {
   return CMD_OK;
 }
 
+static int cmd_load(const char* args) {
+  unsigned long addr;
+  if (args[0] != '8') return CMD_INVALID_ARGS;
+  if (sscanf(args, "%lx", &addr) != 1) return CMD_INVALID_ARGS;
+  while (*args && *args != ' ') args++;
+  if (load_file(args, (void*)addr, -1) <= 0) return CMD_FAILED;
+  return CMD_OK;
+}
+
 static int cmd_boot(const char* args) {
   unsigned long addr;
-  if (args[0] != '8') {
-    if (load_file(args, MAIN_BUF, -1) <= 0) return CMD_FAILED;
-    addr = (unsigned long)MAIN_BUF;
-  } else {
-    if (sscanf(args, "%lx", &addr) != 1) return CMD_INVALID_ARGS;
-  }
+  if (sscanf(args, "%lx", &addr) != 1) return CMD_INVALID_ARGS;
   run_in_supervisor_mode((void*)addr, (unsigned long)DTB_BUF);
   return CMD_OK;  // noreturn
 }
@@ -370,15 +374,15 @@ static const struct ConsoleCommand commands[] = {
   {cmd_disk,       "disk",        "sd/sd1/sd2/sd3/sd4",      "select sdcard partition for file access (only EXT2 supported)"},
   {cmd_ls,         "ls",          "path",                    "show files"},
   {cmd_cat,        "cat",         "path",                    "print text file"},
-  /*{cmd_no_impl,    "eval",        "path",                    "run commands from given text file"},
-  {cmd_no_impl,    "load",        "path [addr]",             "load file content to RAM"},*/
-  {cmd_wallpaper,  "wallpaper",   "addr/path/off",           "set or remove wallpaper (only BMP supported)"},
+  //{cmd_no_impl,    "eval",        "path",                    "run commands from given text file"},
+  {cmd_load,       "load",        "addr path",               "load file content to RAM"},
+  {cmd_wallpaper,  "wallpaper",   "addr/path/off",           "set or remove wallpaper (only RGB565 BMP supported)"},
   {cmd_beep,       "beep",        "time_ms [freq] [volume]", "beep sound"},
   {cmd_sound,      "sound",       "[-v volume] addr/path",   "play WAV file"},
   {cmd_run,        "run",         "addr/path",               "run binary"},
   {cmd_dtb,        "device_tree", "addr/path",               "specify DTB file"},
   //{cmd_no_impl,    "kernel_options", "*",                    "override kernel options in device tree"},
-  {cmd_boot,       "boot",        "addr/path",               "start kernel in supervisor mode"},
+  {cmd_boot,       "boot",        "addr",                    "start kernel in supervisor mode"},
   {0}
 };
 

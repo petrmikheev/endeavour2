@@ -19,7 +19,7 @@
  * 2025. Modified to run on Endeavour2 SoC.
  */
 
-#include <endeavour2/defs.h>
+#include <endeavour2/raw/defs.h>
 
 #include "dhry.h"
 

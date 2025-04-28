@@ -1,0 +1,111 @@
+// SPDX-License-Identifier: GPL-3.0
+/dts-v1/;
+
+/ {
+  #address-cells = <1>;
+  #size-cells = <1>;
+  model = "Endeavour2";
+
+  chosen {
+    bootargs = "console=ttyS0,sbi:115200e earlycon=endeavour_sbi root=/dev/mmcblk0p1";
+  };
+
+  cpus {
+    #address-cells = <1>;
+    #size-cells = <0>;
+    timebase-frequency = <10000000>;
+
+    cpu0: cpu@0 {
+      device_type = "cpu";
+      reg = <0>;
+      status = "okay";
+      compatible = "riscv";
+      riscv,isa-base = "rv32i";
+      riscv,isa-extensions = "i", "m", "a", "f", "c", "zicntr", "zicsr", "zifencei", "zicbop";
+      mmu-type = "riscv,sv32";
+      intc0: interrupt-controller {
+        #interrupt-cells = <1>;
+        interrupt-controller;
+        compatible = "riscv,cpu-intc";
+      };
+    };
+
+    cpu1: cpu@1 {
+      device_type = "cpu";
+      reg = <1>;
+      status = "okay";
+      compatible = "riscv";
+      riscv,isa-base = "rv32i";
+      riscv,isa-extensions = "i", "m", "a", "f", "c", "zicntr", "zicsr", "zifencei", "zicbop";
+      mmu-type = "riscv,sv32";
+      intc1: interrupt-controller {
+        #interrupt-cells = <1>;
+        interrupt-controller;
+        compatible = "riscv,cpu-intc";
+      };
+    };
+
+    cpu-map {
+      cluster0 {
+        core0 { cpu = <&cpu0>; };
+        core1 { cpu = <&cpu1>; };
+      };
+    };
+  };
+
+  plic: interrupt-controller@4000000 {
+    compatible = "riscv,plic0";
+    reg = <0x4000000 0x4000000>;
+    #address-cells = <0>;
+    #size-cells = <0>;
+    #interrupt-cells = <1>;
+    interrupt-controller;
+    interrupts-extended = <&intc0 9>, <&intc1 9>;
+    riscv,ndev = <4>;
+  };
+
+  uart: serial@100 {
+    compatible = "endeavour,uart";
+    reg = <0x100 12>;
+    interrupts-extended = <&plic 1>;
+  };
+
+  /*audio: audio@200 {
+    compatible = "endeavour,audio";
+    reg = <0x200 8>;
+  };*/
+
+  mmcblk: mmcblk@3000 {
+    compatible = "endeavour,mmcblk";
+    reg = <0x3000 32>;
+    interrupts-extended = <&plic 2>;
+  };
+
+  display: display@2000 {
+    compatible = "endeavour,display";
+    reg = <0x2000 64>;
+  };
+
+  ohci: ohci@4000 {
+    compatible = "generic-ohci";
+    reg = <0x4000 0x1000>;
+    status = "okay";
+    interrupts-extended = <&plic 3>;
+  };
+
+  memory@80000000 {
+    device_type = "memory";
+    reg = <0x80000000 0x40000000>;
+  };
+
+  reserved-memory {
+    #address-cells = <1>;
+    #size-cells = <1>;
+    ranges;
+    reserved@80000000 {
+      no-map;
+      reg = <0x80000000 0x2000000>;
+    };
+  };
+
+};

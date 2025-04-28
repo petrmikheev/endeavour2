@@ -1,8 +1,8 @@
 #ifndef ENDEAVOUR2_BIOS_H
 #define ENDEAVOUR2_BIOS_H
 
-#include <endeavour2/defs.h>
-#include <endeavour2/bios_defs.h>
+#include <endeavour2/raw/defs.h>
+#include <endeavour2/raw/bios_defs.h>
 
 #define API_FN(ID, RET, ...) ((RET (*)(__VA_ARGS__))(RAM_BASE + 64 + ID * 36))
 
@@ -56,7 +56,7 @@ static inline volatile struct HartCfg* bios_hart_run(int hartid, const void* add
   volatile struct HartCfg* cfg = bios_get_hart_cfg(hartid);
   if (cfg) {
     cfg->jump_to = addr;
-    cfg->action = HART_ACTION_FENCEI | HART_ACTION_START;
+    cfg->action = HART_ACTION_FENCEI | HART_ACTION_JUMP;
     software_interrupt(hartid);
   }
   return cfg;

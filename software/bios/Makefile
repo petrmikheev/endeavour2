@@ -1,6 +1,6 @@
 sources = asm.S main.c sbi.c util.c bench.c memtest.c readline.c sound.c time.c display.c sdcard.c usb.c console.c ext2.c charmap.S
 
-TOOLCHAIN=../../../endeavour-tools/rv32imac-linux-toolchain/bin/riscv32-unknown-linux-gnu-
+TOOLCHAIN=../../../endeavour2-ext/rv32gc-linux-toolchain/bin/riscv32-unknown-linux-gnu-
 
 OPTIONS=-nostdlib -ffreestanding -I../include -T bios.lds
 OPTIONS+= -fomit-frame-pointer -fno-exceptions -fno-asynchronous-unwind-tables -fno-unwind-tables
@@ -19,7 +19,7 @@ BENCH_ARCH=${BASE_ARCH}
 .PHONY: all
 all: bios.bin microloader.bin
 
-bios.elf: $(sources) bios_internal.h ext2.h bench_impl.o memtest_impl.o dhrystone/dhrystone.bin ../include/endeavour2/defs.h ../include/endeavour2/bios_defs.h
+bios.elf: $(sources) bios_internal.h ext2.h bench_impl.o memtest_impl.o dhrystone/dhrystone.bin ../include/endeavour2/raw/defs.h ../include/endeavour2/raw/bios_defs.h
 	${TOOLCHAIN}gcc ${OPTIONS} ${BASE_ARCH} -Wl,--no-warn-rwx-segments -Os -o bios.elf $(sources) bench_impl.o memtest_impl.o
 
 bios.bin: bios.elf
@@ -46,7 +46,7 @@ ter-u16.bdf:
 charmap.S: ter-u16.bdf
 	python3 gen_charmap.py ter-u16.bdf > charmap.S
 
-microloader.bin: microloader.S ../include/endeavour2/defs.h
+microloader.bin: microloader.S ../include/endeavour2/raw/defs.h
 	${TOOLCHAIN}gcc -march=rv32im_zicsr_zifencei -mabi=ilp32 -nostdlib -ffreestanding -Os -o microloader.elf microloader.S -I../include -Wl,--section-start=.text=0x40000000
 	${TOOLCHAIN}objcopy -O binary microloader.elf microloader.bin
 	../../scripts/gen_hex.py microloader.bin 2 > microloader.mem

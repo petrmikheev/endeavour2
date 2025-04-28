@@ -1,4 +1,4 @@
-TOOLCHAIN=../../../endeavour-tools/rv32imac-linux-toolchain/bin/riscv32-unknown-linux-gnu-
+TOOLCHAIN=../../../endeavour2-ext/rv32gc-linux-toolchain/bin/riscv32-unknown-linux-gnu-
 
 OPTIONS=-mabi=ilp32 -nostdlib -ffreestanding -I../include -T flat.lds
 OPTIONS+= -fomit-frame-pointer -fno-exceptions -fno-asynchronous-unwind-tables -fno-unwind-tables
@@ -16,4 +16,4 @@ hello_world.bin : hello_world.c
 
 .PHONY: clean
 clean:
-	rm -rf *.bin *.elf
+	rm -f *.bin *.elf

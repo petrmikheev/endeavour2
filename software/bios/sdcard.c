@@ -1,7 +1,7 @@
 // Minimalistic driver for sdspi (https://github.com/ZipCPU/sdspi) controller.
 // Supports only SDHC and SDXC cards.
 
-#include <endeavour2/defs.h>
+#include <endeavour2/raw/defs.h>
 
 #include "bios_internal.h"
 
