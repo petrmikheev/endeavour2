@@ -103,7 +103,7 @@ static int cmd_dtb(const char* args) {
       ((unsigned*)DTB_BUF)[i] = ((unsigned*)addr)[i];
     }
   }
-  if (((struct dtb_header*)addr)->magic != 0xedfe0dd0) {
+  if (((struct dtb_header*)DTB_BUF)->magic != 0xedfe0dd0) {
     printf("Invalid DTB file\n");
     return CMD_FAILED;
   }
@@ -115,7 +115,38 @@ static int cmd_load(const char* args) {
   if (args[0] != '8') return CMD_INVALID_ARGS;
   if (sscanf(args, "%lx", &addr) != 1) return CMD_INVALID_ARGS;
   while (*args && *args != ' ') args++;
+  while (*args == ' ') args++;
   if (load_file(args, (void*)addr, -1) <= 0) return CMD_FAILED;
+  return CMD_OK;
+}
+
+static int eval_in_progress = 0;
+
+int cmd_eval(const char* args) {
+  if (eval_in_progress) {
+    printf("Recursive eval not allowed");
+    return CMD_FAILED;
+  }
+  int size = load_file(args, EVAL_BUF, 0xfff);
+  if (size <= 0) return CMD_FAILED;
+  eval_in_progress = 1;
+  char* buf = EVAL_BUF;
+  buf[0xfff] = 0;
+  while (*buf) {
+    int len = 0;
+    while (buf[len] && buf[len] != '\n') len++;
+    char* cmd = buf;
+    buf += len;
+    if (*buf) buf++;
+    cmd[len] = 0;
+    if (cmd[0] == 0 || cmd[0] == '#') continue;
+    printf("$ %s\n", cmd);
+    if (run_command(cmd) != CMD_OK) {
+      eval_in_progress = 0;
+      return CMD_FAILED;
+    }
+  }
+  eval_in_progress = 0;
   return CMD_OK;
 }
 
@@ -374,7 +405,7 @@ static const struct ConsoleCommand commands[] = {
   {cmd_disk,       "disk",        "sd/sd1/sd2/sd3/sd4",      "select sdcard partition for file access (only EXT2 supported)"},
   {cmd_ls,         "ls",          "path",                    "show files"},
   {cmd_cat,        "cat",         "path",                    "print text file"},
-  //{cmd_no_impl,    "eval",        "path",                    "run commands from given text file"},
+  {cmd_eval,       "eval",        "path",                    "run commands from given text file"},
   {cmd_load,       "load",        "addr path",               "load file content to RAM"},
   {cmd_wallpaper,  "wallpaper",   "addr/path/off",           "set or remove wallpaper (only RGB565 BMP supported)"},
   {cmd_beep,       "beep",        "time_ms [freq] [volume]", "beep sound"},
@@ -410,7 +441,7 @@ static void print_available_commands() {
   putchar('\n');
 }
 
-static int run_command(const char* cmd_line) {
+int run_command(const char* cmd_line) {
   for (const struct ConsoleCommand* cmd = commands; cmd->handler; cmd++) {
     const char* p1 = cmd->name;
     const char* p2 = cmd_line;
@@ -431,6 +462,7 @@ static int run_command(const char* cmd_line) {
 void run_console() {
   printf("\nStarting BIOS console\n");
   print_available_commands();
+  eval_in_progress = 0;
   while (1) {
     #define CMD_BUF_SIZE 120
     char cmd[CMD_BUF_SIZE];

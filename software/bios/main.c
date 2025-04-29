@@ -37,6 +37,27 @@ void print_cpu_info() {
   }
 }
 
+void autoboot() {
+  unsigned cb = BOARD_REGS->keys & (BOARD_KEY_CBSEL0 | BOARD_KEY_CBSEL1);
+  const char* conf_name = 0;
+  switch (cb) {
+    case 0: conf_name = "boot.0.conf"; break;
+    case BOARD_KEY_CBSEL0: conf_name = "boot.1.conf"; break;
+    case BOARD_KEY_CBSEL1: conf_name = "boot.2.conf"; break;
+    case BOARD_KEY_CBSEL0 | BOARD_KEY_CBSEL1: conf_name = "boot.3.conf"; break;
+    default:;
+  }
+  struct Inode* inode = find_inode(conf_name);
+  if (!inode) {
+    conf_name = "boot.conf";
+    inode = find_inode(conf_name);
+  }
+  if (inode && is_regular_file(inode)) {
+    printf("Autostarting /%s\n", conf_name);
+    cmd_eval(conf_name);
+  }
+}
+
 int main() {
   BOARD_REGS->leds = 0;
   if (BOARD_REGS->hart_count > 1) software_interrupt(1);  // triggers initilization code for second core
@@ -74,6 +95,8 @@ int main() {
     }
   }
   init_usb_keyboard();
+
+  if ((BOARD_REGS->keys & BOARD_KEY_BOOT_EN) && is_ext2_reader_initialized()) autoboot();
 
   run_console();
   while(1);

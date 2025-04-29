@@ -30,6 +30,8 @@ void beep(unsigned duration_ms, unsigned frequency, int volume);
 void playWav(void* filePtr, int volume);
 
 void run_console();
+int run_command(const char* cmd_line);
+int cmd_eval(const char* args);
 
 int i2c_read(int addr, int size, char* data);
 int i2c_write(int addr, int size, const char* data);
