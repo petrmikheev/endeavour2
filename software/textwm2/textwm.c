@@ -75,6 +75,10 @@ void init_ttys() {
     tty->bold = false;
     tty->cursor_visible = false;
     tty->cursor_blink = false;
+    tty->cursor_hidden = false;
+    tty->vt100_graphics = false;
+    tty->scroll_from = 0;
+    tty->scroll_to = tty->height;
     //tty->in_start = tty->in_end = 0;
     pfds[i + 2].fd = tty->fd;
     pfds[i + 2].events = POLLIN;
@@ -155,6 +159,8 @@ void resize_tty(int tty_id) {
   }
   tty->height = new_size.ws_row;
   tty->width = new_size.ws_col;
+  tty->scroll_from = 0;
+  tty->scroll_to = tty->height;
   ioctl(tty->fd, TIOCSWINSZ, &new_size);
   update_taddr(tty_id);
 }
@@ -227,27 +233,30 @@ void set_resolution(int w, int h) {
   display_cfg_changed();
 }
 
-void command(const char* cmd) {
+void command(char* cmd) {
+  for (char* ptr = cmd; *ptr; ptr++) if (*ptr == '#') *ptr = ' ';
   unsigned i = -1, color, alpha, bg_alpha;
   if (strncmp(cmd, "color", 5) == 0) {
-    if (sscanf(cmd, "color%d #%x %d %d", &i, &color, &alpha, &bg_alpha) != 4) goto err;
+    if (sscanf(cmd, "color%d %x %d %d", &i, &color, &alpha, &bg_alpha) != 4) goto err;
     display_set_colormap(display_fd, 16 + i, (color << 8) | alpha);
     display_set_colormap(display_fd, i, (color << 8) | bg_alpha);
   } else if (strncmp(cmd, "fgcolor", 7) == 0) {
-    if (sscanf(cmd, "fgcolor%d #%x %d", &i, &color, &alpha) != 3) goto err;
+    if (sscanf(cmd, "fgcolor%d %x %d", &i, &color, &alpha) != 3) goto err;
     display_set_colormap(display_fd, 16 + i, (color << 8) | alpha);
   } else if (strncmp(cmd, "bgcolor", 7) == 0) {
-    if (sscanf(cmd, "bgcolor%d #%x %d", &i, &color, &alpha) != 3) goto err;
+    if (sscanf(cmd, "bgcolor%d %x %d", &i, &color, &alpha) != 3) goto err;
     display_set_colormap(display_fd, i, (color << 8) | alpha);
   } else if (strncmp(cmd, "screen_color", 12) == 0) {
-    if (sscanf(cmd, "screen_color #%x %d", &color, &alpha) != 2) goto err;
+    if (sscanf(cmd, "screen_color %x %d", &color, &alpha) != 2) goto err;
     display_set_colormap(display_fd, SCREEN_BG, (color << 8) | alpha);
   } else if (strncmp(cmd, "window_color", 12) == 0) {
-    if (sscanf(cmd, "window_color #%x %d", &color, &alpha) != 2) goto err;
+    if (sscanf(cmd, "window_color %x %d", &color, &alpha) != 2) goto err;
     display_set_colormap(display_fd, WINDOW_BG, (color << 8) | alpha);
   } else if (strncmp(cmd, "active_window_color", 19) == 0) {
-    if (sscanf(cmd, "active_window_color #%x %d", &color, &alpha) != 2) goto err;
+    if (sscanf(cmd, "active_window_color %x %d", &color, &alpha) != 2) goto err;
     display_set_colormap(display_fd, ACTIVE_WINDOW_BG, (color << 8) | alpha);
+  } else if (strcmp(cmd, "graphic off") == 0) {
+    set_wallpaper(0);
   } else if (strncmp(cmd, "wallpaper ", 10) == 0) {
     const char* arg = cmd + 10;
     while (*arg == ' ') arg++;
@@ -260,6 +269,8 @@ void command(const char* cmd) {
     const char* arg = cmd + 10;
     while (*arg == ' ') arg++;
     set_font(arg, true);
+  } else if (strcmp(cmd, "display off") == 0) {
+    display_set_mode(display_fd, 0);
   } else if (strncmp(cmd, "display ", 8) == 0) {
     int w, h;
     if (sscanf(cmd, "display %dx%d", &w, &h) != 2) goto err;
@@ -346,7 +357,7 @@ void timer_handler(int sig, siginfo_t *si, void *uc) {
     blink_counter = (blink_counter + 1) & 15;
     if (blink_counter >= 8)
       hide_cursor(atty);
-    else
+    else if (!atty->cursor_hidden)
       show_cursor(atty);
   }
   int workspace = atty->workspace;
@@ -416,6 +427,7 @@ int main() {
   graphic_buffer = display_map_video_memory(display_fd, GRAPHIC_BUFFER(0), GRAPHIC_BUFFER_SIZE);
   display_disable_sbi_console(display_fd);
   init_special_chars();
+  init_vt100_graphic_table();
 
   // TODO move or disable bios graphic buffer
   for (int i = 0; i < TEXT_BUFFER_SIZE / 4 * 15; ++i) ((unsigned*)text_buffers)[i] = DEFAULT_STYLE | ' ';
@@ -490,7 +502,7 @@ int main() {
         hide_cursor(tty);
         rsize = read(pfds[i + 2].fd, buf, BUF_SIZE);
         for (int j = 0; j < rsize; ++j) tty_handler(i, buf[j]);
-        show_cursor(tty);
+        if (!tty->cursor_hidden) show_cursor(tty);
         tty->cursor_blink = true;
       }
       /*struct TTY *tty = &ttys[i];
