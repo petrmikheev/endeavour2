@@ -323,6 +323,8 @@ void init_special_chars() {
   display_set_charmap(display_fd, 0x1E9, (const unsigned*)c9);
   display_set_charmap(display_fd, 0x1EA, (const unsigned*)cA);
   display_set_charmap(display_fd, 0x1EB, (const unsigned*)cB);
+  display_set_colormap(display_fd, WINDOW_BG + 1, COLORMAP_TEXT_COLOR(242, 82, 0) | COLORMAP_TEXT_ALPHA(64));
+  display_set_colormap(display_fd, ACTIVE_WINDOW_BG + 1, COLORMAP_TEXT_COLOR(242, 82, 0) | COLORMAP_TEXT_ALPHA(64));
 }
 
 void hborder(int tty_id, unsigned* buf, int y, bool top) {
@@ -381,7 +383,7 @@ void timer_handler(int sig, siginfo_t *si, void *uc) {
         int tx = tty->window_posx + x;
         if (tx < 0 || tx >= text_width) continue;
         unsigned v = *(unsigned*)(src + (x<<2));
-        if (tty_id != active_tty && (v >> 24) == ACTIVE_WINDOW_BG) v += (WINDOW_BG - ACTIVE_WINDOW_BG) << 24;
+        if (tty_id != active_tty && ((v >> 24)&127) == ACTIVE_WINDOW_BG) v += (WINDOW_BG - ACTIVE_WINDOW_BG) << 24;
         dst[tx] = v;
       }
       vborder(tty_id, dst, tty->window_posx + tty->width, false);

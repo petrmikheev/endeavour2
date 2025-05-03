@@ -1,0 +1,58 @@
+#!/bin/sh
+#
+# Starts textwm
+#
+
+export PATH=/sbin:/usr/sbin:/bin:/usr/bin
+export PS1='\u:\[\e[34m\]\w\[\e[m\]\$ '
+export LC_ALL=C.UTF-8
+export GROFF_TYPESETTER=ascii
+export TERM=linux
+
+start() {
+	printf "Starting textwm: "
+	/usr/bin/textwm2 &
+	sleep 1
+	echo -e '\n\n\t\t\e[1;95mEndeavour2\e[m\t\e[?314e\n' > /dev/ttyp0
+	echo -e 'TextWM usage:' > /dev/ttyp0
+	echo -e '\tAlt+1 - Alt+7\t\t - switch window' > /dev/ttyp0
+	echo -e '\tSuper+8 / Super+9\t - move current window to workspace 0/1' > /dev/ttyp0
+	echo -e '\tSuper+0\t\t\t - toggle fullscreen' > /dev/ttyp0
+	echo -e '\tSuper+Arrow\t\t - move current window' > /dev/ttyp0
+	echo -e '\tSuper+Shift+Arrow\t - resize current window' > /dev/ttyp0
+	echo -e '\ttwmrun <N> <command>\t - run command on window N (1-7)' > /dev/ttyp0
+	echo -e '\ttwmcfg display WxH\t - set display resolution (off/640x460/800x600/1024x768/1280x720/1920x1080)' > /dev/ttyp0
+	echo -e '\ttwmcfg wallpaper <path>\t - set wallpaper' > /dev/ttyp0
+	echo -e '\nStarting root shell\n' > /dev/ttyp0
+	HOME=/home/root twmrun 1 sh
+	HOME=/home/root twmrun 2 sh
+	echo "OK"
+}
+stop() {
+	echo "Stopping textwm: OK"
+	twmcfg display off
+	sleep 0.5
+	#TODO kill process
+}
+restart() {
+	#stop
+	sleep 1
+	#start
+}
+
+case "$1" in
+  start)
+	start
+	;;
+  stop)
+	stop
+	;;
+  restart|reload)
+	restart
+	;;
+  *)
+	echo "Usage: $0 {start|stop|restart}"
+	exit 1
+esac
+
+exit $?

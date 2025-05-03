@@ -113,6 +113,17 @@ static void tty_print(struct TTY *tty, unsigned ucode) {
   tty->column += 1;
 }
 
+void show_logo(struct TTY *tty) {
+  const int base = 0xf0;
+  for (int y = 0; y < 2; ++y) {
+    unsigned* line = tty_line(tty, tty->line + y - 1) + tty->column;
+    for (int x = 0; x < 4; ++x) {
+      line[x] = (1<<31) | TEXT_BG(ACTIVE_WINDOW_BG) | TEXT_FG(126) | ((base + y*8 + 4 + x) << 8) | (base + y*8 + x);
+    }
+  }
+  tty->column += 4;
+}
+
 static void tty_sgr(struct TTY *tty) {
   int i = 0;
   const char* s = tty->csi;
@@ -303,6 +314,7 @@ static void tty_csi(int tty_id) {
       if (strcmp(tty->csi, "?25l") == 0) tty->cursor_hidden = true;
       else if (strcmp(tty->csi, "?25h") == 0) tty->cursor_hidden = false;
       else if (strcmp(tty->csi, "?0c") == 0 || strcmp(tty->csi, "?1c") == 0) { /* status request; ignore */ }
+      else if (strcmp(tty->csi, "?314e") == 0) show_logo(tty);
       else goto err;
   }
   if (tty->line < scroll_from) tty->line = scroll_from;
@@ -352,7 +364,6 @@ void tty_handler(int tty_id, unsigned char c) {
         break;
       default:
         if (c & 128) {
-          printf("ucode\n");
           tty->state = 'u'; // utf8
           if ((c & 32) == 0) {
             tty->ucount = 2;

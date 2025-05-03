@@ -12,8 +12,8 @@ extern int text_width, text_height;
 extern char* text_buffers;
 
 #define ACTIVE_WINDOW_BG 32
-#define WINDOW_BG 33
-#define SCREEN_BG 34
+#define WINDOW_BG 34
+#define SCREEN_BG 36
 
 #define DEFAULT_STYLE (TEXT_BG(ACTIVE_WINDOW_BG) | TEXT_FG(31))
 
