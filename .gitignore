@@ -16,6 +16,7 @@ rtl/verilog/EndeavourSoc.v*
 rtl/simWorkspace
 software/.clangd
 software/bios/ter*
+software/buildroot/ter*
 software/bios/charmap.S
 software/textwm2/textwm2
 ~*

@@ -7,7 +7,7 @@
   model = "Endeavour2";
 
   chosen {
-    bootargs = "console=ttyS0,sbi:115200e earlycon=endeavour_sbi root=/dev/mmcblk0p1";
+    bootargs = "console=ttyS0,sbi:115200e earlycon=endeavour_sbi root=/dev/mmcblk0p2";
   };
 
   cpus {
@@ -80,6 +80,16 @@
   memory@80000000 {
     device_type = "memory";
     reg = <0x80000000 0x40000000>;
+  };
+
+  framebuffer0: framebuffer@80800000 {
+    compatible = "simple-framebuffer";
+    reg = <80800000 (4096 * 2048)>;
+    width = <1280>;
+    height = <720>;
+    stride = <4096>;
+    format = "r5g6b5";
+    //display = <&display>;
   };
 
   reserved-memory {
