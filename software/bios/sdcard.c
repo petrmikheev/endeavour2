@@ -151,10 +151,10 @@ void init_sdcard() {
   const int SDR25 = 0x020000, SDR50 = 0x040000, SDR104 = 0x080000, DDR50 = 0x100000;
 
   phy = (phy & ~0xf1f00ff) | SECTOR_512B | SDIOCK_SHUTDN | (/*sample shift*/ 16<<16);
-  if (modes & SDR104) {
+  /*if (modes & SDR104) {  // for some sdcards works, for some doesn't
     command(SDIO_R1 | SDIO_MEM | 6, 0x80fffff3); // switch to SDR104
     phy |= SDIOCK_SDR104;
-  } else if (modes & SDR50) {
+  } else*/ if (modes & SDR50) {
     command(SDIO_R1 | SDIO_MEM | 6, 0x80fffff2); // switch to SDR50
     phy |= SDIOCK_SDR50;
   } else if (modes & SDR25) {

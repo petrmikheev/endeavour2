@@ -110,6 +110,7 @@ object Core {
     //param.withRvZb = true   // reduces fMax 220 MHz -> 136 MHz
 
     // fMax
+    param.relaxedBtb = true
     /*param.relaxedBranch = true
     param.relaxedShift = true
     param.relaxedSrc = true

@@ -45,6 +45,7 @@ class EndeavourSoc(coresParams: List[ParamSimple],
   val io = new Bundle {
     val clk25 = in Bool()
     val clk60 = in Bool()
+    val clk_sdctrl = in Bool()
     val clk_cpu = in Bool()
     val dyn_clk0 = in Bool()
 
@@ -196,7 +197,7 @@ class EndeavourSoc(coresParams: List[ParamSimple],
   apb_60mhz_bridge.io.output <> area60mhz.apb
 
   val sdcard_ctrl = new SdcardController()
-  sdcard_ctrl.io.clk := io.ddr.core_clk
+  sdcard_ctrl.io.clk := io.clk_sdctrl
   sdcard_ctrl.io.reset := rst_area.reset
   sdcard_ctrl.io.sdcard <> io.sd
   io.TL_MODE_SEL := ~io.sd.vdd_sel_3v3
@@ -470,10 +471,10 @@ object EndeavourSoc {
     SpinalConfig(mode=Verilog, targetDirectory="verilog").generate(new EndeavourSoc(
         //coresParams=List(Core.small(withCaches=false)), internalRam=true, ramSize=65536,
         //coresParams=List(Core.small(withCaches=true)),
-        coresParams=List(Core.medium()),
+        //coresParams=List(Core.medium()),
         //coresParams=List(Core.medium(), Core.small(withCaches=true)),
         //coresParams=List(Core.medium(withRvd=false, withBiggerCache=false), Core.medium(withRvd=false, withBiggerCache=false)),
-        //coresParams=List(Core.full()),
+        coresParams=List(Core.full()),
         bootRomContent=Some(bootRomContent)
         ))
   }
