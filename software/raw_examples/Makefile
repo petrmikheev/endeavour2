@@ -5,6 +5,7 @@ OPTIONS+= -fomit-frame-pointer -fno-exceptions -fno-asynchronous-unwind-tables -
 OPTIONS+= -fno-zero-initialized-in-bss -Wl,--no-warn-rwx-segments
 OPTIONS+= -march=rv32imc_zicsr_zifencei_zicbop -O3
 
+sd.bin: sd.c
 hello_world.bin : hello_world.c
 #hello_world.elf : hello_world.c
 
