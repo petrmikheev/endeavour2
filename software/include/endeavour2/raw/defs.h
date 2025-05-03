@@ -189,7 +189,7 @@ struct EndeavourVideo {
 #define VIDEO_GRAPHIC_ON  2
 #define VIDEO_RGB565      0
 #define VIDEO_RGAB5515    4
-#define VIDEO_FONT_HEIGHT(X) ((((X)-1)&15) << 4) // allowed range [6, 16]
+#define VIDEO_FONT_HEIGHT(X) ((((X)-1)&15) << 4) // allowed range [8, 16]
   unsigned cfg;          // 24
   unsigned regIndex;     // 28
   unsigned regValue;     // 2C

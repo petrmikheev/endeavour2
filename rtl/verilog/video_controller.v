@@ -183,10 +183,10 @@ module VideoController #(parameter ADDRESS_WIDTH) (
         if (hCounter == hSyncStartO) hSync <= ~hSyncInv;
         if (hCounter == hSyncEndO) begin
           hSync <= hSyncInv;
-          if (vCounter == vLast - vTextOffset - 3'd4) begin
+          if (vCounter == vLast - vTextOffset - 4'd8) begin
             text_load <= 1;
             vCharCounter <= 0;
-            char_py <= font_height - 3'd4;
+            char_py <= font_height - 4'd8;
             hCharInit <= hOffsetNext >= font_width + hTextOffset + 2'd2 ? hOffsetNext - (font_width + hTextOffset + 2'd2) : hLast + hOffsetNext - font_width - hTextOffset - 1'b1;
           end
         end

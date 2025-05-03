@@ -139,7 +139,7 @@ static inline struct DisplaySize display_get_size(int fd) {
 #define DISPLAY_CFG_GRAPHIC_ON  2
 #define DISPLAY_CFG_RGB565      0  // default
 #define DISPLAY_CFG_RGAB5515    4
-#define DISPLAY_CFG_FONT_HEIGHT(X) ((((X)-1)&15) << 4) // allowed range [6, 16]
+#define DISPLAY_CFG_FONT_HEIGHT(X) ((((X)-1)&15) << 4) // allowed range [8, 16]
 
 static inline unsigned display_get_cfg(int fd) {
   unsigned v;
