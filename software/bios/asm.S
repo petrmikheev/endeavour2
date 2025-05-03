@@ -9,11 +9,6 @@ tmp_gp:              .word 0
 tmp_ra:              .word 0
 tmp_sp:              .word 0
 
-.global sdcard_sector_count, text_style, cursor_ptr
-sdcard_sector_count: .word 0
-text_style:          .word 0
-cursor_ptr:          .word 0
-
 .align 6
 .global hart_cfg
 hart_cfg:
@@ -22,6 +17,16 @@ hart_cfg:
 .section .text.start
 .global _start
 _start:
+    j start
+
+.align 2
+# used in bios.h by absolute address
+.global sdcard_sector_count, text_style, cursor_ptr
+sdcard_sector_count: .word 0
+text_style:          .word 0
+cursor_ptr:          .word 0
+
+start:
     .option push
 .option norelax
     la gp, __global_pointer$
@@ -32,11 +37,7 @@ _start:
     csrr t1, misa
     csrr tp, mhartid
     beq tp, zero, start_core0
-# start_core1:
-    sw t1, 40(t0)
-    la t0, trap_core1
-    csrw mtvec, t0
-    j stop_core
+    j start_core1
 
 .section .text.api
 _api_start:
@@ -113,6 +114,13 @@ start_core0:
     la t0, trap_core0
     csrw mtvec, t0
     jal main
+    j stop_core
+
+start_core1:
+    sw t1, 40(t0)
+    la t0, trap_core1
+    csrw mtvec, t0
+    # j stop_core   continue to stop_core
 
 .global stop_core
 stop_core:
