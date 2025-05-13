@@ -55,4 +55,7 @@ int get_keyboard_report(volatile struct KeyboardReport* data);
 extern volatile struct HartCfg hart_cfg[2];
 void run_in_supervisor_mode(void* addr, unsigned long arg);
 
+unsigned get_seconds_since_2000();
+void set_seconds_since_2000(unsigned seconds);
+
 #endif  // BIOS_INTERNAL_H

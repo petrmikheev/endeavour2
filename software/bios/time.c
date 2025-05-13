@@ -37,8 +37,61 @@ static int write_time(const struct RealTimeClockBCD* t) {
   return i2c_write(I2C_ADDR_PCF85063A, 8, data);
 }
 
+static const unsigned char days_in_month[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
 static const char* const week_days[] = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "***"};
 static const char* const months[] = {"***", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
+
+unsigned get_seconds_since_2000() {
+  struct RealTimeClockBCD ts;
+  for (int attempt = 0; attempt < 3; ++attempt) {
+    if (read_time(&ts) == 0) break;
+    wait(10000);
+  }
+  unsigned year = fromBCD(ts.year);
+  int month = fromBCD(ts.month) - 1;
+  unsigned days = year * 365 + (year + 3) / 4 + fromBCD(ts.day) - 1;
+  for (int i = 0; i < month; ++i) days += days_in_month[i];
+  if ((year & 3) == 0 && month > 1) days++;
+  return days * (24*3600) + fromBCD(ts.hour) * 3600 + fromBCD(ts.minute) * 60 + fromBCD(ts.second);
+}
+
+void set_seconds_since_2000(unsigned seconds) {
+  struct RealTimeClockBCD ts;
+
+  ts.second = toBCD(seconds % 60);
+  ts.minute = toBCD((seconds / 60) % 60);
+  ts.hour = toBCD((seconds / 3600) % 24);
+
+  unsigned day = seconds / (24*3600);
+  ts.wday = (day + 6) % 7;
+
+  unsigned year = (day / (365 * 3 + 366)) * 4;
+  day %= (365 * 3 + 366);
+  if (day >= 366) {
+    year += (day - 366) / 365 + 1;
+    day = (day - 366) % 365;
+  }
+
+  unsigned month = 0;
+  if ((year & 3) == 0 && day == 59) {
+    month = 1;
+    day = 29;
+  } else {
+    if ((year & 3) == 0 && day > 59) day--;
+    while (day >= days_in_month[month]) {
+      day -= days_in_month[month++];
+    }
+  }
+
+  ts.year = toBCD(year);
+  ts.day = toBCD(day + 1);
+  ts.month = toBCD(month + 1);
+
+  for (int attempt = 0; attempt < 3; ++attempt) {
+    if (write_time(&ts) == 0) break;
+    wait(10000);
+  }
+}
 
 static void print_time(const struct RealTimeClockBCD* t) {
   int wday = t->wday;

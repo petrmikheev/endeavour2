@@ -37,7 +37,13 @@ struct sbiret sbi_handler(unsigned arg, unsigned arg2, unsigned arg3, int fn_id,
       set_dvi_frequency(arg);
       return (struct sbiret){SBI_OK, 0};
     }
-    // TODO get/set real time
+    if (fn_id == 4) {
+      return (struct sbiret){SBI_OK, get_seconds_since_2000()};
+    }
+    if (fn_id == 5) {
+      set_seconds_since_2000(arg);
+      return (struct sbiret){SBI_OK, 0};
+    }
   }
   if (ext_id == 0x10) {
     if (fn_id == 0) return (struct sbiret){SBI_OK, 2}; // SBI spec version = 0.2
