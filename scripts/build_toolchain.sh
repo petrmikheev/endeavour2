@@ -11,5 +11,5 @@ cd $EXT_DIR
 
 git clone https://github.com/riscv/riscv-gnu-toolchain
 cd riscv-gnu-toolchain
-./configure --prefix=$EXT_DIR/rv32gc-linux-toolchain --with-arch=rv32gc --with-abi=ilp32d
-make linux-native
+./configure --prefix=$EXT_DIR/rv32gc-linux-toolchain --with-arch=rv32gc --with-abi=ilp32d --enable-gdb
+make linux linux-native

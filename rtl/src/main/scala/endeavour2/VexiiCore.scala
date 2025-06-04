@@ -2,7 +2,8 @@ package endeavour2
 
 import spinal.core._
 import spinal.lib._
-import spinal.lib.com.jtag.Jtag
+import spinal.lib.com.jtag.JtagTapInstructionCtrl
+import spinal.lib.cpu.riscv.debug.DebugTransportModuleParameter
 import spinal.lib.bus.tilelink
 import spinal.lib.bus.tilelink.fabric.Node
 
@@ -122,14 +123,23 @@ object Core {
   }
 }
 
-class VexiiCore(val param: ParamSimple, resetVector: Long, hartId: Int = 0, jtag: Option[Jtag] = None) extends Core {
+class VexiiCore(val param: ParamSimple, resetVector: Long, hartId: Int = 0, jtag: Option[JtagTapInstructionCtrl] = None, jtagTck: Bool = False) extends Core {
   param.resetVector = resetVector
-  if (jtag.isDefined) {
-    param.embeddedJtagTap = true
-    param.embeddedJtagCd = ClockDomain.current
-    param.privParam.withDebug = true
-  }
+  if (jtag.isDefined) { param.privParam.withDebug = true }
   val plugins = param.plugins(hartId)
+  if (jtag.isDefined) {
+    plugins += new EmbeddedRiscvJtag(
+      p = DebugTransportModuleParameter(
+        addressWidth = 7,
+        version = 1,
+        idle = 7
+      ),
+      withTunneling = true,
+      withTap = false,
+      debugCd = ClockDomain.current,
+      noTapCd = ClockDomain(jtagTck)
+    )
+  }
   val tlcore = new TilelinkVexiiRiscvFiber(plugins)
   tlcore.priv match {
     case Some(priv) => new Area {
@@ -154,7 +164,7 @@ class VexiiCore(val param: ParamSimple, resetVector: Long, hartId: Int = 0, jtag
 
   if (jtag.isDefined) {
     plugins.foreach{
-      case p : EmbeddedRiscvJtag => { fiber.Handle { jtag.get <> p.logic.jtag } }
+      case p : EmbeddedRiscvJtag => { fiber.Handle { jtag.get <> p.logic.jtagInstruction } }
       case _ =>
     }
   }
@@ -166,7 +176,7 @@ class VexiiCore(val param: ParamSimple, resetVector: Long, hartId: Int = 0, jtag
   if (param.lsuL1Enable) {
     tlcore.lsuL1Bus.setDownConnection(a = StreamPipe.HALF, b = StreamPipe.HALF_KEEP, c = StreamPipe.FULL, d = StreamPipe.M2S_KEEP, e = StreamPipe.HALF)
   }
-  //tlcore.dBus.setDownConnection(a = StreamPipe.HALF, d = StreamPipe.M2S_KEEP)
+  tlcore.dBus.setDownConnection(a = StreamPipe.HALF, d = StreamPipe.M2S_KEEP)
 
   override def vexii() : VexiiRiscv = tlcore.logic.core
 

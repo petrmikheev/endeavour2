@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<efxpt:design_db name="endeavour2a" device_def="Ti60F256" version="2024.2.294.1.19" db_version="20242999" last_change_date="Thu May  1 18:51:05 2025" xmlns:efxpt="http://www.efinixinc.com/peri_design_db" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.efinixinc.com/peri_design_db peri_design_db.xsd ">
+<efxpt:design_db name="endeavour2a" device_def="Ti60F256" version="2024.2.294.1.19" db_version="20242999" last_change_date="Wed Jun  4 00:27:09 2025" xmlns:efxpt="http://www.efinixinc.com/peri_design_db" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.efinixinc.com/peri_design_db peri_design_db.xsd ">
     <efxpt:device_info>
         <efxpt:iobank_info>
             <efxpt:iobank name="1A" iostd="1.8 V LVCMOS" is_dyn_voltage="false" mode_sel_name="1A_MODE_SEL"/>
@@ -566,6 +566,22 @@
     </efxpt:pll_info>
     <efxpt:osc_info/>
     <efxpt:lvds_info/>
-    <efxpt:jtag_info/>
+    <efxpt:jtag_info>
+        <efxpt:jtag name="io_jtag_core0" jtag_def="JTAG_USER4">
+            <efxpt:gen_pin>
+                <efxpt:pin name="io_jtag_core0_capture" type_name="CAPTURE" is_bus="false"/>
+                <efxpt:pin name="io_jtag_core0_GTCK" type_name="DRCK" is_bus="false"/>
+                <efxpt:pin name="io_jtag_core0_reset" type_name="RESET" is_bus="false"/>
+                <efxpt:pin name="io_jtag_core0_RUNTEST" type_name="RUNTEST" is_bus="false"/>
+                <efxpt:pin name="io_jtag_core0_enable" type_name="SEL" is_bus="false"/>
+                <efxpt:pin name="io_jtag_core0_shift" type_name="SHIFT" is_bus="false"/>
+                <efxpt:pin name="io_jtag_tck" type_name="TCK" is_bus="false"/>
+                <efxpt:pin name="io_jtag_core0_tdi" type_name="TDI" is_bus="false"/>
+                <efxpt:pin name="io_jtag_core0_TMS" type_name="TMS" is_bus="false"/>
+                <efxpt:pin name="io_jtag_core0_update" type_name="UPDATE" is_bus="false"/>
+                <efxpt:pin name="io_jtag_core0_tdo" type_name="TDO" is_bus="false"/>
+            </efxpt:gen_pin>
+        </efxpt:jtag>
+    </efxpt:jtag_info>
     <efxpt:mipi_dphy_info/>
 </efxpt:design_db>

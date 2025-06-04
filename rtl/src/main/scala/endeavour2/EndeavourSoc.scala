@@ -9,6 +9,7 @@ import spinal.lib.bus.amba4.axi._
 import spinal.lib.bus.tilelink
 import spinal.lib.bus.misc.SizeMapping
 import spinal.lib.misc.plic._
+import spinal.lib.com.jtag.JtagTapInstructionCtrl
 
 import vexiiriscv.ParamSimple
 
@@ -100,6 +101,9 @@ class EndeavourSoc(coresParams: List[ParamSimple],
     val esp32_spi_boot = out Bool()
     val esp32_rx = out Bool()
     val esp32_tx = in Bool()
+
+    val jtag_core0 = slave(JtagTapInstructionCtrl())
+    val jtag_tck = in Bool()
 
     // ESP32 GPIO 4-7
     /*val esp32_io4_IN = in Bool()
@@ -405,7 +409,7 @@ class EndeavourSoc(coresParams: List[ParamSimple],
   var hartId = 0
 
   val cpus = coresParams.map(p => {
-    val cpu : Core = new VexiiCore(param=p, resetVector=resetVector, hartId=hartId)
+    val cpu : Core = new VexiiCore(param=p, resetVector=resetVector, hartId=hartId, jtag = if (hartId==0) Some(io.jtag_core0) else None, jtagTck = io.jtag_tck)
     if (cpu.hasL1) {
       hasL1 = true
       dbus << cpu.lsuL1Bus
