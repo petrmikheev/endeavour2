@@ -54,10 +54,10 @@
     interrupts-extended = <&plic 1>;
   };
 
-  /*audio: audio@200 {
+  audio: audio@200 {
     compatible = "endeavour,audio";
     reg = <0x200 8>;
-  };*/
+  };
 
   mmcblk: mmcblk@3000 {
     compatible = "endeavour,mmcblk";

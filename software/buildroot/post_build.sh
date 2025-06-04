@@ -8,6 +8,12 @@ mkdir -p $ROOTFS/boot
 mkdir -p $ROOTFS/home
 cp $SCRIPT_DIR/{inittab,fstab} $ROOTFS/etc/
 cp $SCRIPT_DIR/../textwm2/S*textwm $ROOTFS/etc/init.d/
+
+# disable unnecessary daemons
+[ -f $ROOTFS/etc/init.d/S50crond ] && mv $ROOTFS/etc/init.d/S50crond $ROOTFS/etc/init.d/_S50crond
+[ -f $ROOTFS/etc/init.d/S90nodm ] && mv $ROOTFS/etc/init.d/S90nodm $ROOTFS/etc/init.d/_S90nodm
+[ -f $ROOTFS/etc/init.d/S95mpd ] && mv $ROOTFS/etc/init.d/S95mpd $ROOTFS/etc/init.d/_S95mpd
+
 if [ ! -e $ROOTFS/bin/man ] ; then
     ln -s busybox $ROOTFS/bin/man
 fi

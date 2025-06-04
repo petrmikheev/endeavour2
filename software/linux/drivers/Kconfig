@@ -5,5 +5,6 @@ config ENDEAVOUR2_DRIVERS
 	select SERIAL_CORE
 	select SERIAL_CORE_CONSOLE
 	select SERIAL_EARLYCON
+	select SND_PCM
 	help
 	  Drivers for Endeavour2 SoC.
