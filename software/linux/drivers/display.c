@@ -5,6 +5,7 @@
 #include <linux/fs.h>
 #include <linux/cdev.h>
 #include <linux/mm.h>
+#include <linux/fb.h>
 
 #define DISPLAY_RESERVED_START (32<<10)  // 32 KB, reserved by BIOS
 #define DISPLAY_RESERVED_END   (32<<20)  // 32 MB
@@ -147,6 +148,78 @@ static const struct file_operations display_ops = {
     .mmap = display_mmap
 };
 
+static struct fb_info* fbinfo;
+
+static struct EndeavourVideoMode mode_640x480_60   = { 25175000,     640,  656,  752,  800,  480,  490,  492,  525};
+static struct EndeavourVideoMode mode_800x600_60   = { 36000000,     800,  824,  896, 1024,  600,  601,  603,  625};
+static struct EndeavourVideoMode mode_1024x768_60  = { 65000000,    1024, 1048, 1184, 1344,  768,  771,  777,  806};
+static struct EndeavourVideoMode mode_1280x720_60  = { 74250000,    1280, 1720, 1760, 1980,  720,  725,  730,  750};
+static struct EndeavourVideoMode mode_1920x1080_25 = { 74250000,    1920, 2448, 2492, 2640, 1080, 1084, 1089, 1125};
+
+static struct EndeavourVideoMode* endeavour_find_video_mode(int x, int y) {
+  if (x == 640 && y == 480) return &mode_640x480_60;
+  if (x == 800 && y == 600) return &mode_800x600_60;
+  if (x == 1024 && y == 768) return &mode_1024x768_60;
+  if (x == 1280 && y == 720) return &mode_1280x720_60;
+  if (x == 1920 && y == 1080) return &mode_1920x1080_25;
+  return NULL;
+}
+
+static int endeavour_fb_check_var(struct fb_var_screeninfo* var, struct fb_info* _) {
+  //printk("endeavour_fb_check_var %dx%d\n", var->xres, var->yres);
+  if (var->xres_virtual > 2048 || var->yres_virtual > 2048) {
+    printk("endeavour_fb_check_var: unsupported xres_virtual,yres_virtual\n");
+    return -EINVAL;
+  }
+  var->xres_virtual = 2048;
+  var->yres_virtual = 2048;
+  if (var->xres > var->xres_virtual || var->yres > var->yres_virtual || !endeavour_find_video_mode(var->xres, var->yres)) {
+    printk("endeavour_fb_check_var: unsupported mode %ux%u\n", var->xres, var->yres);
+    return -EINVAL;
+  }
+  if (var->bits_per_pixel != 16) {
+    printk("endeavour_fb_check_var: unsupported bits_per_pixel: %d\n", var->bits_per_pixel);
+    return -EINVAL;
+  }
+  var->red.offset = 11;
+  var->red.length = 5;
+  var->green.offset = 5;
+  var->green.length = 6;
+  var->blue.offset = 0;
+  var->blue.length = 5;
+  var->transp.offset = 0;
+  var->transp.length = 0;
+  return 0;
+}
+
+static int endeavour_fb_set_par(struct fb_info* _) {
+  //printk("endeavour_fb_set_par %dx%d\n", fbinfo->var.xres, fbinfo->var.yres);
+  if (display_regs->mode.hResolution != fbinfo->var.xres || display_regs->mode.vResolution != fbinfo->var.yres) {
+    struct EndeavourVideoMode* mode = endeavour_find_video_mode(fbinfo->var.xres, fbinfo->var.yres);
+    set_pixel_freq(mode->clock);
+    display_regs->mode = *mode;
+  }
+  display_regs->graphicAddr = 0x80800000;
+  display_regs->cfg = (display_regs->cfg | VIDEO_GRAPHIC_ON) & ~VIDEO_RGAB5515;
+  return 0;
+}
+
+static int endeavour_fb_pan_display(struct fb_var_screeninfo* var, struct fb_info* _) {
+  //printk("endeavour_fb_pan_display xoffset=%d yoffset=%d\n", var->xoffset, var->yoffset);
+  display_regs->graphicAddr = 0x80800000 + (var->yoffset * 4096) + var->xoffset * 2;
+  return 0;
+}
+
+static struct fb_ops endeavour_fb_ops = {
+  .owner = THIS_MODULE,
+  .fb_check_var = endeavour_fb_check_var,
+  .fb_set_par = endeavour_fb_set_par,
+  .fb_pan_display = endeavour_fb_pan_display,
+  FB_DEFAULT_IOMEM_OPS
+};
+
+static u32 endeavour_pseudo_palette[16];
+
 static int display_probe(struct platform_device *pdev) {
   printk("Initializing display driver\n");
   display_regs = devm_platform_get_and_ioremap_resource(pdev, 0, NULL);
@@ -162,15 +235,51 @@ static int display_probe(struct platform_device *pdev) {
   if (IS_ERR(pClass)) {
     printk("Can't create class\n");
     unregister_chrdev_region(devNo, 1);
-    return -1;
+    return -ENOMEM;
   }
   struct device *pDev;
   if (IS_ERR(pDev = device_create(pClass, NULL, devNo, NULL, "display"))) {
     printk("Can't create device /dev/display\n");
     class_destroy(pClass);
     unregister_chrdev_region(devNo, 1);
-    return -1;
+    return -ENOMEM;
   }
+  fbinfo = framebuffer_alloc(0, &pdev->dev);
+  if (!fbinfo) {
+    printk("Can't allocate fb_info\n");
+    return -ENOMEM;
+  }
+
+  fbinfo->fix = (struct fb_fix_screeninfo) {
+    .id = "EndeavourFB",
+    .type = FB_TYPE_PACKED_PIXELS,
+    .visual = FB_VISUAL_TRUECOLOR,
+    .accel = FB_ACCEL_NONE,
+    .line_length = 4096,
+    .smem_start = 0x80800000,
+    .smem_len = 0x800000,
+    .xpanstep = 1,
+    .ypanstep = 1,
+    .ywrapstep = 1,
+  };
+  fbinfo->var.bits_per_pixel = 16;
+  fbinfo->var.xres_virtual = 2048;
+  fbinfo->var.yres_virtual = 2048;
+  fbinfo->var.xres = 1280;
+  fbinfo->var.yres = 720;
+  endeavour_fb_check_var(&fbinfo->var, fbinfo);
+  fbinfo->flags = FBINFO_VIRTFB | FBINFO_HWACCEL_XPAN | FBINFO_HWACCEL_YPAN | FBINFO_HWACCEL_YWRAP;
+
+  fbinfo->screen_base = ioremap_wc(fbinfo->fix.smem_start, fbinfo->fix.smem_len);
+  fbinfo->screen_size = fbinfo->fix.smem_len;
+  fbinfo->pseudo_palette = endeavour_pseudo_palette;
+  fbinfo->fbops = &endeavour_fb_ops;
+  int fbret = register_framebuffer(fbinfo);
+  if (fbret < 0) {
+    printk("Failed to register framebuffer");
+    return fbret;
+  }
+
   return 0;
 }
 
