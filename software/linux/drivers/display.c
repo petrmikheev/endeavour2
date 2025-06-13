@@ -210,11 +210,22 @@ static int endeavour_fb_pan_display(struct fb_var_screeninfo* var, struct fb_inf
   return 0;
 }
 
+static int endeavour_fb_ioctl(struct fb_info *info, unsigned int cmd, unsigned long arg) {
+  if (cmd == FBIO_WAITFORVSYNC) {
+    printk("FBIO_WAITFORVSYNC\n");
+    unsigned frame = display_regs->frameNumber;
+    while (frame == display_regs->frameNumber);
+    return 0;
+  }
+  return -ENOIOCTLCMD;
+}
+
 static struct fb_ops endeavour_fb_ops = {
   .owner = THIS_MODULE,
   .fb_check_var = endeavour_fb_check_var,
   .fb_set_par = endeavour_fb_set_par,
   .fb_pan_display = endeavour_fb_pan_display,
+  .fb_ioctl	= endeavour_fb_ioctl,
   FB_DEFAULT_IOMEM_OPS
 };
 

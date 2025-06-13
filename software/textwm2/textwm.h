@@ -11,6 +11,10 @@ void resize_tty(int tty_id);
 extern int text_width, text_height;
 extern char* text_buffers;
 
+extern bool textwm_disabled;
+
+void textwm_set_enabled(bool enable);
+
 #define ACTIVE_WINDOW_BG 32
 #define WINDOW_BG 34
 #define SCREEN_BG 36

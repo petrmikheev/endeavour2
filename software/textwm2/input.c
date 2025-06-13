@@ -75,6 +75,11 @@ int parse_input_events(int fd, char* buf, int max_size) {
       super = ev->value;
       continue;
     }
+    if (super && ev->code == 15 && ev->value == 0) {  // super + tab
+      textwm_set_enabled(textwm_disabled);
+      continue;
+    }
+    if (textwm_disabled) continue;
     if (ev->value == 0) continue;
     if (alt) {
       if (ev->code >= 2 && ev->code < 2+TTY_COUNT) {

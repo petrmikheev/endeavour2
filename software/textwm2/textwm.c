@@ -1,6 +1,5 @@
 #include <fcntl.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
 #include <sys/types.h>
@@ -18,6 +17,7 @@
 #include "utf8.h"
 #include "tty.h"
 #include "input.h"
+#include "textwm.h"
 
 int display_fd;
 char* text_buffers;
@@ -28,6 +28,7 @@ int display_width, display_height;
 int font_height;
 const int font_width = 8;
 int text_width, text_height;
+bool textwm_disabled = false;
 
 bool read_display_cfg() {
   struct DisplaySize size = display_get_size(display_fd);
@@ -87,7 +88,7 @@ void init_ttys() {
 
 void set_wallpaper(const char* arg) {
   int dcfg = display_get_cfg(display_fd);
-  if (*arg == 0 || strcmp(arg, "off") == 0) {
+  if (arg == 0 || *arg == 0 || strcmp(arg, "off") == 0) {
     printf("[textwm] Wallpaper off\n");
     dcfg &= ~DISPLAY_CFG_GRAPHIC_ON;
   } else {
@@ -218,6 +219,17 @@ void set_font(const char* arg, bool bold) {
   }
 }
 
+void textwm_set_enabled(bool enable) {
+  printf("[textwm] enable=%d\n", enable);
+  textwm_disabled = !enable;
+  int dcfg = display_get_cfg(display_fd);
+  if (enable)
+    dcfg |= DISPLAY_CFG_TEXT_ON;
+  else
+    dcfg &= ~DISPLAY_CFG_TEXT_ON;
+  display_set_cfg(display_fd, dcfg);
+}
+
 void set_resolution(int w, int h) {
   struct VideoMode* mode = 0;
   if (w == 640 && h == 480) mode = &mode_640x480_60;
@@ -257,6 +269,10 @@ void command(char* cmd) {
     display_set_colormap(display_fd, ACTIVE_WINDOW_BG, (color << 8) | alpha);
   } else if (strcmp(cmd, "graphic off") == 0) {
     set_wallpaper(0);
+  } else if (strcmp(cmd, "text off") == 0) {
+    textwm_set_enabled(false);
+  } else if (strcmp(cmd, "text on") == 0) {
+    textwm_set_enabled(true);
   } else if (strncmp(cmd, "wallpaper ", 10) == 0) {
     const char* arg = cmd + 10;
     while (*arg == ' ') arg++;
@@ -354,6 +370,7 @@ int blink_counter = 0;
 
 void timer_handler(int sig, siginfo_t *si, void *uc) {
   //printf("timer %d\n");
+  if (textwm_disabled) return;
   struct TTY *atty = &ttys[active_tty];
   if (atty->cursor_blink) {
     blink_counter = (blink_counter + 1) & 15;

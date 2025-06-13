@@ -6,8 +6,10 @@ ROOTFS=$(echo $SCRIPT_DIR/../../../endeavour2-ext/buildroot-*/output/target)
 
 mkdir -p $ROOTFS/boot
 mkdir -p $ROOTFS/home
+mkdir -p $ROOTFS/etc/X11
 cp $SCRIPT_DIR/{inittab,fstab} $ROOTFS/etc/
 cp $SCRIPT_DIR/../textwm2/S*textwm $ROOTFS/etc/init.d/
+cp $SCRIPT_DIR/xorg.conf $ROOTFS/etc/X11/xorg.conf
 
 # disable unnecessary daemons
 [ -f $ROOTFS/etc/init.d/S50crond ] && mv $ROOTFS/etc/init.d/S50crond $ROOTFS/etc/init.d/_S50crond
