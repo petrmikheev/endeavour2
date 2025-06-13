@@ -80,3 +80,11 @@ Text-layer window manager and TTY implementation.
 ---
 
 <img width=800 src="doc/images/result.jpg">
+
+---
+
+<img width=800 src="doc/images/xorg.jpg">
+
+---
+
+<img width=800 src="doc/images/doom.jpg">
