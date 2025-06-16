@@ -176,11 +176,8 @@ trap:
     beq t0, t1, software_interrupt
     addi t0, t0, (7 - 3)
     beq t0, t1, timer_interrupt
-    li t0, 4
-    beq t0, t1, misaligned_load
-    li t0, 6
-    beq t0, t1, misaligned_store
     li t0, 9
+    bltu t1, t0, trap_delegate_to_supervisor
     bne t0, t1, fatal_trap
 
     # ecall
@@ -229,6 +226,33 @@ trap:
     lw a7, 48(sp)
     lw ra, 52(sp)
     lw gp, 56(sp)
+    j trap_ret
+
+trap_delegate_to_supervisor:
+    csrr t0, mstatus
+    li t1, 1<<12
+    and t1, t1, t0
+    bne t1, zero, fatal_trap  # can't delegate if was already in M mode
+
+    andi t1, t0, 2
+    ori t1, t1, 1<<(11-4) # mpp=01
+    slli t1, t1, 4     # new spie
+    srli t0, t0, 3
+    andi t0, t0, 1<<8  # new spp
+    or t0, t0, t1
+    li t1, (1<<8) | (1<<5) | (1<<1)
+    csrc mstatus, t1   # clear old spp, old spie, sie
+    csrs mstatus, t0   # set mpp, new spp, new spie
+
+    csrr t0, mcause
+    csrw scause, t0
+    csrr t0, mepc
+    csrw sepc, t0
+    csrr t0, mtval
+    csrw stval, t0
+    csrr t0, stvec
+    andi t0, t0, ~3
+    csrw mepc, t0
     j trap_ret
 
 #define HART_ACTION_IPI    1
@@ -313,12 +337,8 @@ trap_ret:
     csrr sp, mscratch
     mret
 
-misaligned_load:
-misaligned_store:
-    # TODO emulate misaligned
-
 fatal_trap:
-    mv   a0, t1       # mcause
+    csrr a0, mcause   # mcause
     csrr a1, mtval    # mtval
     csrr a2, mepc     # mepc
     csrr a3, mscratch # sp
@@ -352,7 +372,7 @@ run_in_supervisor_mode:
     csrw mideleg, t0
 
     # delegate exceptions to S mode
-    li t0, (1<<2) | (1<<3) | (1<<4) | (1<<5) | (1<<6) | (1<<8) | (1<<12) | (1<<13) | (1<<15)
+    li t0, 0xb1ff
     csrw medeleg, t0
 
     csrwi satp, 0  # turn off virtual memory in S mode
