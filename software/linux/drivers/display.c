@@ -212,7 +212,7 @@ static int endeavour_fb_pan_display(struct fb_var_screeninfo* var, struct fb_inf
 
 static int endeavour_fb_ioctl(struct fb_info *info, unsigned int cmd, unsigned long arg) {
   if (cmd == FBIO_WAITFORVSYNC) {
-    printk("FBIO_WAITFORVSYNC\n");
+    //printk("FBIO_WAITFORVSYNC\n");
     unsigned frame = display_regs->frameNumber;
     while (frame == display_regs->frameNumber);
     return 0;
