@@ -7,7 +7,9 @@ OPTIONS+= -march=rv32imc_zicsr_zifencei_zicbop -O3
 
 sd.bin: sd.c
 hello_world.bin : hello_world.c
-#hello_world.elf : hello_world.c
+esp_bridge.bin: esp_bridge.c
+esp_boot_bridge.bin: esp_boot_bridge.c
+test_esp.bin: test_esp.c
 
 %.elf : %.c
 	${TOOLCHAIN}gcc ${OPTIONS} start.S $< -o $@
