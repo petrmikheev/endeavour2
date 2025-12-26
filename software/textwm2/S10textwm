@@ -24,6 +24,7 @@ start() {
 	echo -e '\ttwmcfg display WxH\t - set display resolution (off/640x460/800x600/1024x768/1280x720/1920x1080)' > /dev/ttyp0
 	echo -e '\ttwmcfg wallpaper <path>\t - set wallpaper' > /dev/ttyp0
 	echo -e '\nStarting root shell\n' > /dev/ttyp0
+	cd /home/root
 	HOME=/home/root twmrun 1 sh
 	HOME=/home/root twmrun 2 sh
 	echo "OK"
