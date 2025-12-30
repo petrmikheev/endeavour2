@@ -4,10 +4,8 @@
 #
 
 export PATH=/sbin:/usr/sbin:/bin:/usr/bin
-export PS1='\u:\[\e[34m\]\w\[\e[m\]\$ '
-export LC_ALL=C.UTF-8
-export GROFF_TYPESETTER=ascii
 export TERM=linux
+export LOGIN_TIMEOUT=0
 
 start() {
 	printf "Starting textwm: "
@@ -23,10 +21,9 @@ start() {
 	echo -e '\ttwmrun <N> <command>\t - run command on window N (1-7)' > /dev/ttyp0
 	echo -e '\ttwmcfg display WxH\t - set display resolution (off/640x460/800x600/1024x768/1280x720/1920x1080)' > /dev/ttyp0
 	echo -e '\ttwmcfg wallpaper <path>\t - set wallpaper' > /dev/ttyp0
-	echo -e '\nStarting root shell\n' > /dev/ttyp0
-	cd /home/root
-	HOME=/home/root twmrun 1 sh
-	HOME=/home/root twmrun 2 sh
+	echo -e '\n' > /dev/ttyp0
+	twmrun 1 login
+	twmrun 2 login
 	echo "OK"
 }
 stop() {
