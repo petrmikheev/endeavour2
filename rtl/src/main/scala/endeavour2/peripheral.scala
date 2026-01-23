@@ -12,8 +12,8 @@ class SpiController extends Component {
     val spi_ncs = out Bool()
     val spi_ncs_en = out Bool()
     val spi_clk = out Bool()
-    val spi_d0 = out Bool()
-    val spi_d1 = in Bool()
+    val spi_mosi = out Bool()
+    val spi_miso = in Bool()
     val apb = slave(Apb3(Apb3Config(
       addressWidth  = 4,
       dataWidth     = 32,
@@ -45,7 +45,7 @@ class SpiController extends Component {
     io.spi_ncs_en := True
     io.spi_ncs := False
     io.spi_clk := counter(0)
-    io.spi_d0 := data_shift(31)
+    io.spi_mosi := data_shift(31)
 
     val Idle : State = new State with EntryPoint {
       whenIsActive {
@@ -60,7 +60,7 @@ class SpiController extends Component {
         writeHasData := False
       }
       whenIsActive {
-        when (counter(0)) { data_shift := data_shift(30 downto 0) ## io.spi_d1 }
+        when (counter(0)) { data_shift := data_shift(30 downto 0) ## io.spi_miso }
         when (counter === 15) {
           writeCnt := writeCnt - 1
           when (writeCnt(1 downto 0) === 1) {
@@ -74,7 +74,7 @@ class SpiController extends Component {
     }
     val Read : State = new State {
       whenIsActive {
-        when (!counter(0)) { data_shift := data_shift(30 downto 0) ## io.spi_d1 }
+        when (!counter(0)) { data_shift := data_shift(30 downto 0) ## io.spi_miso }
         when (counter === 15) {
           readCnt := readCnt - 1
           when (readCnt(1 downto 0) === 1) {
@@ -92,6 +92,94 @@ class SpiController extends Component {
         when (counter === 15) { goto(Idle) }
       }
     }
+  }
+}
+
+class SpiFifoController extends Component {
+  val io = new Bundle {
+    val spi_ncs = out Bool()
+    val spi_clk = out Bool()
+    val spi_mosi = out Bool()
+    val spi_miso = in Bool()
+    val apb = slave(Apb3(Apb3Config(
+      addressWidth  = 4,
+      dataWidth     = 32,
+      useSlaveError = false
+    )))
+    val interrupt = out Bool()
+  }
+
+  val apb = Apb3SlaveFactory(io.apb)
+
+  val interrupt_en = RegInit(False)
+  val CPOL = RegInit(True)
+  val CPHA = RegInit(False)
+  val divisor = RegInit(U(0, 8 bits))
+  val divisorCounter = RegInit(U(0, 8 bits))
+  val byteCounter = RegInit(U(0, 11 bits))
+  val nselect = RegInit(True)
+  val bitCounter = RegInit(U(0, 5 bits))
+  val dataIn = Reg(Bits(16 bits))
+  val dataOut = Reg(Bits(16 bits))
+
+  val mem = Mem(Bits(16 bits), wordCount = 1024)
+  val intAddr = Reg(UInt(10 bits))
+  val extAddr = Reg(UInt(10 bits))
+  val intWrite = False
+  val extWrite = False
+  val dataOutBuf = Reg(Bits(16 bits))
+
+  val dataOutNext = mem.readWriteSync(intAddr, Mux(RegNext(bitCounter(4)), dataIn(15 downto 8), dataIn(7 downto 0)) ## dataIn(7 downto 0), True, RegNext(intWrite))
+  val dataRead = mem.readWriteSync(extAddr, io.apb.PWDATA(7 downto 0) ## io.apb.PWDATA(15 downto 8), True, extWrite)
+
+  io.interrupt := interrupt_en && byteCounter === 0
+  io.spi_ncs := nselect
+  io.spi_clk := CPOL ^ bitCounter(0)
+  io.spi_mosi := dataOut(15)
+
+  apb.readAndWrite(interrupt_en, address = 0, bitOffset = 31)
+  apb.readAndWrite(CPOL, address = 0, bitOffset = 30)
+  apb.readAndWrite(CPHA, address = 0, bitOffset = 29)
+  apb.readAndWrite(divisor, address = 0, bitOffset = 0)
+
+  apb.read(dataRead(7 downto 0) ## dataRead(15 downto 8), address = 4)
+  apb.onRead(4)( extAddr := extAddr + 1 )
+  apb.onWrite(4)({
+    extAddr := extAddr + 1
+    extWrite := True
+  })
+
+  apb.readAndWrite(byteCounter, address = 8)
+
+  apb.readAndWrite(nselect, address = 12)
+  apb.onWrite(12) ({
+    extAddr := io.apb.PWDATA(0).asUInt.resized
+    intAddr := 0
+  })
+
+  when (byteCounter === 0) {
+    dataOut := dataOutNext
+    dataOutBuf := dataOutNext
+  } elsewhen (divisorCounter === 0) {
+    divisorCounter := divisor
+    when (bitCounter(0) === CPHA) {
+      dataIn := dataIn(14 downto 0) ## io.spi_miso
+      intWrite := bitCounter(3 downto 1) === 7
+    } otherwise {
+      when (bitCounter(4 downto 1).asBits === ~(CPHA #* 4)) {
+        dataOut := dataOutBuf
+      } otherwise {
+        dataOut(15 downto 1) := dataOut(14 downto 0)
+      }
+    }
+    when (bitCounter === 4) { intAddr := intAddr + 1 }
+    when (bitCounter === 12) { dataOutBuf := dataOutNext }
+    when (bitCounter(3 downto 0) === 15) {
+      byteCounter := byteCounter - 1
+    }
+    bitCounter := bitCounter + 1
+  } otherwise {
+    divisorCounter := divisorCounter - 1
   }
 }
 

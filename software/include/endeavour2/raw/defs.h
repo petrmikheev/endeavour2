@@ -8,6 +8,7 @@
 #define I2C_BASE        0x300
 #define ESP32_UART_BASE 0x400
 #define SPI_FLASH_BASE  0x500
+#define ESP32_SPI_BASE  0x600
 #define BOARD_BASE     0x1000
 #define VIDEO_BASE     0x2000
 #define SDCARD_BASE    0x3000
@@ -60,13 +61,31 @@ struct EndeavourUart {
   #define REG_SPI_FLASH_RHAS  8
   #define REG_SPI_FLASH_DATA  12
 #else
-struct EndeavourSpi {
+struct EndeavourSpiFlash {
   unsigned cnt;
   unsigned writeHasData;
   unsigned readHasData;
   unsigned data;
 };
-#define SPI_FLASH_REGS ((volatile struct EndeavourSpi*)(SPI_FLASH_BASE))
+#define SPI_FLASH_REGS ((volatile struct EndeavourSpiFlash*)(SPI_FLASH_BASE))
+#endif
+
+// *** ESP32 SPI
+
+#ifndef __ASSEMBLER__
+struct EndeavourEsp32Spi {
+  unsigned cfg;
+  unsigned data;
+  unsigned counter;
+  unsigned nselect;
+};
+#define ESP32_SPI_REGS ((volatile struct EndeavourEsp32Spi*)(ESP32_SPI_BASE))
+
+// cfg flags
+#define SPI_INTERRUPT_EN  (1<<31)
+#define SPI_CPOL          (1<<30)
+#define SPI_CPHA          (1<<29)
+
 #endif
 
 // *** Audio
@@ -149,6 +168,8 @@ struct EndeavourBoard {
 #endif
 
 // BOARD_KEYS flags
+#define BOARD_KEY_ESP_DR   (1<<26)
+#define BOARD_KEY_ESP_HS   (1<<27)
 #define BOARD_KEY_SPI_EN   (1<<28)
 #define BOARD_KEY_BOOT_EN  (1<<29)
 #define BOARD_KEY_CBSEL0   (1<<30)

@@ -8,6 +8,7 @@ import spinal.lib.bus.amba3.apb._
 import spinal.lib.bus.amba4.axi._
 import spinal.lib.bus.tilelink
 import spinal.lib.bus.misc.SizeMapping
+import spinal.lib.bus.misc.BusSlaveFactory
 import spinal.lib.misc.plic._
 import spinal.lib.com.jtag.JtagTapInstructionCtrl
 
@@ -31,6 +32,19 @@ class FrequencyCounter extends Component {
   }
   val res = RegNextWhen(c.counter, read_window) addTag(crossClockDomain)
   io.freq := res @@ U(0, 12 bits)
+}
+
+case class PlicGatewayActiveRising(source : Bool, override val id : Int, priorityWidth : Int) extends PlicGateway(id = id, priorityWidth = priorityWidth){
+  val ip = RegInit(False)
+  val waitCompletion = RegInit(False)
+
+  when(!waitCompletion && source && !RegNext(source)){
+    ip := True
+    waitCompletion := True
+  }
+  override def doClaim(): Unit = ip := False
+  override def doCompletion(): Unit = waitCompletion := False
+  override def driveFrom(bus: BusSlaveFactory, offset: Int): Unit = {}
 }
 
 class EndeavourSoc(coresParams: List[ParamSimple],
@@ -106,18 +120,18 @@ class EndeavourSoc(coresParams: List[ParamSimple],
     val jtag_tck = in Bool()
 
     // ESP32 GPIO 4-7
-    /*val esp32_io4_IN = in Bool()
-    val esp32_io4_OUT = out Bool()
+    val esp32_io4_IN = in Bool()
+    //val esp32_io4_OUT = out Bool()
     val esp32_io4_OE = out Bool()
     val esp32_io5_IN = in Bool()
-    val esp32_io5_OUT = out Bool()
+    //val esp32_io5_OUT = out Bool()
     val esp32_io5_OE = out Bool()
     val esp32_io6_IN = in Bool()
-    val esp32_io6_OUT = out Bool()
+    //val esp32_io6_OUT = out Bool()
     val esp32_io6_OE = out Bool()
     val esp32_io7_IN = in Bool()
     val esp32_io7_OUT = out Bool()
-    val esp32_io7_OE = out Bool()*/
+    val esp32_io7_OE = out Bool()
   }
 
   val rst_area = new ClockingArea(ClockDomain(
@@ -144,6 +158,8 @@ class EndeavourSoc(coresParams: List[ParamSimple],
   dvi_freq_counter.io.test_clk := io.dyn_clk0
   ram_freq_counter.io.test_clk := io.ddr.core_clk
 
+  val esp32_spi_boot = Bool()
+
   val cd60mhz = ClockDomain(
       clock = io.clk60, reset = rst_area.reset,
       frequency = FixedFrequency(60 MHz))
@@ -155,7 +171,24 @@ class EndeavourSoc(coresParams: List[ParamSimple],
 
     val esp32_uart_ctrl = new UartController()
     esp32_uart_ctrl.io.uart.rx := io.esp32_tx
-    io.esp32_rx := esp32_uart_ctrl.io.uart.tx
+    // io.esp32_rx := esp32_uart_ctrl.io.uart.tx // see override below
+
+    val esp32_spi_ctrl = new SpiFifoController()
+
+    io.esp32_io4_OE := False // DataReady pin for esp_hosted_ng
+    io.esp32_io5_OE := False // Handshake pin for esp_hosted_ng
+    io.esp32_io6_OE := False                      // SPI MISO
+    io.esp32_io7_OE := ~esp32_spi_ctrl.io.spi_ncs // SPI MOSI
+
+    esp32_spi_ctrl.io.spi_miso := io.esp32_io6_IN
+    io.esp32_io7_OUT := esp32_spi_ctrl.io.spi_mosi
+
+    // Note: esp_hosted_ng requires more pins than was initially expected, so in endeavour2a
+    // a modified (with some pin remapping) version of esp_hosted_ng firmware is used for ESP32 module.
+    // esp32_spi_ctrl overrides esp32_rx and esp32_spi_boot when running.
+    // It is planned to change it in endeavour2b.
+    io.esp32_rx := esp32_uart_ctrl.io.uart.tx && esp32_spi_ctrl.io.spi_ncs
+    io.esp32_spi_boot := esp32_spi_boot && esp32_spi_ctrl.io.spi_clk
 
     val audio_ctrl = new AudioController()
     io.snd_shdn := audio_ctrl.io.shdn
@@ -176,8 +209,8 @@ class EndeavourSoc(coresParams: List[ParamSimple],
     io.spi_flash_ncs_OUT := spi_flash_ctrl.io.spi_ncs
     io.spi_flash_ncs_OE := spi_flash_ctrl.io.spi_ncs_en
     io.spi_flash_clk := spi_flash_ctrl.io.spi_clk
-    spi_flash_ctrl.io.spi_d1 := io.spi_flash_data_IN(1)
-    io.spi_flash_data_OUT := (B"110", spi_flash_ctrl.io.spi_d0).asBits
+    spi_flash_ctrl.io.spi_miso := io.spi_flash_data_IN(1)
+    io.spi_flash_data_OUT := (B"110", spi_flash_ctrl.io.spi_mosi).asBits
     io.spi_flash_data_OE := Mux(spi_flash_ctrl.io.spi_ncs_en, B"1101", B"0000")
 
     val apb = Apb3(Apb3Config(
@@ -192,7 +225,8 @@ class EndeavourSoc(coresParams: List[ParamSimple],
         audio_ctrl.io.apb      -> (0x200, 8),
         i2c_ctrl.io.apb        -> (0x300, 16),
         esp32_uart_ctrl.io.apb -> (0x400, 16),
-        spi_flash_ctrl.io.apb  -> (0x500, 16)
+        spi_flash_ctrl.io.apb  -> (0x500, 16),
+        esp32_spi_ctrl.io.apb  -> (0x600, 16)
       )
     )
   }
@@ -299,10 +333,12 @@ class EndeavourSoc(coresParams: List[ParamSimple],
   val esp32CfgReg = Reg(Bits(2 bits)) init(0)
   io.led := ledReg
   io.esp32_en := esp32CfgReg(0)
-  io.esp32_spi_boot := esp32CfgReg(1)
+  esp32_spi_boot := esp32CfgReg(1)
   miscCtrl.readAndWrite(ledReg, address = 0x20)
   miscCtrl.read(keyReg, address = 0x24)
   miscCtrl.read(cbKeyReg, address = 0x24, bitOffset = 28)
+  miscCtrl.read(RegNext(io.esp32_io4_IN), address = 0x24, bitOffset = 26)
+  miscCtrl.read(RegNext(io.esp32_io5_IN), address = 0x24, bitOffset = 27)
   miscCtrl.read((Mux(ramTacShiftOverridden, ramTacShiftOverride, ramStat(14 downto 12)), False, ramStat).asBits, address = 0x28)
   miscCtrl.onWrite(0x28)({
     ramTacShiftOverrideRequest := True
@@ -315,10 +351,14 @@ class EndeavourSoc(coresParams: List[ParamSimple],
 
   val plicSize = 0x4000000
   val plicPriorityWidth = 1
+  val esp32_spi_interrupt = RegNext(area60mhz.esp32_spi_ctrl.io.interrupt) addTag(crossClockDomain)
   val plic_gateways = List(
     PlicGatewayActiveHigh(source = area60mhz.uart_ctrl.io.interrupt, id = 1, priorityWidth = plicPriorityWidth),
     PlicGatewayActiveHigh(source = sdcard_ctrl.io.interrupt, id = 2, priorityWidth = plicPriorityWidth),
-    PlicGatewayActiveHigh(source = usb_ctrl.interrupt, id = 3, priorityWidth = plicPriorityWidth)
+    PlicGatewayActiveHigh(source = usb_ctrl.interrupt, id = 3, priorityWidth = plicPriorityWidth),
+    PlicGatewayActiveHigh(source = esp32_spi_interrupt, id = 4, priorityWidth = plicPriorityWidth),
+    PlicGatewayActiveRising(source = io.esp32_io5_IN, id = 5, priorityWidth = plicPriorityWidth),
+    PlicGatewayActiveRising(source = io.esp32_io4_IN, id = 6, priorityWidth = plicPriorityWidth)
   )
   val plic_target = PlicTarget(id = 0, gateways = plic_gateways, priorityWidth = plicPriorityWidth)
 
