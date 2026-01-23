@@ -1,4 +1,4 @@
-hardware/*/endeavour2-backups
+hardware/*/*-backups
 hardware/*/#auto_saved_files#
 hardware/*/fp-info-cache
 hardware/*/*.kicad_prl

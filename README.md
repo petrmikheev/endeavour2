@@ -18,6 +18,8 @@ The project includes several parts:
 
 Note: it is a hobby project made just for fun. It does not have much practical use. I don't expect a lot of interest in reusing my code -- at least because using it requires manual soldering. But if for some reason somebody wants to make a copy of this FPGA board -- let me know, I might add a bit more documentation and refactor ugly parts of the code.
 
+License: GPL-3.0 (except of footprints in hardware/endeavour2.pretty)
+
 ## Hardware
 
 <img width=800 src="doc/images/blueprint.png">

@@ -1,0 +1,4 @@
+(fp_lib_table
+  (version 7)
+  (lib (name "endeavour2")(type "KiCad")(uri "/home/petya/endeavour2/hardware/endeavour2.pretty")(options "")(descr ""))
+)
