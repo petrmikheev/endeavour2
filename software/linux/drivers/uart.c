@@ -38,15 +38,13 @@ static struct uart_driver endeavour_uart_driver = {
   .driver_name = KBUILD_MODNAME,
   .dev_name = "ttyS",
   .major = 100,
-  .minor = 0,
-  .nr = 1,
+  //.minor = 0,
+  .nr = 4,
   .cons = &endeavour_console,
 };
 
-static void endeavour_uart_stop_tx(struct uart_port *port) {
-  printk("stop_tx\n");
-  //endeavour_uart_update_irq_reg(port, false, EV_TX);
-}
+static void endeavour_uart_stop_tx(struct uart_port *port) { dev_err(port->dev, "stop_tx unimplemented\n"); }
+static void endeavour_uart_stop_rx(struct uart_port *port) { dev_err(port->dev, "stop_rx unimplemented\n"); }
 
 static void endeavour_uart_putchar(struct uart_port *port, unsigned char ch) {
   while ((int)ioread32(port->membase + REG_TX) < 0)
@@ -60,12 +58,6 @@ static void endeavour_uart_start_tx(struct uart_port *port) {
   //endeavour_uart_update_irq_reg(port, true, EV_TX);
 }
 
-static void endeavour_uart_stop_rx(struct uart_port *port) {
-  printk("stop_rx\n");
-  /*struct endeavour_uart_port *uart = to_endeavour_uart_port(port);
-  del_timer(&uart->timer);*/
-}
-
 static unsigned int endeavour_uart_tx_empty(struct uart_port *port) {
   return ioread32(port->membase + REG_TX) < 0 ? TIOCSER_TEMT : 0;
 }
@@ -76,23 +68,18 @@ static void endeavour_uart_set_termios(struct uart_port *port, struct ktermios *
   if (new->c_cflag & CSTOPB) new_cfg |= CFG_CSTOPB;
   if (new->c_cflag & PARENB) new_cfg |= CFG_PARITY_EN;
   if (new->c_cflag & PARODD) new_cfg |= CFG_PARITY_ODD;
-  printk(KERN_INFO "set_termios %s CFG=0x%x\n", port->name, new_cfg);
+  dev_info(port->dev, "set_termios %s CFG=0x%x\n", port->name, new_cfg);
 
-  unsigned long flags;
-  uart_port_lock_irqsave(port, &flags);
+  //unsigned long flags;
+  //uart_port_lock_irqsave(port, &flags);
   iowrite32(new_cfg, port->membase + REG_CFG);
-  uart_port_unlock_irqrestore(port, flags);
-}
-
-static void endeavour_uart_shutdown(struct uart_port *port) {
-  printk("endeavour_uart_shutdown %s\n", port->name);
+  //uart_port_unlock_irqrestore(port, flags);
 }
 
 static void endeavour_uart_timer(struct timer_list *t)
 {
   struct endeavour_uart_data *data = from_timer(data, t, timer);
   struct uart_port *port = &data->port;
-
   int ch;
   int count = 0;
   while ((ch=ioread32(port->membase + REG_RX)) >= 0) {
@@ -110,10 +97,17 @@ static void endeavour_uart_timer(struct timer_list *t)
 
 static int endeavour_uart_startup(struct uart_port *port) {
   // TODO use UART interrupt
+  dev_info(port->dev, "startup RX timer\n");
   struct endeavour_uart_data *data = to_data(port);
   timer_setup(&data->timer, endeavour_uart_timer, 0);
   mod_timer(&data->timer, jiffies + uart_poll_timeout(port));
   return 0;
+}
+
+static void endeavour_uart_shutdown(struct uart_port *port) {
+  dev_info(port->dev, "shutdown RX timer\n");
+  struct endeavour_uart_data *data = to_data(port);
+  timer_shutdown(&data->timer);
 }
 
 static void endeavour_uart_set_mctrl(struct uart_port *port, unsigned int mctrl) {}
@@ -138,12 +132,19 @@ static const struct uart_ops endeavour_uart_ops = {
   // TODO .ioctl to set `output_to_sbi`
 };
 
-static struct uart_port *global_port = NULL;
+static struct uart_port *console_port = NULL;
 
 static int endeavour_uart_probe(struct platform_device *pdev)
 {
   struct endeavour_uart_data *data;
-  static struct uart_port *port;
+  struct uart_port *port;
+
+  static int dynamic_id = 0;
+  int id = of_alias_get_id(pdev->dev.of_node, "serial");
+  if (id < 0) {
+    id = dynamic_id++;
+    dev_err(&pdev->dev, "Serial aliases are missing in DTS; fallback to dynamic id = %d\n", id);
+  }
 
   data = devm_kzalloc(&pdev->dev, sizeof(struct endeavour_uart_data), GFP_KERNEL);
   if (!data)
@@ -158,19 +159,15 @@ static int endeavour_uart_probe(struct platform_device *pdev)
   port->iotype = UPIO_MEM;
   port->flags = UPF_BOOT_AUTOCONF;
   port->ops = &endeavour_uart_ops;
-  port->fifosize = 16;
+  port->fifosize = 512;
   port->type = PORT_UNKNOWN;
-  port->line = 0;
+  port->line = id;
   spin_lock_init(&port->lock);
 
   platform_set_drvdata(pdev, port);
-  global_port = port;
+  if (id == 0) console_port = port;
   return uart_add_one_port(&endeavour_uart_driver, &data->port);
 }
-
-/*static void endeavour_uart_remove(struct platform_device *pdev) {
-  printk("endeavour_uart_remove\n");  // should never happen
-}*/
 
 static const struct of_device_id endeavour_uart_of_match[] = {
   { .compatible = "endeavour,uart" },
@@ -180,7 +177,6 @@ MODULE_DEVICE_TABLE(of, endeavour_uart_of_match);
 
 static struct platform_driver endeavour_uart_platform_driver = {
   .probe = endeavour_uart_probe,
-  //.remove_new = endeavour_uart_remove,
   .driver = {
     .name = KBUILD_MODNAME,
     .of_match_table = endeavour_uart_of_match,
@@ -194,7 +190,7 @@ void set_endeavour_sbi_console(bool v) { output_to_sbi = v; }
 
 static void endeavour_console_write(struct console *con, const char *s, unsigned int count)
 {
-  if (output_to_sbi || !global_port) {
+  if (output_to_sbi || !console_port) {
     register uintptr_t a1 asm ("a1") = (uintptr_t)(0);
     register uintptr_t a6 asm ("a6") = (uintptr_t)(0);
     register uintptr_t a7 asm ("a7") = (uintptr_t)(0x0A000000);
@@ -203,10 +199,10 @@ static void endeavour_console_write(struct console *con, const char *s, unsigned
       asm volatile ("ecall" : : "r" (a0), "r" (a1), "r" (a6), "r" (a7));
     }
   } else {
-    unsigned long flags;
-    uart_port_lock_irqsave(global_port, &flags);
-    uart_console_write(global_port, s, count, endeavour_uart_putchar);
-    uart_port_unlock_irqrestore(global_port, flags);
+    //unsigned long flags;
+    //uart_port_lock_irqsave(console_port, &flags);
+    uart_console_write(console_port, s, count, endeavour_uart_putchar);
+    //uart_port_unlock_irqrestore(console_port, flags);
   }
 }
 
@@ -223,7 +219,7 @@ static int endeavour_uart_console_setup(struct console *co, char *options)
   int parity = 'e';
   int flow = 'n';
 
-  if (!global_port || !global_port->membase)
+  if (!console_port || !console_port->membase)
     return -ENODEV;
 
   if (options) {
@@ -236,7 +232,7 @@ static int endeavour_uart_console_setup(struct console *co, char *options)
     uart_parse_options(uart_options, &baud, &parity, &bits, &flow);
   }
 
-  return uart_set_options(global_port, co, baud, parity, bits, flow);
+  return uart_set_options(console_port, co, baud, parity, bits, flow);
 }
 
 static struct console endeavour_console = {
@@ -245,7 +241,7 @@ static struct console endeavour_console = {
   .device = uart_console_device,
   .setup = endeavour_uart_console_setup,
   .flags = CON_PRINTBUFFER,
-  .index = -1,
+  .index = 0,
   .data = &endeavour_uart_driver,
 };
 

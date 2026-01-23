@@ -45,7 +45,7 @@
     #interrupt-cells = <1>;
     interrupt-controller;
     interrupts-extended = <&intc0 9>;
-    riscv,ndev = <4>;
+    riscv,ndev = <7>;
   };
 
   uart: serial@100 {
@@ -57,6 +57,31 @@
   audio: audio@200 {
     compatible = "endeavour,audio";
     reg = <0x200 8>;
+  };
+
+  esp32_uart: serial@400 {
+    compatible = "endeavour,uart";
+    reg = <0x400 12>;
+  };
+
+  aliases {
+    serial0 = &uart;
+    serial1 = &esp32_uart;
+  };
+
+  esp32_spi: spi@600 {
+    compatible = "endeavour,fifo-spi";
+    reg = <0x600 16>;
+    interrupts-extended = <&plic 4>;
+  };
+
+  gpio: gpio@1000 {
+    compatible = "endeavour,gpio";
+    reg = <0x1000 64>;
+    gpio-controller;
+    #gpio-cells = <2>;
+    ngpios = <96>;
+    interrupts-extended = <&plic 5>, <&plic 6>;
   };
 
   mmcblk: mmcblk@3000 {

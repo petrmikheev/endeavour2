@@ -7,5 +7,6 @@ config ENDEAVOUR2_DRIVERS
 	select SERIAL_EARLYCON
 	select SND_PCM
 	select FB_IOMEM_HELPERS
+	select GPIOLIB_IRQCHIP
 	help
 	  Drivers for Endeavour2 SoC.
