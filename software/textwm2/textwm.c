@@ -434,10 +434,8 @@ void initialize_timer(void) {
 }
 
 #define DEV_CFG "/dev/textwmcfg"
-#define DEV_INPUT "/dev/input/event0"
 
 static int open_cfg() { return open(DEV_CFG, O_RDONLY | O_NONBLOCK); }
-static int open_input() { return open(DEV_INPUT, O_RDONLY | O_NONBLOCK); }
 
 int main() {
   printf("textwm started\n");
@@ -478,7 +476,6 @@ int main() {
   while (true) {
     if (pfds[0].fd < 0) {
       pfds[0].fd = open_input();
-      if (pfds[0].fd >= 0) printf("[textwm] " DEV_INPUT " reopenned\n");
     }
     int poll_st = poll(pfds, TTY_COUNT + 2, -1);
     if (poll_st < 0) {

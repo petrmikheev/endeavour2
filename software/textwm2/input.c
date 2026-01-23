@@ -1,11 +1,32 @@
 #include "input.h"
 
+#include <fcntl.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <linux/input.h>
 
 #include "tty.h"
 #include "textwm.h"
+
+int open_input() {
+  char path[64];
+  unsigned long ev_bits, key_bits;
+  for (int i = 0; i < 4; ++i) {
+    snprintf(path, 64, "/dev/input/event%d", i);
+    int fd = open(path, O_RDONLY | O_NONBLOCK);
+    if (fd < 0) continue;
+    ioctl(fd, EVIOCGBIT(0, sizeof(ev_bits)), &ev_bits);
+    if ((ev_bits >> EV_KEY) & 1) {
+      ioctl(fd, EVIOCGBIT(EV_KEY, sizeof(key_bits)), &key_bits);
+      if ((key_bits >> KEY_A) & 1) {
+        printf("[textwm] Using keyboard %s\n", path);
+        return fd;
+      }
+    }
+    close(fd);
+  }
+  return -1;
+}
 
 // `input_event` from <linux/input.h> has size 24 and doesn't match `input_event` in linux kernel (that has size 16).
 // I haven't managed to configure everything correctly, so using a custom struct.
