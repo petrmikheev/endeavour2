@@ -41,8 +41,8 @@ int ctrl = 0;
 int caps = 0;
 int super = 0;
 
-char* with_shift = "\0\e!@#$%^&*()_+\b\tQWERTYUIOP{}\r\0ASDFGHJKL:\"~\0|ZXCVBNM<>?";
-char* without_shift = "\0\e1234567890-=\b\tqwertyuiop[]\r\0asdfghjkl;'`\0\\zxcvbnm,./";
+char* with_shift = "\0\e!@#$%^&*()_+\x7f\tQWERTYUIOP{}\r\0ASDFGHJKL:\"~\0|ZXCVBNM<>?";
+char* without_shift = "\0\e1234567890-=\x7f\tqwertyuiop[]\r\0asdfghjkl;'`\0\\zxcvbnm,./";
 
 static int escape(char* buf, int p, const char* escape) {
   while (*escape) buf[p++] = *escape++;
