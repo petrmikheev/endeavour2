@@ -7,9 +7,11 @@ unsigned dhrystone();
 void memset_1mb_no_unroll(unsigned* dst, unsigned v);
 void memset_1mb(unsigned* dst, unsigned v);
 void memset_1mb_prefetch(unsigned* dst, unsigned v);
+void memset_1mb_dma(unsigned* dst, unsigned v);
 
 void memcpy_1mb(unsigned* dst, const unsigned* src);
-void memcpy_1mb_prefetch(unsigned* restrict dst, const unsigned* restrict src);
+void memcpy_1mb_prefetch(unsigned* dst, const unsigned* src);
+void memcpy_1mb_dma(unsigned* dst, const unsigned* src);
 
 unsigned sparse_agg_xor_1mb(const unsigned* src);
 void sparse_inplace_xor_1mb(unsigned* data, unsigned v);
@@ -127,6 +129,13 @@ static void run_benchmarks_th() {
     test_memset(page1, 0x333);
   }
 
+  if (BOARD_REGS->cpu_features[hartid] & CPU_FEATURES_DMA) {
+    start = time_100nsec();
+    memset_1mb_dma(page1, 0x444);
+    print_mem_bench_res("memset dma", start);
+    test_memset(page1, 0x444);
+  }
+
   // *** memcpy
   test_memcpy_fill(page2);
   memset_1mb(page1, 0x222);
@@ -141,6 +150,15 @@ static void run_benchmarks_th() {
     start = time_100nsec();
     memcpy_1mb_prefetch(page1, page2);
     print_mem_bench_res("memcpy prefetch", start);
+    test_memcpy_check(page1);
+  }
+
+  if (BOARD_REGS->cpu_features[hartid] & CPU_FEATURES_DMA) {
+    test_memcpy_fill(page2);
+    memset_1mb(page1, 0x222);
+    start = time_100nsec();
+    memcpy_1mb_dma(page1, page2);
+    print_mem_bench_res("memcpy dma", start);
     test_memcpy_check(page1);
   }
 

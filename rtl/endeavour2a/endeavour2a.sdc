@@ -3,7 +3,7 @@
 create_clock -period 40.000 -name io_clk25 [get_ports {io_clk25}]
 create_clock -period 16.667 -name io_clk60 [get_ports {io_clk60}]
 create_clock -period 4.848 -name io_clk_sdctrl [get_ports {io_clk_sdctrl}]
-create_clock -period 4.545 -name io_clk_cpu [get_ports {io_clk_cpu}]
+create_clock -period 5.000 -name io_clk_cpu [get_ports {io_clk_cpu}]
 create_clock -period 2.500 -name io_ddr_tdqss_clk [get_ports {io_ddr_tdqss_clk}]
 create_clock -period 5.000 -name io_ddr_core_clk [get_ports {io_ddr_core_clk}]
 create_clock -period 2.500 -name io_ddr_tac_clk [get_ports {io_ddr_tac_clk}]

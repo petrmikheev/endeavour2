@@ -8,7 +8,6 @@ import spinal.lib.bus.tilelink
 import spinal.lib.bus.misc.SizeMapping
 import spinal.lib.system.tag.PMA
 import spinal.lib.bus.tilelink.coherent.OrderingCmd
-import spinal.lib.pipeline._
 
 case class Ddr3_Phy() extends Bundle {
   val tdqss_clk = in Bool()

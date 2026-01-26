@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<efxpt:design_db name="endeavour2a" device_def="Ti60F256" version="2024.2.294.1.19" db_version="20242999" last_change_date="Wed Jun  4 00:27:09 2025" xmlns:efxpt="http://www.efinixinc.com/peri_design_db" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.efinixinc.com/peri_design_db peri_design_db.xsd ">
+<efxpt:design_db name="endeavour2a" device_def="Ti60F256" version="2024.2.294.1.19" db_version="20242999" last_change_date="Wed Jan 28 18:34:19 2026" xmlns:efxpt="http://www.efinixinc.com/peri_design_db" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.efinixinc.com/peri_design_db peri_design_db.xsd ">
     <efxpt:device_info>
         <efxpt:iobank_info>
             <efxpt:iobank name="1A" iostd="1.8 V LVCMOS" is_dyn_voltage="false" mode_sel_name="1A_MODE_SEL"/>
@@ -516,7 +516,7 @@
         <efxpt:bus name="io_spi_flash_data" mode="inout" msb="3" lsb="0"/>
     </efxpt:gpio_info>
     <efxpt:pll_info>
-        <efxpt:pll name="pll_core" pll_def="PLL_BL0" ref_clock_name="io_clk25" ref_clock_freq="25.0000" multiplier="4" pre_divider="1" post_divider="1" reset_name="" locked_name="io_pll_core_LOCKED" is_ipfrz="false" is_bypass_lock="true">
+        <efxpt:pll name="pll_core" pll_def="PLL_BL0" ref_clock_name="io_clk25" ref_clock_freq="25.0000" multiplier="4" pre_divider="1" post_divider="2" reset_name="" locked_name="io_pll_core_LOCKED" is_ipfrz="false" is_bypass_lock="true">
             <efxpt:adv_prop ref_clock_mode="core" ref_clock1_name="" ext_ref_clock_id="2" clksel_name="pll_core_CLKSEL" feedback_clock_name="io_clk100" feedback_mode="local"/>
             <efxpt:gen_pin>
                 <efxpt:pin name="" type_name="SHIFT_ENA" is_bus="false"/>
@@ -524,16 +524,16 @@
                 <efxpt:pin name="" type_name="SHIFT" is_bus="true"/>
                 <efxpt:pin name="" type_name="SHIFT_SEL" is_bus="true"/>
             </efxpt:gen_pin>
-            <efxpt:comp_output_clock name="io_clk100" number="0" out_divider="33" is_dyn_phase="false" phase_setting="0" is_inverted="false">
+            <efxpt:comp_output_clock name="io_clk100" number="0" out_divider="24" is_dyn_phase="false" phase_setting="0" is_inverted="false">
                 <efxpt:gen_pin/>
             </efxpt:comp_output_clock>
-            <efxpt:comp_output_clock name="io_clk60" number="1" out_divider="55" is_dyn_phase="false" phase_setting="0" is_inverted="false">
+            <efxpt:comp_output_clock name="io_clk60" number="1" out_divider="40" is_dyn_phase="false" phase_setting="0" is_inverted="false">
                 <efxpt:gen_pin/>
             </efxpt:comp_output_clock>
-            <efxpt:comp_output_clock name="io_clk_cpu" number="2" out_divider="15" is_dyn_phase="false" phase_setting="0" is_inverted="false">
+            <efxpt:comp_output_clock name="io_clk_cpu" number="2" out_divider="12" is_dyn_phase="false" phase_setting="0" is_inverted="false">
                 <efxpt:gen_pin/>
             </efxpt:comp_output_clock>
-            <efxpt:comp_output_clock name="io_clk_sdctrl" number="3" out_divider="16" is_dyn_phase="false" phase_setting="0" is_inverted="false">
+            <efxpt:comp_output_clock name="io_clk_sdctrl" number="3" out_divider="12" is_dyn_phase="false" phase_setting="0" is_inverted="false">
                 <efxpt:gen_pin/>
             </efxpt:comp_output_clock>
             <efxpt:comp_prop/>

@@ -13,6 +13,7 @@
 #define VIDEO_BASE     0x2000
 #define SDCARD_BASE    0x3000
 #define USB_OHCI_BASE  0x4000
+#define DMA_BASE       0x5000
 
 #define CLINT_BASE   0x10000
 #define CLINT_IPI(hartid)      (CLINT_BASE + ((hartid)<<2))
@@ -22,6 +23,12 @@
 #define CLINT_TIMEH            (CLINT_BASE + 0xBFFC)
 
 #define PLIC_BASE  0x4000000
+
+#define UART_INTERRUPT_ID 1
+#define SDCARD_INTERRUPT_ID 2
+#define USB_OHCI_INTERRUPT_ID 3
+#define ESP32_SPI_INTERRUPT_ID 4
+#define DMA_INTERRUPT_ID 7
 
 #define ROM_BASE  0x40000000  // reset addr
 #define RAM_BASE  0x80000000
@@ -52,6 +59,29 @@ struct EndeavourUart {
 // UART_RX flags
 #define UART_PARITY_ERROR  0x100
 #define UART_FRAMING_ERROR 0x200
+
+// *** DMA
+
+#ifndef __ASSEMBLER__
+struct EndeavourDMA {
+  void* cmdAddress;
+  unsigned cmdCount;
+  unsigned int_stat;
+};
+#define DMA_REGS ((volatile struct EndeavourDMA*)(DMA_BASE))
+
+enum DMA_OPCODE {
+  DMA_READ = 0,
+  DMA_WRITE = 1,
+  DMA_READ_SYNC = 2,
+  DMA_WRITE_SYNC = 3,
+  DMA_SET = 4,
+  DMA_COPY = 5
+};
+
+#define DMA_CMD_HI(opcode, b_from, b_to) (((opcode)<<26) | ((b_from)<<13) | ((b_to)&0x1fff))
+
+#endif
 
 // *** SPI Flash
 
@@ -182,6 +212,7 @@ struct EndeavourBoard {
 #define CPU_FEATURES_ZBS        8  // Single-bit operation extension.
 #define CPU_FEATURES_ZICBOP  0x10  // Cache-block prefetch extension.
 #define CPU_FEATURES_ZICBOM  0x20  // Cache-block management extension.
+#define CPU_FEATURES_DMA     0x40  // EndeavourDMA is available
 
 // BOARD_ESP32_CFG flags
 #define BOARD_ESP32_EN          1

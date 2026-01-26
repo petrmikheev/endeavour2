@@ -40,6 +40,7 @@ object Core {
     param.privParam.withRdTime = true
     param.withRvc = true
     param.withAlignerBuffer = true
+    param.withRvZba = true
     if (withCaches) {
       param.withCaches
       param.lsuL1Coherency = true
@@ -61,12 +62,12 @@ object Core {
 
     // cache performance
     param.fetchL1Prefetch = "nl"
-    param.fetchL1RefillCount = 3
-    param.lsuSoftwarePrefetch = true
-    param.lsuStoreBufferSlots = 4
+    param.fetchL1RefillCount = 2
+    //param.lsuSoftwarePrefetch = true
+    param.lsuStoreBufferSlots = 2
     param.lsuStoreBufferOps = 32
-    param.lsuL1RefillCount = 8
-    param.lsuL1WritebackCount = 8
+    param.lsuL1RefillCount = 4
+    param.lsuL1WritebackCount = 4
     param.lsuHardwarePrefetch = "rpt"
     if (withBiggerCache) {
       param.fetchL1Ways = 4
@@ -100,22 +101,18 @@ object Core {
     param
   }
 
-  def full(): ParamSimple = {  // 2.459 DMIPS/MHz
+  def full(): ParamSimple = {  // 2.456 DMIPS/MHz
     val param = medium()
 
     // performance
     param.decoders = 2
     param.lanes = 2
 
-    // features
-    //param.withRvZb = true   // reduces fMax 220 MHz -> 136 MHz
-
     // fMax
+    /*
     param.relaxedBtb = true
-    /*param.relaxedBranch = true
     param.relaxedShift = true
     param.relaxedSrc = true
-    param.relaxedBtb = true
     param.relaxedDiv = true
     param.relaxedMulInputs = true*/
 

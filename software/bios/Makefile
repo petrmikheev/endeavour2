@@ -5,7 +5,7 @@ TOOLCHAIN=../../../endeavour2-ext/rv32gc-linux-toolchain/bin/riscv32-unknown-lin
 OPTIONS=-nostdlib -ffreestanding -I../include -T bios.lds
 OPTIONS+= -fomit-frame-pointer -fno-exceptions -fno-asynchronous-unwind-tables -fno-unwind-tables
 
-BASE_ARCH=-march=rv32imfc_zicsr_zifencei_zicbop -mabi=ilp32f
+BASE_ARCH=-mabi=ilp32f -march=rv32imfc_zicsr_zifencei_zicbop_zba
 BENCH_ARCH=${BASE_ARCH}
 
 # zicsr		Control and status register access extension.
@@ -25,7 +25,7 @@ bios.elf: $(sources) bios_internal.h ext2.h bench_impl.o memtest_impl.o dhryston
 bios.bin: bios.elf
 	${TOOLCHAIN}objcopy -O binary bios.elf bios.bin
 
-bench_impl.o: bench_impl.c
+bench_impl.o: bench_impl.c ../include/endeavour2/raw/defs.h
 	${TOOLCHAIN}gcc ${OPTIONS} ${BENCH_ARCH} -O3 -c bench_impl.c
 
 memtest_impl.o: memtest_impl.c

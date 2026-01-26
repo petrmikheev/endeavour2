@@ -3,6 +3,16 @@
 #include "bios_internal.h"
 #include "ext2.h"
 
+// *** Memory map (at 0x80000000 in address space)
+//    0    -   32 KB    : code (see bios.lds)
+//   32 KB -  512 KB    : tmp buffer
+//  512 KB - 1536 KB    : memory benchmark, page1
+// 1536 KB - 1564 KB    : EXT2 buffer
+// 1792 KB - 2048 KB    : display buffer, text
+// 2048 MB - 6368 MB    : display buffer, graphic
+//    7 MB -    8 MB    : memory benchmark, page2
+//    8 MB - 1024 MB    : used during memtest
+
 void print_cpu_info() {
   for (int hartid = 0; hartid < BOARD_REGS->hart_count; ++hartid) {
     printf(hartid == 0 ? "CPU " : "\t");

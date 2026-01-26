@@ -1,6 +1,7 @@
 package endeavour2
 
 import java.nio.file.{Files, Paths}
+import scala.collection.mutable.ListBuffer
 
 import spinal.core._
 import spinal.lib._
@@ -49,6 +50,7 @@ case class PlicGatewayActiveRising(source : Bool, override val id : Int, priorit
 
 class EndeavourSoc(coresParams: List[ParamSimple],
                    bootRomContent : Option[Array[Byte]] = None,
+                   withDma : Boolean = true,
                    internalRam : Boolean = false,
                    internalRamContent : Option[Array[Byte]] = None,
                    ramSize : Long = 1L<<30,
@@ -281,7 +283,10 @@ class EndeavourSoc(coresParams: List[ParamSimple],
       bus.s2m.supported load tilelink.S2mSupport.none()
       bus.bus << ctrl.io.tl_bus
     }
-    bus.setDownConnection(a = StreamPipe.HALF, d = StreamPipe.M2S_KEEP)
+    bus.setDownConnection { (down, up) =>
+      down.a << up.a.halfPipe().halfPipe()
+      up.d << down.d.m2sPipe()
+    }
     cbus << bus
   }
   if (video == null) {
@@ -290,6 +295,11 @@ class EndeavourSoc(coresParams: List[ParamSimple],
     io.dvi_de := False
     io.dvi_hsync := False
     io.dvi_vsync := False
+  }
+
+  val dma_ctrl = withDma generate new DmaControllerFiber()
+  if (withDma) {
+    cbus << dma_ctrl.dma
   }
 
   val miscApb = Apb3(Apb3Config(
@@ -308,12 +318,13 @@ class EndeavourSoc(coresParams: List[ParamSimple],
   miscCtrl.read(U(coresParams.length, 32 bits), address = 0xC)  // hart count
 
   def cpuFeatures(p: ParamSimple): Bits = B(32 bits,
-      0 -> p.withRvZb,            // zba
-      1 -> p.withRvZb,            // zbb
-      2 -> p.withRvZb,            // zbc
-      3 -> p.withRvZb,            // zbs
+      0 -> p.withRvZba,           // zba
+      1 -> p.withRvZbb,           // zbb
+      2 -> p.withRvZbc,           // zbc
+      3 -> p.withRvZbs,           // zbs
       4 -> p.lsuSoftwarePrefetch, // zicbop
       5 -> p.withRvcbm,           // zicbom
+      6 -> withDma,
       default -> False)
 
   assert(coresParams.length <= 4)
@@ -352,7 +363,7 @@ class EndeavourSoc(coresParams: List[ParamSimple],
   val plicSize = 0x4000000
   val plicPriorityWidth = 1
   val esp32_spi_interrupt = RegNext(area60mhz.esp32_spi_ctrl.io.interrupt) addTag(crossClockDomain)
-  val plic_gateways = List(
+  val plic_gateways = ListBuffer(
     PlicGatewayActiveHigh(source = area60mhz.uart_ctrl.io.interrupt, id = 1, priorityWidth = plicPriorityWidth),
     PlicGatewayActiveHigh(source = sdcard_ctrl.io.interrupt, id = 2, priorityWidth = plicPriorityWidth),
     PlicGatewayActiveHigh(source = usb_ctrl.interrupt, id = 3, priorityWidth = plicPriorityWidth),
@@ -360,7 +371,10 @@ class EndeavourSoc(coresParams: List[ParamSimple],
     PlicGatewayActiveRising(source = io.esp32_io5_IN, id = 5, priorityWidth = plicPriorityWidth),
     PlicGatewayActiveRising(source = io.esp32_io4_IN, id = 6, priorityWidth = plicPriorityWidth)
   )
-  val plic_target = PlicTarget(id = 0, gateways = plic_gateways, priorityWidth = plicPriorityWidth)
+  if (withDma) {
+    plic_gateways += PlicGatewayActiveHigh(source = dma_ctrl.interrupt, id = 7, priorityWidth = plicPriorityWidth)
+  }
+  val plic_target = PlicTarget(id = 0, gateways = plic_gateways.toList, priorityWidth = plicPriorityWidth)
 
   val plicApb = Apb3(Apb3Config(
     addressWidth  = log2Up(plicSize),
@@ -434,6 +448,11 @@ class EndeavourSoc(coresParams: List[ParamSimple],
     if (video != null) {
       apbSlaves ++= List[(Apb3, SizeMapping)](
         video.ctrl.io.apb        -> (0x2000, 64)
+      )
+    }
+    if (withDma) {
+      apbSlaves ++= List[(Apb3, SizeMapping)](
+        dma_ctrl.apb             -> (0x5000, 16)
       )
     }
     val apbDecoder = Apb3Decoder(

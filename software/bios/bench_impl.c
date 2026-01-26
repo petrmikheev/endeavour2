@@ -1,5 +1,7 @@
 // moved to a separate file to prevent inlining
 
+#include <endeavour2/raw/defs.h>
+
 void memset_1mb_no_unroll(unsigned* dst, unsigned v) {
   for (int i = 0; i < 1024*1024/4; ++i) {
     dst[i] = v;
@@ -17,6 +19,24 @@ void memset_1mb_prefetch(unsigned* dst, unsigned v) {
     asm volatile("prefetch.w 64(%0)" :: "r" (dst+i));
     for (int j = i; j < i + 16; ++j) dst[j] = v;
   }
+}
+
+void memset_1mb_dma(unsigned* dst, unsigned v) {
+  volatile struct DmaCmd { unsigned lo, hi; }* commands = (void*)(RAM_BASE + BIOS_SIZE);
+
+  commands[0].lo = v;  // fill bytes 4096-8192 in internal buffer with `v`
+  commands[0].hi = DMA_CMD_HI(DMA_SET, 4096, 8192);
+
+  for (unsigned i = 0; i < 1024*1024/4096; ++i) {
+    commands[i + 1].lo = (unsigned long)dst + i*4096;
+    commands[i + 1].hi = DMA_CMD_HI(DMA_WRITE, 4096, 8192);
+  }
+
+  asm volatile("fence w, w");
+  DMA_REGS->cmdAddress = (void*)commands;
+  DMA_REGS->cmdCount = 257;
+
+  while (!DMA_REGS->int_stat);
 }
 
 /*void memset_1mb_zicboz(unsigned* dst, unsigned v) {
@@ -44,6 +64,23 @@ void memcpy_1mb_prefetch(unsigned* restrict dst, const unsigned* restrict src) {
     asm volatile("prefetch.w 64(%0)" :: "r" (dst+i));
     for (int j = i; j < i + 16; ++j) dst[j] = src[j];
   }
+}
+
+void memcpy_1mb_dma(unsigned* restrict dst, const unsigned* restrict src) {
+  volatile struct DmaCmd { unsigned lo, hi; }* commands = (void*)(RAM_BASE + BIOS_SIZE);
+
+  for (unsigned i = 0; i < 1024*1024/4096; ++i) {
+    commands[i*2 + 0].lo = (unsigned long)src + i*4096;
+    commands[i*2 + 0].hi = DMA_CMD_HI(DMA_READ_SYNC, 4096, 8192);
+    commands[i*2 + 1].lo = (unsigned long)dst + i*4096;
+    commands[i*2 + 1].hi = DMA_CMD_HI(DMA_WRITE_SYNC, 4096, 8192);
+  }
+
+  asm volatile("fence w, w");
+  DMA_REGS->cmdAddress = (void*)commands;
+  DMA_REGS->cmdCount = 512;
+
+  while (!DMA_REGS->int_stat);
 }
 
 /*void memcpy_1mb_zicboz(unsigned* restrict dst, const unsigned* restrict src) {

@@ -4,7 +4,6 @@ import spinal.core._
 import spinal.lib._
 import spinal.lib.fsm._
 import spinal.lib.bus.amba3.apb.{Apb3, Apb3Config, Apb3SlaveFactory}
-import spinal.lib.bus.amba4.axi._
 import spinal.lib.bus.tilelink
 
 class SpiController extends Component {
