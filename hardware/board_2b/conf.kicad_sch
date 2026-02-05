@@ -13071,7 +13071,7 @@
 				)
 			)
 		)
-		(property "Value" "SW_Push"
+		(property "Value" "SW_Push TS11"
 			(at 116.205 50.165 0)
 			(effects
 				(font
@@ -13140,8 +13140,8 @@
 				(justify right)
 			)
 		)
-		(property "Value" "LED"
-			(at 162.56 167.9574 90)
+		(property "Value" "5988E40107F"
+			(at 167.132 168.148 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -13681,7 +13681,7 @@
 				(justify right)
 			)
 		)
-		(property "Value" "LED"
+		(property "Value" "5988E20107F"
 			(at 220.345 84.1374 90)
 			(effects
 				(font
@@ -13820,8 +13820,8 @@
 				(justify right)
 			)
 		)
-		(property "Value" "LED"
-			(at 135.255 167.9574 90)
+		(property "Value" "5988E40107F"
+			(at 139.446 168.148 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -13956,7 +13956,7 @@
 				(justify right)
 			)
 		)
-		(property "Value" "LED"
+		(property "Value" "5988E40107F"
 			(at 260.35 40.9574 90)
 			(effects
 				(font
@@ -14228,8 +14228,8 @@
 				)
 			)
 		)
-		(property "Value" "~"
-			(at 34.3281 58.42 90)
+		(property "Value" "120"
+			(at 37.592 61.468 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -16248,8 +16248,8 @@
 				)
 			)
 		)
-		(property "Value" "~"
-			(at 34.3281 64.135 90)
+		(property "Value" "120"
+			(at 37.592 66.802 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -16447,7 +16447,7 @@
 				)
 			)
 		)
-		(property "Value" "SW_Push"
+		(property "Value" "SW_Push TS11"
 			(at 116.205 40.005 0)
 			(effects
 				(font
@@ -16650,7 +16650,7 @@
 				)
 			)
 		)
-		(property "Value" "SW_Push"
+		(property "Value" "SW_Push TS02"
 			(at 267.97 79.375 0)
 			(effects
 				(font
@@ -16852,7 +16852,7 @@
 				)
 			)
 		)
-		(property "Value" "25MHz"
+		(property "Value" "ECS250-20-3XTR 25MHz"
 			(at 26.035 30.48 0)
 			(effects
 				(font
@@ -16910,7 +16910,6 @@
 		(in_bom yes)
 		(on_board yes)
 		(dnp no)
-		(fields_autoplaced yes)
 		(uuid "6d9a4f14-4bcd-4e14-be50-76d34202325e")
 		(property "Reference" "Q1"
 			(at 266.065 48.8949 0)
@@ -16921,8 +16920,8 @@
 				(justify left)
 			)
 		)
-		(property "Value" "Q_NPN_BEC"
-			(at 266.065 51.4349 0)
+		(property "Value" "Q_NPN_BEC 2SC3326-B,LF"
+			(at 270.002 61.214 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -17061,7 +17060,7 @@
 				)
 			)
 		)
-		(property "Value" "12MHz"
+		(property "Value" "ECS120-20-3XTR 12MHz"
 			(at 32.385 162.56 0)
 			(effects
 				(font
@@ -17490,7 +17489,7 @@
 				)
 			)
 		)
-		(property "Value" "SW_Push"
+		(property "Value" "SW_Push TS11"
 			(at 116.205 30.48 0)
 			(effects
 				(font
@@ -20093,8 +20092,8 @@
 				(justify right)
 			)
 		)
-		(property "Value" "LED"
-			(at 153.035 167.9574 90)
+		(property "Value" "5988E40107F"
+			(at 157.734 168.402 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -20912,8 +20911,8 @@
 				(justify right)
 			)
 		)
-		(property "Value" "LED"
-			(at 144.145 167.9574 90)
+		(property "Value" "5988E40107F"
+			(at 148.336 168.148 0)
 			(effects
 				(font
 					(size 1.27 1.27)
