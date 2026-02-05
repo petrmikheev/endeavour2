@@ -120,9 +120,8 @@ static int process_tds(int td_count) {
   ed.head = (long)&tds[0];
   ed.tail = 0;
 
-  asm volatile("fence w, w");
-
   USB_OHCI_REGS->HcControlHeadED = (long)&ed;
+  asm volatile("fence ow, ow");
   USB_OHCI_REGS->HcCommandStatus = 2;
 
   unsigned start = time_100nsec();

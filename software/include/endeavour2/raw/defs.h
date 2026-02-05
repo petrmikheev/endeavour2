@@ -154,9 +154,9 @@ struct EndeavourI2C {
 #endif
 
 // I2C_CMD
-#define I2C_ADDR_STUSB4500  0x28  // USB PD controller
-#define I2C_ADDR_DDC        0x37  // Display data channel
 #define I2C_ADDR_TFP410     0x38  // DVI transmitter
+#define I2C_ADDR_MCP3021    0x48  // DAC, measures battery voltage
+#define I2C_ADDR_EDID       0x50  // Display identification data
 #define I2C_ADDR_PCF85063A  0x51  // Real-time clock
 #define I2C_ADDR_SI5351A    0x60  // PLL
 #define I2C_CMD_READ        0x80
@@ -336,6 +336,7 @@ static inline unsigned get_hartid() {
 }
 
 static inline void software_interrupt(int hartid) {
+  asm volatile("fence w, ow");
   *(volatile unsigned*)(long)CLINT_IPI(hartid) = 1;
 }
 #endif

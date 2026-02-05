@@ -349,6 +349,7 @@ fatal_trap:
 .option pop
     jal fatal_trap_handler
 infloop:
+    fence iorw, iorw
     wfi
     j infloop
 

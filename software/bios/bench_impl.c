@@ -32,10 +32,10 @@ void memset_1mb_dma(unsigned* dst, unsigned v) {
     commands[i + 1].hi = DMA_CMD_HI(DMA_WRITE, 4096, 8192);
   }
 
-  asm volatile("fence w, w");
   DMA_REGS->cmdAddress = (void*)commands;
+  asm volatile("fence ow, ow");
   DMA_REGS->cmdCount = 257;
-
+  asm volatile("fence o, i");
   while (!DMA_REGS->int_stat);
 }
 
@@ -76,10 +76,10 @@ void memcpy_1mb_dma(unsigned* restrict dst, const unsigned* restrict src) {
     commands[i*2 + 1].hi = DMA_CMD_HI(DMA_WRITE_SYNC, 4096, 8192);
   }
 
-  asm volatile("fence w, w");
   DMA_REGS->cmdAddress = (void*)commands;
+  asm volatile("fence ow, ow");
   DMA_REGS->cmdCount = 512;
-
+  asm volatile("fence o, i");
   while (!DMA_REGS->int_stat);
 }
 
