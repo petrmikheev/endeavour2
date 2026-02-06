@@ -1,4 +1,3 @@
-
 package endeavour2
 
 import spinal.core._
@@ -259,7 +258,7 @@ class DmaController extends Component {
   val instr_baddr = Reg(UInt(4 bits))
   val instr_next_read = RegInit(False)
 
-  fetchAddr := instr_baddr.resized
+  fetchAddr := (B"111111" ## instr_baddr).asUInt
   fetchS.ready := False
 
   val startProcessing = False
@@ -278,8 +277,8 @@ class DmaController extends Component {
         isIdle := True
         when (startProcessing) {
           I.instr(63 downto 58) := DmaOpcode.READ_SYNC
-          I.instr(57 downto 45) := 0
-          I.instr(44 downto 32) := Mux(io.apb.PWDATA(15 downto 3).orR, B(128), B(64)).resized
+          I.instr(57 downto 45) := B(8192 - 128, 13 bits)
+          I.instr(44 downto 32) := Mux(io.apb.PWDATA(15 downto 3).orR, B(0, 13 bits), B(8192 - 64, 13 bits))
           I.instr(29 downto 6) := instr_addr.asBits
           instr_addr := instr_addr + 2
           instr_baddr := 0
@@ -295,8 +294,8 @@ class DmaController extends Component {
           when (mem_counter === 0 && tl_id_busy === 0) { goto(Idle) }
         } elsewhen (instr_baddr(2 downto 0) === 0 && instr_next_read) {
           I.instr(63 downto 58) := DmaOpcode.READ
-          I.instr(57 downto 45) := (~instr_baddr(3) ## B(0, 6 bits)).resized
-          I.instr(44 downto 32) := (((~instr_baddr(3)).asUInt +^ 1) ## B(0, 6 bits)).resized
+          I.instr(57 downto 45) := Mux(instr_baddr(3), B(8192 - 128, 13 bits), B(8192 - 64, 13 bits))
+          I.instr(44 downto 32) := Mux(instr_baddr(3), B(8192 - 64, 13 bits), B(0, 13 bits))
           I.instr(29 downto 6) := instr_addr.asBits
           instr_addr := instr_addr + 1
           instr_next_read := False

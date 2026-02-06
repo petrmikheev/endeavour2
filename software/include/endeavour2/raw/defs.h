@@ -80,6 +80,7 @@ enum DMA_OPCODE {
 };
 
 #define DMA_CMD_HI(opcode, b_from, b_to) (((opcode)<<26) | ((b_from)<<13) | ((b_to)&0x1fff))
+#define DMA_BUFFER_SIZE (8192 - 128)
 
 #endif
 

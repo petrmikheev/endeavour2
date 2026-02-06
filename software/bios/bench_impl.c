@@ -24,12 +24,12 @@ void memset_1mb_prefetch(unsigned* dst, unsigned v) {
 void memset_1mb_dma(unsigned* dst, unsigned v) {
   volatile struct DmaCmd { unsigned lo, hi; }* commands = (void*)(RAM_BASE + BIOS_SIZE);
 
-  commands[0].lo = v;  // fill bytes 4096-8192 in internal buffer with `v`
-  commands[0].hi = DMA_CMD_HI(DMA_SET, 4096, 8192);
+  commands[0].lo = v;  // fill bytes 0-4096 in internal buffer with `v`
+  commands[0].hi = DMA_CMD_HI(DMA_SET, 0, 4096);
 
   for (unsigned i = 0; i < 1024*1024/4096; ++i) {
     commands[i + 1].lo = (unsigned long)dst + i*4096;
-    commands[i + 1].hi = DMA_CMD_HI(DMA_WRITE, 4096, 8192);
+    commands[i + 1].hi = DMA_CMD_HI(DMA_WRITE, 0, 4096);
   }
 
   DMA_REGS->cmdAddress = (void*)commands;
@@ -71,9 +71,9 @@ void memcpy_1mb_dma(unsigned* restrict dst, const unsigned* restrict src) {
 
   for (unsigned i = 0; i < 1024*1024/4096; ++i) {
     commands[i*2 + 0].lo = (unsigned long)src + i*4096;
-    commands[i*2 + 0].hi = DMA_CMD_HI(DMA_READ_SYNC, 4096, 8192);
+    commands[i*2 + 0].hi = DMA_CMD_HI(DMA_READ_SYNC, 0, 4096);
     commands[i*2 + 1].lo = (unsigned long)dst + i*4096;
-    commands[i*2 + 1].hi = DMA_CMD_HI(DMA_WRITE_SYNC, 4096, 8192);
+    commands[i*2 + 1].hi = DMA_CMD_HI(DMA_WRITE_SYNC, 0, 4096);
   }
 
   DMA_REGS->cmdAddress = (void*)commands;

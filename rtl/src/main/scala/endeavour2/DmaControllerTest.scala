@@ -63,9 +63,9 @@ object DmaControllerTest extends App {
       mem.setBigInt(i, BigInt("1234000056780000", 16) + (BigInt(i)<<32) + i)
     }*/
 
-    mem.setBigInt(16, cmd(DmaOpcode.SET, 4096, 0, 0x444))
+    mem.setBigInt(16, cmd(DmaOpcode.SET, 0, 4096, 0x444))
     for (i <- 0 until 16) {
-      mem.setBigInt(16 + i + 1, cmd(DmaOpcode.WRITE, 4096, 0, 0x80000000L + 65536 + i * 4096))
+      mem.setBigInt(16 + i + 1, cmd(DmaOpcode.WRITE, 0, 4096, 0x80000000L + 65536 + i * 4096))
     }
 
     /*mem.setBigInt(16, cmd(DmaOpcode.READ, 128, 256, 1024))
