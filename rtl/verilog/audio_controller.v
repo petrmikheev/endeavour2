@@ -64,7 +64,7 @@ module AudioController (
   wire i2c_data_ready;
   reg [7:0] i2c_data;
 
-  always @(state) begin
+  always @(*) begin
     case(state)
       STATE_SL0: i2c_data = 8'b01000010; // channel B
       STATE_SL1: i2c_data = {4'b0, value[11:8]};

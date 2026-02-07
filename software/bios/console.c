@@ -11,6 +11,7 @@
 #define TMP_BUF_1MB ((char*)(RAM_BASE +   0x8000))
 #define EVAL_BUF    ((char*)(RAM_BASE + 0x188000))
 #define DTB_BUF     ((char*)(RAM_BASE + 0x189000))
+#define DTB_MAX_SIZE 0x8000
 #define MAIN_BUF    ((char*)(RAM_BASE + 0x800000))
 
 static int load_file(const char* path, void* addr, unsigned max_size) {
@@ -21,6 +22,10 @@ static int load_file(const char* path, void* addr, unsigned max_size) {
   const struct Inode* inode = find_inode(path);
   if (!inode || !is_regular_file(inode)) {
     printf("File not found\n");
+    return -1;
+  }
+  if (inode->size_lo > max_size) {
+    printf("Max size exceeded: %u vs %u\n", inode->size_lo, max_size);
     return -1;
   }
   if (read_file(inode, addr, inode->size_lo) != inode->size_lo) {
@@ -94,13 +99,17 @@ struct dtb_header {
 static int cmd_dtb(const char* args) {
   unsigned long addr;
   if (args[0] != '8') {
-    if (load_file(args, DTB_BUF, 0x10000) <= 0) return CMD_FAILED;
+    if (load_file(args, DTB_BUF, DTB_MAX_SIZE) <= 0) return CMD_FAILED;
   } else {
     if (sscanf(args, "%lx", &addr) != 1) return CMD_INVALID_ARGS;
     unsigned size = ((struct dtb_header*)addr)->totalsize;
     size = (size >> 24) | ((size >> 8) & 0xff00);
-    for (int i = 0; i < size / 4; ++i) {
-      ((unsigned*)DTB_BUF)[i] = ((unsigned*)addr)[i];
+    if (size > DTB_MAX_SIZE) {
+      printf("Max size exceeded: %u vs %u\n", size, DTB_MAX_SIZE);
+      return CMD_FAILED;
+    }
+    for (int i = 0; i < size; i += 4) {
+      *(unsigned*)(DTB_BUF + i) = *(unsigned*)(addr + i);
     }
   }
   if (((struct dtb_header*)DTB_BUF)->magic != 0xedfe0dd0) {
@@ -153,7 +162,10 @@ int cmd_eval(const char* args) {
 static int cmd_boot(const char* args) {
   unsigned long addr;
   if (sscanf(args, "%lx", &addr) != 1) return CMD_INVALID_ARGS;
-  run_in_supervisor_mode((void*)addr, (unsigned long)DTB_BUF);
+  for (unsigned i = 0; i < DTB_MAX_SIZE; i += 4) {
+    *(unsigned*)(TMP_BUF_1MB + i) = *(unsigned*)(DTB_BUF + i);
+  }
+  run_in_supervisor_mode((void*)addr, (unsigned long)TMP_BUF_1MB);
   return CMD_OK;  // noreturn
 }
 

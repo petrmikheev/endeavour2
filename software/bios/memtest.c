@@ -110,7 +110,7 @@ int full_memtest(unsigned iter_count, unsigned seed) {
     unsigned modifier = xorshift32();
     printf("\titer=%-3u\txor=%08x\tmemtest", iter, modifier);
     err |= memtest_iteration(1, modifier, 2048);
-    if (BOARD_REGS->keys & 3) break;
+    if ((GPIO_REGS->data_in & (GPIO_KEY0 | GPIO_KEY1)) || UART_REGS->rx >= 0) break;
   }
   return err;
 }

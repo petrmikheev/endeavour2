@@ -28,8 +28,6 @@ start() {
 }
 stop() {
 	echo "Stopping textwm: OK"
-	twmcfg display off
-	sleep 0.5
 	#TODO kill process
 }
 restart() {

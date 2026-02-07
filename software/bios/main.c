@@ -5,9 +5,11 @@
 
 // *** Memory map (at 0x80000000 in address space)
 //    0    -   32 KB    : code (see bios.lds)
-//   32 KB -  512 KB    : tmp buffer
+//   32 KB - 1536 KB    : tmp buffer
 //  512 KB - 1536 KB    : memory benchmark, page1
 // 1536 KB - 1564 KB    : EXT2 buffer
+// 1568 KB - 1572 KB    : console script buffer
+// 1572 KB - 1604 KB    : DTB buffer
 // 1792 KB - 2048 KB    : display buffer, text
 // 2048 MB - 6368 MB    : display buffer, graphic
 //    7 MB -    8 MB    : memory benchmark, page2
@@ -43,18 +45,19 @@ void print_cpu_info() {
     if (features & CPU_FEATURES_ZBS) printf(", zbs");
     if (features & CPU_FEATURES_ZICBOP) printf(", zicbop");
     if (features & CPU_FEATURES_ZICBOM) printf(", zicbom");
+    if (features & CPU_FEATURES_SSTC) printf(", sstc");
     printf(", %u MHz\n", BOARD_REGS->cpu_frequency / 1000000);
   }
 }
 
 void autoboot() {
-  unsigned cb = BOARD_REGS->keys & (BOARD_KEY_CBSEL0 | BOARD_KEY_CBSEL1);
+  unsigned cb = GPIO_REGS->data_in & (GPIO_CBSEL0 | GPIO_CBSEL1);
   const char* conf_name = 0;
   switch (cb) {
     case 0: conf_name = "boot.0.conf"; break;
-    case BOARD_KEY_CBSEL0: conf_name = "boot.1.conf"; break;
-    case BOARD_KEY_CBSEL1: conf_name = "boot.2.conf"; break;
-    case BOARD_KEY_CBSEL0 | BOARD_KEY_CBSEL1: conf_name = "boot.3.conf"; break;
+    case GPIO_CBSEL0: conf_name = "boot.1.conf"; break;
+    case GPIO_CBSEL1: conf_name = "boot.2.conf"; break;
+    case GPIO_CBSEL0 | GPIO_CBSEL1: conf_name = "boot.3.conf"; break;
     default:;
   }
   struct Inode* inode = find_inode(conf_name);
@@ -69,7 +72,7 @@ void autoboot() {
 }
 
 int main() {
-  BOARD_REGS->leds = 0;
+  GPIO_REGS->data_clear = 0xf;  // clear leds
   if (BOARD_REGS->hart_count > 1) software_interrupt(1);  // triggers initilization code for second core
   beep(333, 300, 6);
 
@@ -106,7 +109,7 @@ int main() {
   }
   init_usb_keyboard();
 
-  if ((BOARD_REGS->keys & BOARD_KEY_BOOT_EN) && is_ext2_reader_initialized()) autoboot();
+  if ((GPIO_REGS->data_in & GPIO_BOOT_EN) && is_ext2_reader_initialized()) autoboot();
 
   run_console();
   while(1);

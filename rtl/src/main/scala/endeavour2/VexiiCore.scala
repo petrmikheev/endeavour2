@@ -38,6 +38,7 @@ object Core {
     param.withMul = true
     param.withDiv = true
     param.privParam.withRdTime = true
+    param.privParam.withSSTC = true
     param.withRvc = true
     param.withAlignerBuffer = true
     param.withRvZba = true

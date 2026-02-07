@@ -97,23 +97,23 @@ module SdcardController (
     .i_crcack(w_crcack), .i_crcnak(w_crcnak),
 
     // unused
-    .S_AC_VALID(0), .S_AC_DATA(0),
-    .S_AD_VALID(0), .S_AD_DATA(0),
-    .s_valid(0),
+    .S_AC_VALID(1'b0), .S_AC_DATA(0),
+    .S_AD_VALID(1'b0), .S_AD_DATA(0),
+    .s_valid(1'b0),
     .s_ready(),
     .s_data(0),
     .m_valid(),
-    .m_ready(0),
+    .m_ready(1'b0),
     .m_data(),
     .m_last(),
     .o_dma_cyc(), .o_dma_stb(), .o_dma_we(),
     .o_dma_addr(),
     .o_dma_data(),
     .o_dma_sel(),
-    .i_dma_stall(0),
-    .i_dma_ack(0),
+    .i_dma_stall(1'b0),
+    .i_dma_ack(1'b0),
     .i_dma_data(0),
-    .i_dma_err(0),
+    .i_dma_err(1'b0),
     .o_hwreset_n()
   );
 

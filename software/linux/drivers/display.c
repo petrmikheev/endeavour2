@@ -7,8 +7,9 @@
 #include <linux/mm.h>
 #include <linux/fb.h>
 
-#define DISPLAY_RESERVED_START (32<<10)  // 32 KB, reserved by BIOS
-#define DISPLAY_RESERVED_END   (32<<20)  // 32 MB
+// Range 256KB - 32MB
+#define DISPLAY_RESERVED_START (256<<10)
+#define DISPLAY_RESERVED_END   (32<<20)
 
 struct EndeavourVideoMode {
 // clock flags

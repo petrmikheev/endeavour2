@@ -10,6 +10,21 @@
     bootargs = "console=ttyS0,sbi:115200e earlycon=endeavour_sbi root=/dev/mmcblk0p2";
   };
 
+  memory@80000000 {
+    device_type = "memory";
+    reg = <0x80000000 0x40000000>;
+  };
+
+  reserved-memory {
+    #address-cells = <1>;
+    #size-cells = <1>;
+    ranges;
+    reserved@80000000 {
+      no-map;
+      reg = <0x80000000 0x2000000>;
+    };
+  };
+
   cpus {
     #address-cells = <1>;
     #size-cells = <0>;
@@ -21,7 +36,7 @@
       status = "okay";
       compatible = "riscv";
       riscv,isa-base = "rv32i";
-      riscv,isa-extensions = "i", "m", "a", "f", "d", "c", "zicntr", "zicsr", "zifencei", "zicbop";
+      riscv,isa-extensions = "i", "m", "a", "f", "d", "c", "zicntr", "zicsr", "zifencei", "zba", "sstc";
       mmu-type = "riscv,sv32";
       intc0: interrupt-controller {
         #interrupt-cells = <1>;
@@ -45,7 +60,7 @@
     #interrupt-cells = <1>;
     interrupt-controller;
     interrupts-extended = <&intc0 9>;
-    riscv,ndev = <7>;
+    riscv,ndev = <6>;
   };
 
   uart: serial@100 {
@@ -75,13 +90,23 @@
     interrupts-extended = <&plic 4>;
   };
 
-  gpio: gpio@1000 {
-    compatible = "endeavour,gpio";
-    reg = <0x1000 64>;
+  gpio: gpio@1030 {
+    compatible = "faraday,ftgpio010";
+    reg = <0x1030 0x50>;
     gpio-controller;
     #gpio-cells = <2>;
-    ngpios = <96>;
-    interrupts-extended = <&plic 5>, <&plic 6>;
+    interrupt-controller;
+    interrupts-extended = <&plic 5>;
+    #interrupt-cells = <2>;
+    gpio-line-names =
+      "LED0", "LED1", "LED2", "LED3",
+      "KEY0", "KEY1", "KEY2", "",
+      "GP1", "GP2", "GP3", "GP4",
+      "GP5", "GP6", "GP7", "GP8",
+      "GP9", "GP10", "GP11", "GP12",
+      "GP13", "", "ESP32_HS", "ESP32_EN",
+      "ESP32_SPI_BOOT", "", "", "ESP32_DR",
+      "SPI_BOOT", "BOOT_EN", "CBSEL0", "CBSEL1";
   };
 
   mmcblk: mmcblk@3000 {
@@ -104,21 +129,6 @@
 
   rtc {
     compatible = "endeavour,rtc";
-  };
-
-  memory@80000000 {
-    device_type = "memory";
-    reg = <0x80000000 0x40000000>;
-  };
-
-  reserved-memory {
-    #address-cells = <1>;
-    #size-cells = <1>;
-    ranges;
-    reserved@80000000 {
-      no-map;
-      reg = <0x80000000 0x2000000>;
-    };
   };
 
 };

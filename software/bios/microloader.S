@@ -35,7 +35,7 @@ _start:
     li BBOARD, BOARD_BASE
     li BUART, UART_BASE
     li t0, 1
-    sw t0, REG_BOARD_LEDS(BBOARD)  # leds 0001 -> cpu started
+    sw t0, REG_BOARD_GPIO_OUT(BBOARD)  # leds 0001 -> cpu started
     li t0, UART_BAUD_RATE(115200) | UART_PARITY_EVEN | UART_CSTOPB
     sw t0, REG_UART_CFG(BUART)
     sw zero, REG_UART_RX(BUART)
@@ -48,7 +48,7 @@ wait_ddr_calibration:
     li a0, 2
     blt t0, a0, error  # leds 00B1 -> ddr calibration error
     li t0, 3
-    sw t0, REG_BOARD_LEDS(BBOARD)  # leds 0011 -> ddr calibration OK
+    sw t0, REG_BOARD_GPIO_OUT(BBOARD)  # leds 0011 -> ddr calibration OK
 
     li PTR, RAM_BASE
     li t0, BIOS_SIZE
@@ -56,15 +56,15 @@ wait_ddr_calibration:
     li HASH, 0
     li a0, 4
 uart_loop:
-    lw t0, REG_BOARD_KEYS(BBOARD)
-    li t1, (BOARD_KEY_BOOT_EN | 1)
+    lw t0, REG_BOARD_GPIO_IN(BBOARD)
+    li t1, (GPIO_BOOT_EN | GPIO_KEY0)
     and t0, t0, t1
     bne t0, zero, spi_boot
     csrr t0, time
     srli t0, t0, 21
     andi t0, t0, 4
     ori t0, t0, 3
-    sw t0, REG_BOARD_LEDS(BBOARD)  # leds 0b11 -> listen UART
+    sw t0, REG_BOARD_GPIO_OUT(BBOARD)  # leds 0b11 -> listen UART
 
 #ifndef FAKE_UART
     lw t0, REG_UART_RX(BUART)
@@ -116,7 +116,7 @@ spi_loop:
 
 check:
     li t0, 7
-    sw t0, REG_BOARD_LEDS(BBOARD)  # leds 0111 -> memcheck started
+    sw t0, REG_BOARD_GPIO_OUT(BBOARD)  # leds 0111 -> memcheck started
     li PTR, RAM_BASE
 checkloop:
     lw t0, 0(PTR)
@@ -130,12 +130,12 @@ checkloop:
     bne t0, t1, error # leds B111 -> no BIOS_MAGIC
     fence.i
     li t0, 15
-    sw t0, REG_BOARD_LEDS(BBOARD)  # leds 1111 -> jump to RAM_BASE
+    sw t0, REG_BOARD_GPIO_OUT(BBOARD)  # leds 1111 -> jump to RAM_BASE
     li t0, RAM_BASE
     jr t0
 
 error:  # a0 - mask
-    lw t0, REG_BOARD_LEDS(BBOARD)
+    lw t0, REG_BOARD_GPIO_OUT(BBOARD)
     xori t1, a0, -1
     and t0, t0, t1
     csrr t1, time
@@ -143,9 +143,9 @@ error:  # a0 - mask
     andi t1, t1, 1
     mul t1, t1, a0
     or t0, t0, t1
-    sw t0, REG_BOARD_LEDS(BBOARD)
-    lw t0, REG_BOARD_KEYS(BBOARD)
-    andi t0, t0, 2
+    sw t0, REG_BOARD_GPIO_OUT(BBOARD)
+    lw t0, REG_BOARD_GPIO_IN(BBOARD)
+    andi t0, t0, GPIO_KEY1
     beq t0, zero, error
 
     # dump memory

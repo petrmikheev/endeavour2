@@ -46,7 +46,7 @@ struct sbiret sbi_handler(unsigned arg, unsigned arg2, unsigned arg3, int fn_id,
     }
   }
   if (ext_id == 0x10) {
-    if (fn_id == 0) return (struct sbiret){SBI_OK, 2}; // SBI spec version = 0.2
+    if (fn_id == 0) return (struct sbiret){SBI_OK, 3}; // SBI spec version = 0.3
     if (fn_id == 3) {
       if (arg == SBI_EXT_TIMER || arg == SBI_EXT_RESET || arg == SBI_EXT_ENDEAVOUR
         || arg == SBI_EXT_HSM || arg == SBI_EXT_IPI || arg == SBI_EXT_RFENCE) return (struct sbiret){SBI_OK, 1};
@@ -59,9 +59,15 @@ struct sbiret sbi_handler(unsigned arg, unsigned arg2, unsigned arg3, int fn_id,
   }
   // Note: SBI_EXT_TIMER is handled in asm.S
   if (ext_id == SBI_EXT_RESET) {
-    printf("[SBI] Reset requested.\n");
-    wait(10000000);
-    BOARD_REGS->reset = 1;  // noreturn
+    if (arg == 0) {
+      printf("[SBI] Shutdown\n");
+      set_video_mode(0, 0);
+      while (1);
+    } else {
+      printf("[SBI] Reboot\n");
+      wait(10000000);
+      BOARD_REGS->reset = 1;  // noreturn
+    }
   }
   if (ext_id == SBI_EXT_HSM) {
     if (fn_id == 1) {  // sbi_hart_stop

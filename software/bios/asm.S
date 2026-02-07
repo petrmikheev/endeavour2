@@ -372,6 +372,13 @@ run_in_supervisor_mode:
     li t0, -1
     csrw mideleg, t0
 
+    # allow rdtime in supervisor mode
+    csrw mcounteren, t0
+
+    # allow sstc if available
+    li t0, 1<<31
+    csrs menvcfgh, t0
+
     # delegate exceptions to S mode
     li t0, 0xb1ff
     csrw medeleg, t0

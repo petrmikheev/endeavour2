@@ -93,6 +93,6 @@ void playWav(void* filePtr, int volume) {
       v1 = v2 = ((v + 0x8000) & 0xffff) >> 4;
     }
     AUDIO_REGS->stream = v1 | (v2 << 16);
-    if ((BOARD_REGS->keys & 3) || UART_REGS->rx >= 0) break;
+    if ((GPIO_REGS->data_in & (GPIO_KEY0 | GPIO_KEY1)) || UART_REGS->rx >= 0) break;
   }
 }

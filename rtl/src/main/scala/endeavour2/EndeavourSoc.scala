@@ -35,26 +35,14 @@ class FrequencyCounter extends Component {
   io.freq := res @@ U(0, 12 bits)
 }
 
-case class PlicGatewayActiveRising(source : Bool, override val id : Int, priorityWidth : Int) extends PlicGateway(id = id, priorityWidth = priorityWidth){
-  val ip = RegInit(False)
-  val waitCompletion = RegInit(False)
-
-  when(!waitCompletion && source && !RegNext(source)){
-    ip := True
-    waitCompletion := True
-  }
-  override def doClaim(): Unit = ip := False
-  override def doCompletion(): Unit = waitCompletion := False
-  override def driveFrom(bus: BusSlaveFactory, offset: Int): Unit = {}
-}
-
 class EndeavourSoc(coresParams: List[ParamSimple],
                    bootRomContent : Option[Array[Byte]] = None,
                    withDma : Boolean = true,
                    internalRam : Boolean = false,
                    internalRamContent : Option[Array[Byte]] = None,
                    ramSize : Long = 1L<<30,
-                   sim : Boolean = false) extends Component {
+                   sim : Boolean = false,
+                   endeavour2aEspHack : Boolean = false) extends Component {
   val romBaseAddr = 0x40000000L
   val ramBaseAddr = 0x80000000L
   val resetVector = if (bootRomContent.isDefined) romBaseAddr else ramBaseAddr
@@ -80,7 +68,7 @@ class EndeavourSoc(coresParams: List[ParamSimple],
 
     val cbsel = in Bits(2 bits)
     val boot_en = in Bool()
-    val key = in Bits(2 bits)
+    val key = in Bits(3 bits)
     val led = out Bits(4 bits)
 
     val spi_flash_ncs_IN = in Bool()
@@ -90,6 +78,9 @@ class EndeavourSoc(coresParams: List[ParamSimple],
     val spi_flash_data_IN = in Bits(4 bits)
     val spi_flash_data_OUT = out Bits(4 bits)
     val spi_flash_data_OE = out Bits(4 bits)
+
+    val jtag_core0 = slave(JtagTapInstructionCtrl())
+    val jtag_tck = in Bool()
 
     val sd = SdcardPhy()
     val TL_MODE_SEL = out Bool()
@@ -113,27 +104,22 @@ class EndeavourSoc(coresParams: List[ParamSimple],
     val i2c_sda_OE = out Bool()
     val i2c_sda_IN = in Bool()
 
+    val epd = EpdInterface()
+
     val esp32_en = out Bool()
     val esp32_spi_boot = out Bool()
     val esp32_rx = out Bool()
     val esp32_tx = in Bool()
+    val esp32_dr = in Bool()
+    val esp32_hs = in Bool()
+    val esp32_smiso = in Bool()
+    val esp32_smosi = out Bool()
+    val esp32_sclk = out Bool()
+    val esp32_scs = out Bool()
 
-    val jtag_core0 = slave(JtagTapInstructionCtrl())
-    val jtag_tck = in Bool()
-
-    // ESP32 GPIO 4-7
-    val esp32_io4_IN = in Bool()
-    //val esp32_io4_OUT = out Bool()
-    val esp32_io4_OE = out Bool()
-    val esp32_io5_IN = in Bool()
-    //val esp32_io5_OUT = out Bool()
-    val esp32_io5_OE = out Bool()
-    val esp32_io6_IN = in Bool()
-    //val esp32_io6_OUT = out Bool()
-    val esp32_io6_OE = out Bool()
-    val esp32_io7_IN = in Bool()
-    val esp32_io7_OUT = out Bool()
-    val esp32_io7_OE = out Bool()
+    val gpio_IN = in Bits(13 bits)
+    val gpio_OUT = out Bits(13 bits)
+    val gpio_OE = out Bits(13 bits)
   }
 
   val rst_area = new ClockingArea(ClockDomain(
@@ -160,7 +146,9 @@ class EndeavourSoc(coresParams: List[ParamSimple],
   dvi_freq_counter.io.test_clk := io.dyn_clk0
   ram_freq_counter.io.test_clk := io.ddr.core_clk
 
-  val esp32_spi_boot = Bool()
+  val esp32_en = RegInit(False)
+  val esp32_spi_boot = RegInit(False)
+  io.esp32_en := esp32_en
 
   val cd60mhz = ClockDomain(
       clock = io.clk60, reset = rst_area.reset,
@@ -171,26 +159,25 @@ class EndeavourSoc(coresParams: List[ParamSimple],
     val uart_ctrl = new UartController()
     uart_ctrl.io.uart <> io.uart
 
+    val esp32_spi_ctrl = new SpiFifoController()
+    esp32_spi_ctrl.io.spi_miso := io.esp32_smiso
+    io.esp32_smosi := esp32_spi_ctrl.io.spi_mosi
+    io.esp32_scs := esp32_spi_ctrl.io.spi_ncs
+    io.esp32_sclk := esp32_spi_ctrl.io.spi_clk
+
     val esp32_uart_ctrl = new UartController()
     esp32_uart_ctrl.io.uart.rx := io.esp32_tx
-    // io.esp32_rx := esp32_uart_ctrl.io.uart.tx // see override below
 
-    val esp32_spi_ctrl = new SpiFifoController()
-
-    io.esp32_io4_OE := False // DataReady pin for esp_hosted_ng
-    io.esp32_io5_OE := False // Handshake pin for esp_hosted_ng
-    io.esp32_io6_OE := False                      // SPI MISO
-    io.esp32_io7_OE := ~esp32_spi_ctrl.io.spi_ncs // SPI MOSI
-
-    esp32_spi_ctrl.io.spi_miso := io.esp32_io6_IN
-    io.esp32_io7_OUT := esp32_spi_ctrl.io.spi_mosi
-
-    // Note: esp_hosted_ng requires more pins than was initially expected, so in endeavour2a
-    // a modified (with some pin remapping) version of esp_hosted_ng firmware is used for ESP32 module.
-    // esp32_spi_ctrl overrides esp32_rx and esp32_spi_boot when running.
-    // It is planned to change it in endeavour2b.
-    io.esp32_rx := esp32_uart_ctrl.io.uart.tx && esp32_spi_ctrl.io.spi_ncs
-    io.esp32_spi_boot := esp32_spi_boot && esp32_spi_ctrl.io.spi_clk
+    if (endeavour2aEspHack) {
+      // Note: esp_hosted_ng requires more pins than was initially expected, so in endeavour2a
+      // a modified (with some pin remapping) version of esp_hosted_ng firmware is used for ESP32 module.
+      // esp32_spi_ctrl overrides esp32_rx and esp32_spi_boot when running.
+      io.esp32_rx := esp32_uart_ctrl.io.uart.tx && esp32_spi_ctrl.io.spi_ncs
+      io.esp32_spi_boot := esp32_spi_boot && esp32_spi_ctrl.io.spi_clk
+    } else {
+      io.esp32_rx := esp32_uart_ctrl.io.uart.tx
+      io.esp32_spi_boot := esp32_spi_boot
+    }
 
     val audio_ctrl = new AudioController()
     io.snd_shdn := audio_ctrl.io.shdn
@@ -215,6 +202,9 @@ class EndeavourSoc(coresParams: List[ParamSimple],
     io.spi_flash_data_OUT := (B"110", spi_flash_ctrl.io.spi_mosi).asBits
     io.spi_flash_data_OE := Mux(spi_flash_ctrl.io.spi_ncs_en, B"1101", B"0000")
 
+    val epd_ctrl = new EpdSpiController()
+    io.epd <> epd_ctrl.io.epd
+
     val apb = Apb3(Apb3Config(
       addressWidth  = 11,
       dataWidth     = 32,
@@ -228,7 +218,8 @@ class EndeavourSoc(coresParams: List[ParamSimple],
         i2c_ctrl.io.apb        -> (0x300, 16),
         esp32_uart_ctrl.io.apb -> (0x400, 16),
         spi_flash_ctrl.io.apb  -> (0x500, 16),
-        esp32_spi_ctrl.io.apb  -> (0x600, 16)
+        esp32_spi_ctrl.io.apb  -> (0x600, 16),
+        epd_ctrl.io.apb        -> (0x700, 16)
       )
     )
   }
@@ -303,7 +294,7 @@ class EndeavourSoc(coresParams: List[ParamSimple],
   }
 
   val miscApb = Apb3(Apb3Config(
-    addressWidth  = 6,
+    addressWidth  = 7,
     dataWidth     = 32,
     useSlaveError = true
   ))
@@ -324,7 +315,8 @@ class EndeavourSoc(coresParams: List[ParamSimple],
       3 -> p.withRvZbs,           // zbs
       4 -> p.lsuSoftwarePrefetch, // zicbop
       5 -> p.withRvcbm,           // zicbom
-      6 -> withDma,
+      6 -> p.privParam.withSSTC,  // sstc
+      16 -> withDma,
       default -> False)
 
   assert(coresParams.length <= 4)
@@ -338,27 +330,88 @@ class EndeavourSoc(coresParams: List[ParamSimple],
   val ramStat = Bits(15 bits)
   when (ramTacShiftOverrideRequest) { ramTacShiftOverrideRequest := False }
 
-  val cbKeyReg = RegNext((io.cbsel, io.boot_en, io.spi_flash_ncs_IN).asBits)
-  val keyReg = RegNext(io.key)
-  val ledReg = Reg(Bits(4 bits)) init(0)
-  val esp32CfgReg = Reg(Bits(2 bits)) init(0)
-  io.led := ledReg
-  io.esp32_en := esp32CfgReg(0)
-  esp32_spi_boot := esp32CfgReg(1)
-  miscCtrl.readAndWrite(ledReg, address = 0x20)
-  miscCtrl.read(keyReg, address = 0x24)
-  miscCtrl.read(cbKeyReg, address = 0x24, bitOffset = 28)
-  miscCtrl.read(RegNext(io.esp32_io4_IN), address = 0x24, bitOffset = 26)
-  miscCtrl.read(RegNext(io.esp32_io5_IN), address = 0x24, bitOffset = 27)
-  miscCtrl.read((Mux(ramTacShiftOverridden, ramTacShiftOverride, ramStat(14 downto 12)), False, ramStat).asBits, address = 0x28)
-  miscCtrl.onWrite(0x28)({
+  miscCtrl.read((Mux(ramTacShiftOverridden, ramTacShiftOverride, ramStat(14 downto 12)), False, ramStat).asBits, address = 0x20)
+  miscCtrl.onWrite(0x20)({
     ramTacShiftOverrideRequest := True
     ramTacShiftOverridden := True
   })
-  miscCtrl.write(ramTacShiftOverride, address = 0x28, bitOffset = 16)
-  miscCtrl.read(U(ramSize, 32 bits), address = 0x2C)
-  miscCtrl.readAndWrite(esp32CfgReg, address = 0x30)
-  miscCtrl.read(ram_freq_counter.io.freq(30 downto 0) @@ False, address = 0x34)
+  miscCtrl.write(ramTacShiftOverride, address = 0x20, bitOffset = 16)
+  miscCtrl.read(U(ramSize, 32 bits), address = 0x24)
+  miscCtrl.read(ram_freq_counter.io.freq(30 downto 0) @@ False, address = 0x28)
+
+  val gpio = new Area {  // emulating ftgpio010
+    val gpioOut = Reg(Bits(13 bits)) init(0)
+    val gpioOE = Reg(Bits(13 bits)) init(0)
+    io.gpio_OUT := gpioOut
+    io.gpio_OE := gpioOE
+
+    val ledReg = Reg(Bits(4 bits)) init(0)
+    io.led := ledReg
+
+    val dataIn = RegNext(B(32 bits,
+      (3 downto 0) -> ledReg,
+      (6 downto 4) -> io.key,
+      7 -> False,  // unused
+      (20 downto 8) -> io.gpio_IN,
+      21 -> False, // unused
+      22 -> io.esp32_hs,
+      23 -> esp32_en,
+      24 -> esp32_spi_boot,
+      25 -> False, // unused
+      26 -> False, // unused
+      27 -> io.esp32_dr,
+      28 -> io.spi_flash_ncs_IN,
+      29 -> io.boot_en,
+      (31 downto 30) -> io.cbsel
+    ))
+
+    // GPIO_DATA_OUT
+    miscCtrl.readAndWrite(ledReg, address = 0x30, bitOffset = 0)
+    miscCtrl.readAndWrite(gpioOut, address = 0x30, bitOffset = 8)
+    miscCtrl.readAndWrite(esp32_en, address = 0x30, bitOffset = 23)
+    miscCtrl.readAndWrite(esp32_spi_boot, address = 0x30, bitOffset = 24)
+
+    // GPIO_DATA_IN
+    miscCtrl.read(dataIn, address = 0x34)
+
+    // GPIO_DATA_DIR
+    miscCtrl.read(B"1111", address = 0x38, bitOffset = 0)
+    miscCtrl.read(B"11", address = 0x38, bitOffset = 23)
+    miscCtrl.readAndWrite(gpioOE, address = 0x38, bitOffset = 8)
+
+    // GPIO_DATA_SET
+    miscCtrl.onWrite(0x40)({
+      ledReg := ledReg | miscApb.PWDATA(3 downto 0)
+      gpioOut := gpioOut | miscApb.PWDATA(20 downto 8)
+      esp32_en := esp32_en | miscApb.PWDATA(23)
+      esp32_spi_boot := esp32_spi_boot | miscApb.PWDATA(24)
+    })
+
+    // GPIO_DATA_CLR
+    miscCtrl.onWrite(0x44)({
+      ledReg := ledReg & ~miscApb.PWDATA(3 downto 0)
+      gpioOut := gpioOut & ~miscApb.PWDATA(20 downto 8)
+      esp32_en := esp32_en & ~miscApb.PWDATA(23)
+      esp32_spi_boot := esp32_spi_boot & ~miscApb.PWDATA(24)
+    })
+
+    val int_en = miscCtrl.createReadAndWrite(Bits(32 bits), 0x50) init(0)        // GPIO_INT_EN
+    val int_stat = miscCtrl.createReadOnly(Bits(32 bits), 0x54) init(0)          // GPIO_INT_STAT
+    val int_mask = miscCtrl.createReadAndWrite(Bits(32 bits), 0x5C) init(0)      // GPIO_INT_MASK
+    miscCtrl.onWrite(0x60)({ int_stat := int_stat & ~miscApb.PWDATA })           // GPIO_INT_CLR
+    val int_type = miscCtrl.createReadAndWrite(Bits(32 bits), 0x64) init(0)      // GPIO_INT_TYPE
+    val int_both_edge = miscCtrl.createReadAndWrite(Bits(32 bits), 0x68) init(0) // GPIO_INT_BOTH_EDGE
+    val int_level = miscCtrl.createReadAndWrite(Bits(32 bits), 0x6C) init(0)     // GPIO_INT_LEVEL
+
+    val dataPrev = RegNext(dataIn)
+    val posEdgeTrigger = int_level & dataIn & ~dataPrev
+    val negEdgeTrigger = ~int_level & ~dataIn & dataPrev
+    val edgeTrigger = int_type & ((int_both_edge & (dataIn ^ dataPrev)) | (~int_both_edge & (posEdgeTrigger | negEdgeTrigger)))
+    val levelTrigger = ~int_type & ~(dataIn ^ int_level)
+    int_stat := int_stat | (int_en & (levelTrigger | edgeTrigger))
+
+    val interrupt = (int_en & int_stat & ~int_mask).orR
+  }
 
   val plicSize = 0x4000000
   val plicPriorityWidth = 1
@@ -368,11 +421,10 @@ class EndeavourSoc(coresParams: List[ParamSimple],
     PlicGatewayActiveHigh(source = sdcard_ctrl.io.interrupt, id = 2, priorityWidth = plicPriorityWidth),
     PlicGatewayActiveHigh(source = usb_ctrl.interrupt, id = 3, priorityWidth = plicPriorityWidth),
     PlicGatewayActiveHigh(source = esp32_spi_interrupt, id = 4, priorityWidth = plicPriorityWidth),
-    PlicGatewayActiveRising(source = io.esp32_io5_IN, id = 5, priorityWidth = plicPriorityWidth),
-    PlicGatewayActiveRising(source = io.esp32_io4_IN, id = 6, priorityWidth = plicPriorityWidth)
+    PlicGatewayActiveHigh(source = gpio.interrupt, id = 5, priorityWidth = plicPriorityWidth),
   )
   if (withDma) {
-    plic_gateways += PlicGatewayActiveHigh(source = dma_ctrl.interrupt, id = 7, priorityWidth = plicPriorityWidth)
+    plic_gateways += PlicGatewayActiveHigh(source = dma_ctrl.interrupt, id = 6, priorityWidth = plicPriorityWidth)
   }
   val plic_target = PlicTarget(id = 0, gateways = plic_gateways.toList, priorityWidth = plicPriorityWidth)
 
@@ -531,7 +583,7 @@ class EndeavourSoc(coresParams: List[ParamSimple],
 object EndeavourSoc {
   def main(args: Array[String]): Unit = {
     val bootRomContent = Files.readAllBytes(Paths.get("../software/bios/microloader.bin"))
-    SpinalConfig(mode=Verilog, targetDirectory="verilog").generate(new EndeavourSoc(
+    SpinalConfig(mode=Verilog, targetDirectory="verilog").generate(new EndeavourSoc(endeavour2aEspHack=true,
         //coresParams=List(Core.small(withCaches=false)), internalRam=true, ramSize=65536,
         //coresParams=List(Core.small(withCaches=true)),
         //coresParams=List(Core.medium()),

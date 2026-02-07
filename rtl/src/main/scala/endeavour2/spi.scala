@@ -4,8 +4,8 @@ import spinal.core._
 import spinal.lib._
 import spinal.lib.fsm._
 import spinal.lib.bus.amba3.apb.{Apb3, Apb3Config, Apb3SlaveFactory}
-import spinal.lib.bus.tilelink
 
+// Used for spi flash
 class SpiController extends Component {
   val io = new Bundle {
     val spi_ncs = out Bool()
@@ -94,6 +94,7 @@ class SpiController extends Component {
   }
 }
 
+// Used for communication with ESP32
 class SpiFifoController extends Component {
   val io = new Bundle {
     val spi_ncs = out Bool()
@@ -182,159 +183,76 @@ class SpiFifoController extends Component {
   }
 }
 
-class ApbClockBridge(awidth: Int) extends BlackBox {
-  addGeneric("AWIDTH", awidth)
-  val apb_conf = Apb3Config(
-    addressWidth  = awidth,
-    dataWidth     = 32,
-    useSlaveError = true
-  )
-  val io = new Bundle {
-    val clk_input = in Bool()
-    val clk_output = in Bool()
-    val input = slave(Apb3(apb_conf))
-    val output = master(Apb3(apb_conf))
-  }
-  noIoPrefix()
-  mapClockDomain(clock=io.clk_input)
-  addRTLPath("./verilog/apb_clock_bridge.v")
+case class EpdInterface() extends Bundle {
+  val busy_n = in Bool()
+  val rst_n = out Bool()
+  val dc = out Bool()
+  val csb = out Bool()
+  val scl = out Bool()
+  val sda_IN = in Bool()
+  val sda_OUT = out Bool()
+  val sda_OE = out Bool()
 }
 
-case class UART() extends Bundle {
-  val rx = in Bool()
-  val tx = out Bool()
-}
-
-class UartController extends BlackBox {
+class EpdSpiController extends Component {
   val io = new Bundle {
-    val clk = in Bool()
-    val reset = in Bool()
-    val uart = UART()
-    val interrupt = out Bool()
+    val epd = EpdInterface()
     val apb = slave(Apb3(Apb3Config(
       addressWidth  = 4,
       dataWidth     = 32,
       useSlaveError = false
     )))
   }
-  noIoPrefix()
-  mapClockDomain(clock=io.clk, reset=io.reset)
-  addRTLPath("./verilog/uart_controller.v")
-}
+  val apb = Apb3SlaveFactory(io.apb)
 
-class AudioController extends BlackBox {
-  val io = new Bundle {
-    val clk = in Bool()
-    val reset = in Bool()
-    val shdn = out Bool()
-    val i2c_scl = out Bool()
-    val i2c_sda = out Bool()
-    val i2c_sda_IN = in Bool()
-    val apb = slave(Apb3(Apb3Config(
-      addressWidth  = 3,
-      dataWidth     = 32,
-      useSlaveError = false
-    )))
+  val rst_n = RegInit(False)
+  val dc = Reg(Bool())
+  val csb = RegInit(True)
+  val scl = RegInit(False)
+  val write = RegInit(False)
+
+  val divisor = Reg(UInt(6 bits))
+  val divisor_counter = Reg(UInt(6 bits))
+  val counter = RegInit(U(0, 5 bits))
+  val data = Reg(Bits(8 bits))
+  val spi_busy = counter.orR
+
+  io.epd.rst_n := rst_n
+  io.epd.dc := dc
+  io.epd.csb := csb
+  io.epd.scl := scl
+  io.epd.sda_OE := write
+  io.epd.sda_OUT := data(7)
+
+  apb.readAndWrite(rst_n, 0, bitOffset=0)
+  apb.read(~RegNext(io.epd.busy_n) ## spi_busy, 0, bitOffset=1)
+  apb.readAndWrite(data, 4)
+
+  apb.onWrite(8)({
+    when (~spi_busy) {
+      divisor := io.apb.PWDATA(5 downto 0).asUInt
+      divisor_counter := io.apb.PWDATA(5 downto 0).asUInt
+      counter := 19
+      dc := io.apb.PWDATA(8)
+      write := io.apb.PWDATA(9)
+    }
+  })
+
+  when (spi_busy) {
+    when (divisor_counter === 0) {
+      divisor_counter := divisor
+      when (counter === 19) {
+        csb := False
+      } elsewhen (counter === 1) {
+        csb := True
+        write := False
+      } elsewhen (counter =/= 18) {
+        scl := counter(0)
+        when (~counter(0)) { data := data(6 downto 0) ## io.epd.sda_IN }
+      }
+      counter := counter - 1
+    } otherwise {
+      divisor_counter := divisor_counter - 1
+    }
   }
-  noIoPrefix()
-  mapClockDomain(clock=io.clk, reset=io.reset)
-  addRTLPath("./verilog/audio_controller.v")
-}
-
-class I2cController extends BlackBox {
-  val io = new Bundle {
-    val clk = in Bool()
-    val reset = in Bool()
-    val i2c_scl = out Bool()
-    val i2c_sda = out Bool()
-    val i2c_sda_IN = in Bool()
-    val apb = slave(Apb3(Apb3Config(
-      addressWidth  = 4,
-      dataWidth     = 32,
-      useSlaveError = false
-    )))
-  }
-  noIoPrefix()
-  mapClockDomain(clock=io.clk, reset=io.reset)
-  addRTLPath("./verilog/i2c.v")
-}
-
-case class SdcardPhy() extends Bundle {
-  val clk_LO = out Bool()
-  val clk_HI = out Bool()
-
-  val cmd_IN_LO = in Bool()
-  val cmd_IN_HI = in Bool()
-  val cmd_OUT = out Bool()
-  val cmd_OE = out Bool()
-
-  val data_IN_LO = in Bits(4 bits)
-  val data_IN_HI = in Bits(4 bits)
-  val data_OUT = out Bits(4 bits)
-  val data_OE = out Bits(4 bits)
-
-  val ndetect = in Bool()
-  val vdd_sel_3v3 = out Bool()
-}
-
-class SdcardController extends BlackBox {
-  val io = new Bundle {
-    val clk = in Bool()
-    val reset = in Bool()
-    val sdcard = SdcardPhy()
-
-    val apb = slave(Apb3(Apb3Config(
-      addressWidth  = 5,
-      dataWidth     = 32,
-      useSlaveError = true
-    )))
-
-    val interrupt = out Bool()
-  }
-  noIoPrefix()
-  addRTLPath("./verilog/sdcard_controller.v")
-  addRTLPath("./sdspi/rtl/sdio_top.v")
-  addRTLPath("./sdspi/rtl/sdio.v")
-  addRTLPath("./sdspi/rtl/sdwb.v")
-  addRTLPath("./sdspi/rtl/sdckgen.v")
-  addRTLPath("./sdspi/rtl/sdcmd.v")
-  addRTLPath("./sdspi/rtl/sdtxframe.v")
-  addRTLPath("./sdspi/rtl/sdrxframe.v")
-  addRTLPath("./sdspi/rtl/sdfrontend.v")
-}
-
-class VideoController extends BlackBox {
-  addGeneric("ADDRESS_WIDTH", 30)
-  val io = new Bundle {
-    val clk = in Bool()
-    val reset = in Bool()
-    val pixel_clk = in Bool()
-    val data_red = out Bits(8 bits)
-    val data_green = out Bits(8 bits)
-    val data_blue = out Bits(8 bits)
-    val data_enable = out Bool()
-    val hSync = out Bool()
-    val vSync = out Bool()
-    val apb = slave(Apb3(Apb3Config(
-      addressWidth  = 6,
-      dataWidth     = 32,
-      useSlaveError = false
-    )))
-    val tl_bus = master(tilelink.Bus(tilelink.BusParameter(
-      addressWidth = 30,
-      dataWidth    = 64,
-      sizeBytes    = 64,
-      sourceWidth  = 2,
-      sinkWidth    = 0,
-      withBCE      = false,
-      withDataA    = false,
-      withDataB    = false,
-      withDataC    = false,
-      withDataD    = true,
-      node         = null
-    )))
-  }
-  noIoPrefix()
-  mapClockDomain(clock=io.clk, reset=io.reset)
-  addRTLPath("./verilog/video_controller.v")
 }

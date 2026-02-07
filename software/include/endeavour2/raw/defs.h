@@ -9,6 +9,7 @@
 #define ESP32_UART_BASE 0x400
 #define SPI_FLASH_BASE  0x500
 #define ESP32_SPI_BASE  0x600
+#define EPD_BASE        0x700
 #define BOARD_BASE     0x1000
 #define VIDEO_BASE     0x2000
 #define SDCARD_BASE    0x3000
@@ -28,7 +29,8 @@
 #define SDCARD_INTERRUPT_ID 2
 #define USB_OHCI_INTERRUPT_ID 3
 #define ESP32_SPI_INTERRUPT_ID 4
-#define DMA_INTERRUPT_ID 7
+#define GPIO_INTERRUPT_ID 5
+#define DMA_INTERRUPT_ID 6
 
 #define ROM_BASE  0x40000000  // reset addr
 #define RAM_BASE  0x80000000
@@ -119,6 +121,26 @@ struct EndeavourEsp32Spi {
 
 #endif
 
+// *** E-paper display
+
+#ifndef __ASSEMBLER__
+struct EndeavourEpd {
+  unsigned stat, data, cmd;
+};
+#define EPD_REGS ((volatile struct EndeavourEpd*)(EPD_BASE))
+
+// stat flags
+#define EPD_NRESET   1
+#define EPD_SPI_BUSY 2
+#define EPD_BUSY     4
+
+// cmd flags
+#define EPD_DIVISOR(x) (x)  // 0 - 0x3f
+#define EPD_DATA  0x100
+#define EPD_WRITE 0x200
+
+#endif
+
 // *** Audio
 
 #ifdef __ASSEMBLER__
@@ -171,16 +193,16 @@ struct EndeavourI2C {
 
 #ifdef __ASSEMBLER__
   #define REG_BOARD_RESET         0x0  // write triggers soft reset
-  #define REG_BOARD_CPU_FREQ      0x4  // CPU frequency
-  #define REG_BOARD_DVI_FREQ      0x8  // DVI pixel frequency
-  #define REG_BOARD_HART_COUNT    0xC
+  #define REG_BOARD_CPU_FREQ      0x4  // CPU frequency, readonly
+  #define REG_BOARD_DVI_FREQ      0x8  // DVI pixel frequency, readonly, can be changed via I2C
+  #define REG_BOARD_HART_COUNT    0xC  // The number of cores 1-4, readonly
   #define REG_BOARD_CPU_FEATURES(hartid) (0x10 + 4 * (hartid))
-  #define REG_BOARD_LEDS         0x20
-  #define REG_BOARD_KEYS         0x24
-  #define REG_BOARD_RAM_STAT     0x28
-  #define REG_BOARD_RAM_SIZE     0x2C
-  #define REG_BOARD_ESP32_CFG    0x30
-  #define REG_BOARD_RAM_FREQ     0x34
+  #define REG_BOARD_RAM_STAT     0x20  // write to bits 16-18 overrides tac_shift; bits 0-15 is readonly status of DDR controller
+  #define REG_BOARD_RAM_SIZE     0x24
+  #define REG_BOARD_RAM_FREQ     0x28
+
+  #define REG_BOARD_GPIO_OUT     0x30
+  #define REG_BOARD_GPIO_IN      0x34
 #else
 struct EndeavourBoard {
   unsigned reset;
@@ -188,23 +210,39 @@ struct EndeavourBoard {
   unsigned dvi_pixel_frequency;
   unsigned hart_count;
   unsigned cpu_features[4];
-  unsigned leds;
-  unsigned keys;
   unsigned ram_stat;
   unsigned ram_size;
-  unsigned esp32_cfg;
   unsigned ram_frequency;
 };
+struct FTGPIO010 {
+  unsigned data_out;
+  unsigned data_in;
+  unsigned data_dir;
+  unsigned unused;
+  unsigned data_set;
+  unsigned data_clear;
+};
 #define BOARD_REGS ((volatile struct EndeavourBoard*)(BOARD_BASE))
+#define GPIO_REGS ((volatile struct FTGPIO010*)(BOARD_BASE + 0x30))
 #endif
 
-// BOARD_KEYS flags
-#define BOARD_KEY_ESP_DR   (1<<26)
-#define BOARD_KEY_ESP_HS   (1<<27)
-#define BOARD_KEY_SPI_EN   (1<<28)
-#define BOARD_KEY_BOOT_EN  (1<<29)
-#define BOARD_KEY_CBSEL0   (1<<30)
-#define BOARD_KEY_CBSEL1   (1<<31)
+// GPIO bits
+#define GPIO_LED0             (1<<0)
+#define GPIO_LED1             (1<<1)
+#define GPIO_LED2             (1<<2)
+#define GPIO_LED3             (1<<3)
+#define GPIO_KEY0             (1<<4)
+#define GPIO_KEY1             (1<<5)
+#define GPIO_KEY2             (1<<6)
+#define GPIO(x)               (1<<((x)+7))  // x in range 1-13
+#define GPIO_ESP32_HS         (1<<22)
+#define GPIO_ESP32_EB         (1<<23)
+#define GPIO_ESP32_SPI_BOOT   (1<<22)
+#define GPIO_ESP32_DR         (1<<27)
+#define GPIO_SPI_FLASH_EN     (1<<28)
+#define GPIO_BOOT_EN          (1<<29)
+#define GPIO_CBSEL0           (1<<30)
+#define GPIO_CBSEL1           (1<<31)
 
 // BOARD_CPU_FEATURES flags
 #define CPU_FEATURES_ZBA        1  // Address calculation extension.
@@ -213,7 +251,8 @@ struct EndeavourBoard {
 #define CPU_FEATURES_ZBS        8  // Single-bit operation extension.
 #define CPU_FEATURES_ZICBOP  0x10  // Cache-block prefetch extension.
 #define CPU_FEATURES_ZICBOM  0x20  // Cache-block management extension.
-#define CPU_FEATURES_DMA     0x40  // EndeavourDMA is available
+#define CPU_FEATURES_SSTC    0x40  // Supervisor-mode Timer Interrupts extension.
+#define CPU_FEATURES_DMA     (1<<16)  // EndeavourDMA is available
 
 // BOARD_ESP32_CFG flags
 #define BOARD_ESP32_EN          1
