@@ -15,6 +15,7 @@ echo "uart 80008000" $(stat -c%s $DTB) " # send DTB" > /dev/ttyUSB0
 sleep 0.5
 "$SCRIPT_DIR"/../../scripts/send_file_uart_12mhz.sh $DTB
 sleep 0.5
+echo "crc32 80008000" $(stat -c%s $DTB) $(crc32 $DTB) " # check DTB CRC" > /dev/ttyUSB0
 echo "device_tree 80008000" > /dev/ttyUSB0
 echo "uart 82000000" $(stat -c%s $KERNEL) " # send kernel" > /dev/ttyUSB0
 sleep 0.5
