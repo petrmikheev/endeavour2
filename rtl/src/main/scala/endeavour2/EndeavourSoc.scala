@@ -50,7 +50,7 @@ class EndeavourSoc(coresParams: List[ParamSimple],
   val io = new Bundle {
     val clk25 = in Bool()
     val clk60 = in Bool()
-    val clk_sdctrl = in Bool()
+    //val clk_sdctrl = in Bool()
     val clk_cpu = in Bool()
     val dyn_clk0 = in Bool()
 
@@ -228,14 +228,14 @@ class EndeavourSoc(coresParams: List[ParamSimple],
   apb_60mhz_bridge.io.output <> area60mhz.apb
 
   val sdcard_ctrl = new SdcardController()
-  sdcard_ctrl.io.clk := io.clk_sdctrl
+  sdcard_ctrl.io.clk := io.clk_cpu // clk_sdctrl
   sdcard_ctrl.io.reset := rst_area.reset
   sdcard_ctrl.io.sdcard <> io.sd
   io.TL_MODE_SEL := ~io.sd.vdd_sel_3v3
 
-  val apb_sdcard_bridge = new ApbClockBridge(5)
+  /*val apb_sdcard_bridge = new ApbClockBridge(5)
   apb_sdcard_bridge.io.clk_output := sdcard_ctrl.io.clk
-  apb_sdcard_bridge.io.output <> sdcard_ctrl.io.apb
+  apb_sdcard_bridge.io.output <> sdcard_ctrl.io.apb*/
 
   val dbus = tilelink.fabric.Node()
   val cbus = tilelink.fabric.Node()
@@ -492,7 +492,8 @@ class EndeavourSoc(coresParams: List[ParamSimple],
     var apbSlaves = List[(Apb3, SizeMapping)](
       apb_60mhz_bridge.io.input  -> (0x0, 0x800),
       miscApb                    -> (0x1000, 1<<miscApb.config.addressWidth),
-      apb_sdcard_bridge.io.input -> (0x3000, 32),
+      //apb_sdcard_bridge.io.input -> (0x3000, 32),
+      sdcard_ctrl.io.apb         -> (0x3000, 32),
       usb_ctrl.apb_ctrl          -> (0x4000, 0x1000),
       clintApb                   -> (0x10000, 0x10000),
       plicApb                    -> (0x4000000, 0x4000000)
