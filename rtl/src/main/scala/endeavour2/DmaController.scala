@@ -128,7 +128,7 @@ class DmaController extends Component {
   io.tl_bus.a.payload.source := tl_a_source
   io.tl_bus.a.payload.opcode := Mux(mem_write, tilelink.Opcode.A.PUT_FULL_DATA, tilelink.Opcode.A.GET)
   io.tl_bus.a.payload.address := (mem_addr ## B(0, 6 bits)).asUInt
-  io.tl_bus.a.payload.param := 0
+  io.tl_bus.a.payload.param := 2 // non-standart feature of tilelink.coherent.Cache - on miss propagate transaction down without allocating cache line
   io.tl_bus.a.payload.size := 6 // 2**6 = 64 bytes
   io.tl_bus.a.valid := False
 

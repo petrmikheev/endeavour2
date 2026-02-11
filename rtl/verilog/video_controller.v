@@ -213,7 +213,7 @@ module VideoController #(parameter ADDRESS_WIDTH) (
   // *** RAM interface
 
   assign tl_bus_a_payload_opcode = 3'd4; // GET
-  assign tl_bus_a_payload_param = 3'd0;  // 0
+  assign tl_bus_a_payload_param = 3'd2;  // feature of tilelink.coherent.Cache - on miss propagate transaction down without allocating cache line
   assign tl_bus_a_payload_size = 3'd6;   // 64 bytes
   assign tl_bus_d_ready = 1'b1;
 

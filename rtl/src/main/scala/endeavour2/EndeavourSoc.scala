@@ -4,6 +4,7 @@ import java.nio.file.{Files, Paths}
 import scala.collection.mutable.ListBuffer
 
 import spinal.core._
+import spinal.core.internals.{MemTopology, PhaseContext, PhaseNetlist}
 import spinal.lib._
 import spinal.lib.bus.amba3.apb._
 import spinal.lib.bus.amba4.axi._
@@ -38,6 +39,7 @@ class FrequencyCounter extends Component {
 class EndeavourSoc(coresParams: List[ParamSimple],
                    bootRomContent : Option[Array[Byte]] = None,
                    withDma : Boolean = true,
+                   withL2: Boolean = true,
                    internalRam : Boolean = false,
                    internalRamContent : Option[Array[Byte]] = None,
                    ramSize : Long = 1L<<30,
@@ -539,16 +541,19 @@ class EndeavourSoc(coresParams: List[ParamSimple],
 
   val mbus = tilelink.fabric.Node()
 
-  if (hasL1 && internalRam) {
+  if (withL2 || (hasL1 && !internalRam)) {
+    val tl_cache = new tilelink.coherent.CacheFiber()
+    tl_cache.parameter.downPendingMax = 8
+    tl_cache.parameter.cacheBytes = 16384
+    tl_cache.parameter.cacheBanks = 1
+    tl_cache.parameter.cacheWays = 4
+    tl_cache.up << cbus
+    mbus << tl_cache.down
+  } else if (hasL1) {
     val tl_hub = new tilelink.coherent.HubFiber()
     tl_hub.parameter.downPendingMax = 8
     tl_hub.up << cbus
     mbus << tl_hub.down
-  } else if (hasL1) {
-    val tl_cache = new tilelink.coherent.CacheFiber()
-    tl_cache.parameter.downPendingMax = 8
-    tl_cache.up << cbus
-    mbus << tl_cache.down
   } else {
     mbus << cbus
   }
@@ -562,9 +567,9 @@ class EndeavourSoc(coresParams: List[ParamSimple],
     case None =>
   }
 
+  val iram = internalRam generate new RamFiber(ramSize, initialContent=internalRamContent)
   if (internalRam) {
-    val ram = new RamFiber(ramSize, initialContent=internalRamContent)
-    ram.up << mbus
+    iram.up << mbus
     io.ddr.not_connected()
     io.ddr_tac_shift := 0
     io.ddr_tac_shift_ena := False
@@ -581,11 +586,34 @@ class EndeavourSoc(coresParams: List[ParamSimple],
   io.ddr_tac_shift_sel := 4
 }
 
+object blackboxPolicy extends MemBlackboxingPolicy{
+  override def translationInterest(topology: MemTopology): Boolean = {
+    if(topology.readWriteSync.size > 1) return false
+    if(topology.writes.exists(e => e.mask != null && e.getSymbolWidth == 8) && topology.mem.initialContent == null) return true
+    if (topology.readWriteSync.exists(e => e.mask != null && e.getSymbolWidth == 8) && topology.mem.initialContent == null) return true
+    if (topology.readsAsync.size != 0 && topology.mem.initialContent == null) return true
+    false
+  }
+
+  override def onUnblackboxable(topology: MemTopology, who: Any, message: String): Unit = generateUnblackboxableError(topology, who, message)
+}
+
 object EndeavourSoc {
   def main(args: Array[String]): Unit = {
     val bootRomContent = Files.readAllBytes(Paths.get("../software/bios/microloader.bin"))
-    SpinalConfig(mode=Verilog, targetDirectory="verilog").generate(new EndeavourSoc(endeavour2aEspHack=true,
-        //coresParams=List(Core.small(withCaches=false)), internalRam=true, ramSize=65536,
+    val sc = SpinalConfig(mode=Verilog, targetDirectory="verilog")
+    sc.addStandardMemBlackboxing(blackboxPolicy)
+    sc.memBlackBoxers += new PhaseNetlist {
+      override def impl(pc: PhaseContext) = {
+        pc.walkComponents{
+          case bb: Ram_1w_1rs => bb.setInlineVerilog(Ram_1w_1rs.efinix)
+          case bb: Ram_1w_1ra => bb.setInlineVerilog(Ram_1w_1ra.efinix)
+          case _ =>
+        }
+      }
+    }
+    sc.generate(new EndeavourSoc(endeavour2aEspHack=true,
+        //coresParams=List(Core.small(withCaches=false)), internalRam=true, ramSize=65536, withL2=false,
         //coresParams=List(Core.small(withCaches=true)),
         //coresParams=List(Core.medium()),
         //coresParams=List(Core.medium(), Core.small(withCaches=true)),

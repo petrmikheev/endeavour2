@@ -13,7 +13,6 @@
 // 1792 KB - 2048 KB    : display buffer, text
 // 2048 MB - 6368 MB    : display buffer, graphic
 //    7 MB -    8 MB    : memory benchmark, page2
-//    8 MB - 1024 MB    : used during memtest
 
 void print_cpu_info() {
   for (int hartid = 0; hartid < BOARD_REGS->hart_count; ++hartid) {
@@ -74,10 +73,14 @@ void autoboot() {
 int main() {
   GPIO_REGS->data_clear = 0xf;  // clear leds
   if (BOARD_REGS->hart_count > 1) software_interrupt(1);  // triggers initilization code for second core
-  beep(333, 300, 6);
+
+  // it is used to speedup simulation
+  int skip_non_essential = (GPIO_REGS->data_in & (GPIO_KEY0|GPIO_KEY1|GPIO_KEY2)) == (GPIO_KEY0|GPIO_KEY1|GPIO_KEY2);
+
+  if (!skip_non_essential) beep(333, 300, 6);
 
   unsigned ram_size = BOARD_REGS->ram_size;
-  if (ram_size >= (8<<20)) {
+  if (!skip_non_essential && ram_size >= (8<<20)) {
     init_display();
   }
 
@@ -93,7 +96,7 @@ int main() {
     printf("RAM: %u KB\n", ram_size >> 10);
   } else {
     printf("RAM: %u MB, %u MHz\t", ram_size >> 20, BOARD_REGS->ram_frequency / 1000000);
-    if (ram_size >= (8<<20) && fast_memtest() != 0) {
+    if (!skip_non_essential && ram_size >= (8<<20) && fast_memtest() != 0) {
       beep(1000, 300, 6);
     }
   }
@@ -107,9 +110,9 @@ int main() {
       printf("\tSelected EXT2 filesystem on partition %u\n", p);
     }
   }
-  init_usb_keyboard();
+  if (!skip_non_essential) init_usb_keyboard();
 
-  if ((GPIO_REGS->data_in & GPIO_BOOT_EN) && is_ext2_reader_initialized()) autoboot();
+  if ((GPIO_REGS->data_in & GPIO_BOOT_EN) && !(GPIO_REGS->data_in & GPIO_KEY1) && is_ext2_reader_initialized()) autoboot();
 
   run_console();
   while(1);

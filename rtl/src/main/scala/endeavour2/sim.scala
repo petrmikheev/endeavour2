@@ -22,7 +22,11 @@ object FileUtil {
     val wordSize = mem.width / 8
     for (i <- 0 until (size+wordSize-1) / wordSize) {
       var v: BigInt = 0
-      for (j <- 0 until wordSize) { v = v + (BigInt(data(i*wordSize+j)&0xff) << (j*8)) }
+      for (j <- 0 until wordSize) {
+        if (i*wordSize+j < size) {
+          v = v + (BigInt(data(i*wordSize+j)&0xff) << (j*8))
+        }
+      }
       //println("%4x: %08x".format(i*wordSize, v))
       mem.setBigInt(addr / wordSize + i, v)
     }
@@ -30,16 +34,16 @@ object FileUtil {
   }
 }
 
-class EndeavourSocSim extends EndeavourSoc(
+class EndeavourSocSim(ramSize : Long) extends EndeavourSoc(
         //coresParams=List(Core.small(withCaches=true)/*, Core.small(withCaches=true)*/),
         coresParams=List(Core.medium()),
-        internalRam=true, ramSize=65536,
+        internalRam=true, ramSize=ramSize,
         internalRamContent=Some(Files.readAllBytes(Paths.get("../software/bios/bios.bin"))),
         //bootRomContent=Some(Files.readAllBytes(Paths.get("../software/bios/microloader.bin"))),
         sim=true
         ) {
   Fiber patch{
-    //ram.thread.logic.mem.simPublic()
+    iram.thread.logic.mem.simPublic()
     rst_area.reset.simPublic()
   }
 
@@ -64,29 +68,52 @@ class EndeavourSocSim extends EndeavourSoc(
 object EndeavourSocSim extends App {
   val sim = SimConfig.withTimeSpec(1 ns, 1 ps).withWave
 
-  sim.compile(new EndeavourSocSim()).doSimUntilVoid("test", seed = 42){dut =>
+  val ramSize = 8L << 20
+  //val ramSize = 64L << 20
+  sim.compile(new EndeavourSocSim(ramSize)).doSimUntilVoid("test", seed = 42){dut =>
     val probe = new VexiiRiscvProbe(
       cpu = dut.cpus(0).vexii(),
       kb = None // Option(new vexiiriscv.test.konata.Backend(new File(currentTestPath, "konata.log")).spinalSimFlusher(hzToLong(1000 Hz)))
     )
     probe.autoRegions()
 
-    //val mem = dut.ram.thread.logic.mem
-    //FileUtil.loadToMem(mem, 0, "../software/bios/bios.bin")
-    //FileUtil.loadToMem(mem, 0x400000l, "/home/petya/endeavour-tools/linux_kernel/arch/riscv/boot/Image")
-    //FileUtil.loadToMem(mem, 0x5000000l, "/home/petya/endeavour-tools/minfs.initrd")
+    val mem = dut.iram.thread.logic.mem
+    FileUtil.loadToMem(mem, 0x8000l, "../software/raw_examples/sim_dma.bin")
+    //FileUtil.loadToMem(mem, 0x8000l, "/tmp/endeavour2.dtb")
+    //FileUtil.loadToMem(mem, 0x2000000l, "../../endeavour2-ext/linux-kernel/arch/riscv/boot/Image")
 
-    SimTimeout(6000000000L)
+    //disableSimWave()
+    //delayed(6000000000L)(enableSimWave())
+    SimTimeout(6300000000L)
     dut.io.pll_core_LOCKED #= true
     dut.io.pll_ddr_LOCKED #= true
-    dut.io.key #= 2
+    dut.io.key #= 7
     dut.io.i2c_sda_IN #= true
     dut.io.sd.ndetect #= true
+    dut.io.uart.rx #= true
     ClockDomain(dut.io.clk25).forkStimulus(40000)
     ClockDomain(dut.io.clk60).forkStimulus(17000)
     ClockDomain(dut.io.clk_cpu).forkStimulus(5000)
     //dut.io.reset #= true
     //delayed(100 ns)(dut.io.reset #= false)
+
+    val sendUart = fork {
+      val data = "run 80008000\n";
+      //val data = "device_tree 80008000\nboot 82000000\n";
+
+      val step = 17000 * 2;
+      sleep(step * 100)
+      data.getBytes("UTF-8").foreach { c =>
+        dut.io.uart.rx #= false
+        sleep(step)
+        for (i <- 0 until 8) {
+          dut.io.uart.rx #= ((c >> i) & 1) != 0
+          sleep(step)
+        }
+        dut.io.uart.rx #= true
+        sleep(step * 3)
+      }
+    }
 
     dut.listenUart()
   }
