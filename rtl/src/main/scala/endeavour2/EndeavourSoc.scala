@@ -406,10 +406,10 @@ class EndeavourSoc(coresParams: List[ParamSimple],
     val int_level = miscCtrl.createReadAndWrite(Bits(32 bits), 0x6C) init(0)     // GPIO_INT_LEVEL
 
     val dataPrev = RegNext(dataIn)
-    val posEdgeTrigger = int_level & dataIn & ~dataPrev
-    val negEdgeTrigger = ~int_level & ~dataIn & dataPrev
-    val edgeTrigger = int_type & ((int_both_edge & (dataIn ^ dataPrev)) | (~int_both_edge & (posEdgeTrigger | negEdgeTrigger)))
-    val levelTrigger = ~int_type & ~(dataIn ^ int_level)
+    val posEdgeTrigger = ~int_level & dataIn & ~dataPrev
+    val negEdgeTrigger = int_level & ~dataIn & dataPrev
+    val edgeTrigger = ~int_type & ((int_both_edge & (dataIn ^ dataPrev)) | posEdgeTrigger | negEdgeTrigger)
+    val levelTrigger = int_type & (dataIn ^ int_level)
     int_stat := int_stat | (int_en & (levelTrigger | edgeTrigger))
 
     val interrupt = (int_en & int_stat & ~int_mask).orR
@@ -612,7 +612,7 @@ object EndeavourSoc {
         }
       }
     }
-    sc.generate(new EndeavourSoc(endeavour2aEspHack=true,
+    sc.generate(new EndeavourSoc(//endeavour2aEspHack=true,
         //coresParams=List(Core.small(withCaches=false)), internalRam=true, ramSize=65536, withL2=false,
         //coresParams=List(Core.small(withCaches=true)),
         //coresParams=List(Core.medium()),
