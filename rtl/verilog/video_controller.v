@@ -95,7 +95,7 @@ module VideoController #(parameter ADDRESS_WIDTH) (
       if (apb_PSEL & apb_PENABLE & apb_PWRITE) begin
         case (apb_reg)
           4'h0: {hSyncInv, vSyncInv} <= apb_PWDATA[31:30];
-          4'h1: begin hDrawEnd   <= apb_PWDATA[11:0]; hOddMode <= |apb_PWDATA[4:0]; end
+          4'h1: begin hDrawEnd   <= apb_PWDATA[11:0]; hOddMode <= |apb_PWDATA[5:0]; end
           4'h2: hSyncStart <= apb_PWDATA[11:0];
           4'h3: hSyncEnd   <= apb_PWDATA[11:0];
           4'h4: hLast      <= apb_PWDATA[11:0] - 1'd1;
