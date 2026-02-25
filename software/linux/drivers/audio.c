@@ -4,6 +4,7 @@
 #include <sound/control.h>
 #include <sound/pcm.h>
 #include <linux/timer.h>
+#include <linux/mm.h>
 
 struct EndeavourAudio {
   unsigned cfg;
@@ -53,8 +54,24 @@ static struct {
   snd_pcm_uframes_t pointer;
 } stream_data = {0, 0};
 
+static struct {
+  unsigned short* buf;
+  unsigned size;
+  unsigned offset;
+} circular = {0, 0, 0};
+
 static void endeavour_audio_timer(struct timer_list *t) {
   mod_timer(t, jiffies);
+  if (circular.size > 0) {
+    // special mode, used if mmap is used on /dev/audio
+    int remaining = endeavour_pcm_queue_remaining_size();
+    while (remaining-- > 0) {
+      endeavour_pcm_add_sample(circular.buf[circular.offset], circular.buf[circular.offset + 1]);
+      circular.offset += 2;
+      if (circular.offset >= circular.size) circular.offset = 0;
+    }
+    return;
+  }
   struct snd_pcm_substream *substream = stream_data.substream;
   if (!substream) return;
   struct snd_pcm_runtime *runtime = substream->runtime;
@@ -186,6 +203,49 @@ static snd_pcm_uframes_t endeavour_pcm_pointer(struct snd_pcm_substream *ss) {
   return stream_data.pointer & (STREAM_BUF_SIZE/4-1);
 }
 
+static long endeavour_audio_ioctl(struct file *filp, unsigned int cmd, unsigned long arg) {
+  switch (cmd) {
+    case 0xaa0: // set rate
+      endeavour_pcm_set_rate(arg);
+      break;
+    case 0xaa1: // get offset
+      if (copy_to_user((void*)arg, &circular.offset, sizeof(unsigned))) return -1;
+      break;
+    default:
+      return -1;
+  }
+  return 0;
+}
+
+static int audio_mmap(struct file *filp, struct vm_area_struct *vma) {
+  if (circular.size > 0) {
+    return -EBUSY;
+  }
+  unsigned len = vma->vm_end - vma->vm_start;
+  circular.offset = 0;
+  circular.buf = kzalloc(len, 0);
+  if (!circular.buf) return -ENOMEM;
+  circular.size = len / 2;
+
+  return remap_pfn_range(vma, vma->vm_start, virt_to_pfn(circular.buf), len, vma->vm_page_prot);
+}
+
+static int audio_release(struct inode *i, struct file *f) {
+  if (circular.size > 0) {
+    circular.size = 0;
+    circular.offset = 0;
+    kfree(circular.buf);
+  }
+  return 0;
+}
+
+static const struct file_operations audio_ops = {
+    .owner = THIS_MODULE,
+    .unlocked_ioctl = endeavour_audio_ioctl,
+    .mmap = audio_mmap,
+    .release = audio_release
+};
+
 static int endeavour_audio_probe(struct platform_device *dev) {
   audio_regs = devm_platform_get_and_ioremap_resource(dev, 0, NULL);
   if (IS_ERR((void*)audio_regs))
@@ -241,6 +301,27 @@ static int endeavour_audio_probe(struct platform_device *dev) {
   static struct timer_list timer;
   timer_setup(&timer, endeavour_audio_timer, 0);
   mod_timer(&timer, jiffies + 1);
+
+  // low-level non-standard audio interface similar to /dev/dsp
+  int chdev_major = register_chrdev(0, "audio", &audio_ops);
+  if (chdev_major < 0) {
+    dev_err(&dev->dev, "Can't register audio chrdev\n");
+    return chdev_major;
+  }
+  dev_t devNo = MKDEV(chdev_major, 0);
+  struct class *pClass = class_create("audio");
+  if (IS_ERR(pClass)) {
+    dev_err(&dev->dev, "Can't create class\n");
+    unregister_chrdev_region(devNo, 1);
+    return -ENOMEM;
+  }
+  struct device *pDev;
+  if (IS_ERR(pDev = device_create(pClass, NULL, devNo, NULL, "audio"))) {
+    dev_err(&dev->dev, "Can't create device /dev/audio\n");
+    class_destroy(pClass);
+    unregister_chrdev_region(devNo, 1);
+    return -ENOMEM;
+  }
 
   return 0;
 }
