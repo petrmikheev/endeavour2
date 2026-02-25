@@ -2,10 +2,10 @@
 
 #include "bios_internal.h"
 
-// generated with python ', '.join(['0x%x' % int(math.sin(x/32*math.pi/2)*0x800) for x in range(32)])
+// generated with python ', '.join(['0x%04x' % int(math.sin(x/32*math.pi/2)*0x8000) for x in range(32)])
 static const unsigned short sin_table[32] = {
-    0x0, 0x64, 0xc8, 0x12c, 0x18f, 0x1f1, 0x252, 0x2b1, 0x30f, 0x36b, 0x3c5, 0x41c, 0x471, 0x4c3, 0x513, 0x55f,
-    0x5a8, 0x5ed, 0x62f, 0x66c, 0x6a6, 0x6dc, 0x70e, 0x73b, 0x764, 0x788, 0x7a7, 0x7c2, 0x7d8, 0x7e9, 0x7f6, 0x7fd};
+    0x0000, 0x0647, 0x0c8b, 0x12c8, 0x18f8, 0x1f19, 0x2528, 0x2b1f, 0x30fb, 0x36ba, 0x3c56, 0x41ce, 0x471c, 0x4c3f, 0x5133, 0x55f5,
+    0x5a82, 0x5ed7, 0x62f2, 0x66cf, 0x6a6d, 0x6dca, 0x70e2, 0x73b5, 0x7641, 0x7884, 0x7a7d, 0x7c29, 0x7d8a, 0x7e9d, 0x7f62, 0x7fd8};
 
 void beep(unsigned duration_ms, unsigned frequency, int volume) {
   int step = 1;
@@ -34,21 +34,21 @@ void beep(unsigned duration_ms, unsigned frequency, int volume) {
   for (int i = 0; i < periods; ++i) {
     while (AUDIO_REGS->stream < 128);
     for (int j = 0; j < 32; j += step) {
-      unsigned v = 0x800 + sin_table[j];
+      unsigned v = sin_table[j];
       AUDIO_REGS->stream = v | (v << 16);
     }
     AUDIO_REGS->stream = 0xfff;
     for (int j = 32-step; j >= 0; j -= step) {
-      unsigned v = 0x800 + sin_table[j];
+      unsigned v = sin_table[j];
       AUDIO_REGS->stream = v | (v << 16);
     }
     for (int j = step; j < 32; j += step) {
-      unsigned v = 0x800 - sin_table[j];
+      unsigned v = 0x10000 - sin_table[j];
       AUDIO_REGS->stream = v | (v << 16);
     }
     AUDIO_REGS->stream = 0x0;
     for (int j = 32-step; j > 0; j -= step) {
-      unsigned v = 0x800 - sin_table[j];
+      unsigned v = 0x10000 - sin_table[j];
       AUDIO_REGS->stream = v | (v << 16);
     }
   }
@@ -83,16 +83,12 @@ void playWav(void* filePtr, int volume) {
   void* data = filePtr + sizeof(struct WavHeader);
   for (int i = 0; i < points; ++i) {
     while (AUDIO_REGS->stream == 0);
-    unsigned v1, v2;
     if (stereo) {
-      unsigned v = ((unsigned*)data)[i];
-      v1 = ((v + 0x8000) & 0xffff) >> 4;
-      v2 = (((v>>16) + 0x8000) & 0xffff) >> 4;
+      AUDIO_REGS->stream = ((unsigned*)data)[i];
     } else {
       unsigned v = ((unsigned short*)data)[i];
-      v1 = v2 = ((v + 0x8000) & 0xffff) >> 4;
+      AUDIO_REGS->stream = v | (v << 16);
     }
-    AUDIO_REGS->stream = v1 | (v2 << 16);
     if ((GPIO_REGS->data_in & (GPIO_KEY0 | GPIO_KEY1)) || UART_REGS->rx >= 0) break;
   }
 }

@@ -131,7 +131,7 @@ module AudioController (
       end else
         flush <= 0;
       if (apb_PENABLE & apb_PWRITE & sel_stream & volume_initialized) begin
-        fifo[ina] <= {apb_PWDATA[27:16], apb_PWDATA[11:0]};
+        fifo[ina] <= {~apb_PWDATA[31], apb_PWDATA[30:20], ~apb_PWDATA[15], apb_PWDATA[14:4]};
         ina <= ina + 1'b1;
       end else if (flush)
         ina <= outa;

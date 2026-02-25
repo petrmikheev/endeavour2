@@ -43,10 +43,8 @@ static int endeavour_pcm_queue_remaining_size(void) {
   return audio_regs->stream;
 }
 
-static void endeavour_pcm_add_sample(short left, short right) {
-  unsigned l = (((unsigned)left + 0x8000) & 0xffff) >> 4;
-  unsigned r = (((unsigned)right + 0x8000) & 0xffff) >> 4;
-  audio_regs->stream = (l << 16) | r;
+static void endeavour_pcm_add_sample(unsigned v) {
+  audio_regs->stream = v;
 }
 
 static struct {
@@ -55,7 +53,7 @@ static struct {
 } stream_data = {0, 0};
 
 static struct {
-  unsigned short* buf;
+  void* buf;
   unsigned size;
   unsigned offset;
 } circular = {0, 0, 0};
@@ -66,8 +64,8 @@ static void endeavour_audio_timer(struct timer_list *t) {
     // special mode, used if mmap is used on /dev/audio
     int remaining = endeavour_pcm_queue_remaining_size();
     while (remaining-- > 0) {
-      endeavour_pcm_add_sample(circular.buf[circular.offset], circular.buf[circular.offset + 1]);
-      circular.offset += 2;
+      endeavour_pcm_add_sample(*(unsigned*)(circular.buf + circular.offset));
+      circular.offset += 4;
       if (circular.offset >= circular.size) circular.offset = 0;
     }
     return;
@@ -86,9 +84,9 @@ static void endeavour_audio_timer(struct timer_list *t) {
 
   while (samples_to_write > 0) {
     // Assuming S16_LE format, 2 channels (stereo)
-    short* src = (short*)(runtime->dma_area + ((unsigned)stream_data.pointer & (STREAM_BUF_SIZE/4-1)) * 4);
-    for (int i = 0; i < 512; i += 2) {
-      endeavour_pcm_add_sample(src[i], src[i+1]);
+    unsigned* src = (unsigned*)(runtime->dma_area + ((unsigned)stream_data.pointer & (STREAM_BUF_SIZE/4-1)) * 4);
+    for (int i = 0; i < 256; ++i) {
+      endeavour_pcm_add_sample(src[i]);
     }
     stream_data.pointer += 256;
     samples_to_write -= 256;
@@ -225,7 +223,7 @@ static int audio_mmap(struct file *filp, struct vm_area_struct *vma) {
   circular.offset = 0;
   circular.buf = kzalloc(len, 0);
   if (!circular.buf) return -ENOMEM;
-  circular.size = len / 2;
+  circular.size = len & ~3;
 
   return remap_pfn_range(vma, vma->vm_start, virt_to_pfn(circular.buf), len, vma->vm_page_prot);
 }

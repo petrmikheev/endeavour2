@@ -197,7 +197,7 @@ static int cmd_sound(const char* args) {
     while (*args == ' ' || (*args >= '0' && *args <= '9')) args++;
   }
   if (args[0] != '8') {
-    if (load_file(args, MAIN_BUF, 0x100000) <= 0) return CMD_FAILED;
+    if (load_file(args, MAIN_BUF, 0x10000000) <= 0) return CMD_FAILED;
     addr = (unsigned long)MAIN_BUF;
   } else if (sscanf(args, "%lx", &addr) == 0) return CMD_INVALID_ARGS;
   playWav((void*)addr, volume);
@@ -212,7 +212,7 @@ static int cmd_wallpaper(const char* args) {
   unsigned long addr;
   int size = 0;
   if (args[0] != '8') {
-    size = load_file(args, MAIN_BUF, 0x100000);
+    size = load_file(args, MAIN_BUF, 0x1000000);
     if (size <= 30) return CMD_FAILED;
     addr = (unsigned long)MAIN_BUF;
   } else if (sscanf(args, "%lx", &addr) == 0) return CMD_INVALID_ARGS;
