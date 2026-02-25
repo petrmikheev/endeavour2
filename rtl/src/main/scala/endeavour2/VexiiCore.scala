@@ -9,8 +9,11 @@ import spinal.lib.bus.tilelink.fabric.Node
 
 import vexiiriscv.VexiiRiscv
 import vexiiriscv.ParamSimple
+import vexiiriscv.execute.IntAluPlugin
 import vexiiriscv.misc.EmbeddedRiscvJtag
 import vexiiriscv.soc.TilelinkVexiiRiscvFiber
+
+import scala.collection.mutable.ArrayBuffer
 
 trait Core {
   val time = UInt(64 bits)
@@ -138,6 +141,14 @@ class VexiiCore(val param: ParamSimple, resetVector: Long, hartId: Int = 0, jtag
       noTapCd = ClockDomain(jtagTck)
     )
   }
+  val custom_instrs = ArrayBuffer[CustomInstructionsPlugin]()
+  plugins.foreach{
+    case p : IntAluPlugin => {
+      custom_instrs += new CustomInstructionsPlugin(p.layer, p.aluAt, p.formatAt)
+    }
+    case _ =>
+  }
+  plugins ++= custom_instrs
   val tlcore = new TilelinkVexiiRiscvFiber(plugins)
   tlcore.priv match {
     case Some(priv) => new Area {
