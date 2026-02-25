@@ -236,8 +236,8 @@ struct FTGPIO010 {
 #define GPIO_KEY2             (1<<6)
 #define GPIO(x)               (1<<((x)+7))  // x in range 1-13
 #define GPIO_ESP32_HS         (1<<22)
-#define GPIO_ESP32_EB         (1<<23)
-#define GPIO_ESP32_SPI_BOOT   (1<<22)
+#define GPIO_ESP32_EN         (1<<23)
+#define GPIO_ESP32_SPI_BOOT   (1<<24)
 #define GPIO_ESP32_DR         (1<<27)
 #define GPIO_SPI_FLASH_EN     (1<<28)
 #define GPIO_BOOT_EN          (1<<29)
