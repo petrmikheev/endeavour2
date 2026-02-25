@@ -117,7 +117,8 @@
 
   display: display@2000 {
     compatible = "endeavour,display";
-    reg = <0x2000 64>;
+    reg = <0x2000 64>, <0x5000 12>;
+    interrupts-extended = <&plic 6>;
   };
 
   ohci: ohci@4000 {
