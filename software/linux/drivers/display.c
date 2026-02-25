@@ -56,6 +56,47 @@ struct TextAddrAndOffset {
   unsigned short pixel_offset_y;
 };
 
+struct EndeavourDMA {
+  unsigned cmdAddress;
+  unsigned cmdCount;
+  unsigned int_stat;
+};
+
+static volatile struct EndeavourDMA __iomem * dma_regs;
+static struct mutex dma_lock;
+static struct completion dma_ready;
+static int dma_irq;
+
+static irqreturn_t dma_irq_handler(int irq, void *dev_id) {
+  dma_regs->int_stat = 0;
+  complete(&dma_ready);
+  return IRQ_HANDLED;
+}
+
+static void wait_dma_ready(void) {
+  while (!dma_regs->int_stat) {
+    reinit_completion(&dma_ready);
+    dma_regs->int_stat = 1;
+    wait_for_completion(&dma_ready);
+  }
+}
+
+static int call_dma(unsigned cmd_addr, unsigned cmd_count, unsigned sync) {
+  if (mutex_lock_interruptible(&dma_lock))
+    return -ERESTARTSYS;
+  wait_dma_ready();
+  if (cmd_count > 0) {
+    asm volatile("fence i, o");
+    dma_regs->cmdAddress = cmd_addr;
+    asm volatile("fence ow, o");
+    dma_regs->cmdCount = cmd_count;
+    asm volatile("fence o, i");
+    if (sync) wait_dma_ready();
+  }
+  mutex_unlock(&dma_lock);
+  return 0;
+}
+
 void set_endeavour_sbi_console(bool v);
 
 static void set_pixel_freq(unsigned freq) {
@@ -74,6 +115,7 @@ static long display_ioctl(struct file *filp, unsigned int cmd, unsigned long arg
     struct TextAddrAndOffset ta;
     struct EndeavourVideoMode vm;
     struct { unsigned x, y; } size;
+    struct { unsigned cmd_addr, cmd_count, sync; } dma_request;
   } p;
   switch (cmd) {
     case 0xaa0: // get text addr
@@ -127,6 +169,10 @@ static long display_ioctl(struct file *filp, unsigned int cmd, unsigned long arg
       if (copy_from_user(&p.vm, (void*)arg, sizeof(struct EndeavourVideoMode))) return -1;
       set_pixel_freq(p.vm.clock);
       display_regs->mode = p.vm;
+      break;
+    case 0xaab: // dma
+      if (copy_from_user(&p.dma_request, (void*)arg, sizeof(p.dma_request))) return -1;
+      return call_dma(p.dma_request.cmd_addr, p.dma_request.cmd_count, p.dma_request.sync);
       break;
     default:
       return -1;
@@ -221,6 +267,27 @@ static int endeavour_fb_ioctl(struct fb_info *info, unsigned int cmd, unsigned l
   return -ENOIOCTLCMD;
 }
 
+/*static void endeavour_fb_fillrect(struct fb_info *info, const struct fb_fillrect *rect) {
+  if (rect->width > 64) {
+    printk("fillrect %ux%u\n", rect->width, rect->height);
+  }
+  cfb_fillrect(info, rect);
+}
+
+static void endeavour_fb_copyarea(struct fb_info *info, const struct fb_copyarea *area) {
+  if (area->width > 64) {
+    printk("copyarea %ux%u\n", area->width, area->height);
+  }
+  cfb_copyarea(info, area);
+}
+
+static void endeavour_fb_imageblit(struct fb_info *info, const struct fb_image *image) {
+  if (image->depth == 16 && image->width > 64) {
+    printk("imageblit %ux%u\n", image->width, image->height);
+  }
+  cfb_imageblit(info, image);
+}*/
+
 static struct fb_ops endeavour_fb_ops = {
   .owner = THIS_MODULE,
   .fb_check_var = endeavour_fb_check_var,
@@ -228,6 +295,12 @@ static struct fb_ops endeavour_fb_ops = {
   .fb_pan_display = endeavour_fb_pan_display,
   .fb_ioctl	= endeavour_fb_ioctl,
   FB_DEFAULT_IOMEM_OPS
+  /*.fb_read	= fb_io_read,
+  .fb_write	= fb_io_write,
+  .fb_mmap	= fb_io_mmap,
+  .fb_fillrect	= endeavour_fb_fillrect,
+  .fb_copyarea	= endeavour_fb_copyarea,
+  .fb_imageblit	= endeavour_fb_imageblit*/
 };
 
 static u32 endeavour_pseudo_palette[16];
@@ -237,28 +310,45 @@ static int display_probe(struct platform_device *pdev) {
   display_regs = devm_platform_get_and_ioremap_resource(pdev, 0, NULL);
   if (IS_ERR((void*)display_regs))
     return PTR_ERR((void*)display_regs);
+
+  dma_regs = devm_platform_get_and_ioremap_resource(pdev, 1, NULL);
+  if (IS_ERR((void*)dma_regs))
+    return PTR_ERR((void*)dma_regs);
+  mutex_init(&dma_lock);
+  init_completion(&dma_ready);
+  dma_irq = platform_get_irq(pdev, 0);
+  if (dma_irq < 0) {
+    dev_err(&pdev->dev, "Can't get dma irq\n");
+    return dma_irq;
+  }
+  int irq_ret = devm_request_irq(&pdev->dev, dma_irq, dma_irq_handler, IRQF_TRIGGER_HIGH, "dma_irq", &pdev);
+  if (irq_ret) {
+      dev_err(&pdev->dev, "Failed to request IRQ %d\n", dma_irq);
+      return irq_ret;
+  }
+
   int textbuf_major = register_chrdev(0, "display", &display_ops);
   if (textbuf_major < 0) {
-    printk("Can't register display chrdev\n");
+    dev_err(&pdev->dev, "Can't register display chrdev\n");
     return textbuf_major;
   }
   dev_t devNo = MKDEV(textbuf_major, 0);
   struct class *pClass = class_create("display");
   if (IS_ERR(pClass)) {
-    printk("Can't create class\n");
+    dev_err(&pdev->dev, "Can't create class\n");
     unregister_chrdev_region(devNo, 1);
     return -ENOMEM;
   }
   struct device *pDev;
   if (IS_ERR(pDev = device_create(pClass, NULL, devNo, NULL, "display"))) {
-    printk("Can't create device /dev/display\n");
+    dev_err(&pdev->dev, "Can't create device /dev/display\n");
     class_destroy(pClass);
     unregister_chrdev_region(devNo, 1);
     return -ENOMEM;
   }
   fbinfo = framebuffer_alloc(0, &pdev->dev);
   if (!fbinfo) {
-    printk("Can't allocate fb_info\n");
+    dev_err(&pdev->dev, "Can't allocate fb_info\n");
     return -ENOMEM;
   }
 
@@ -286,9 +376,11 @@ static int display_probe(struct platform_device *pdev) {
   fbinfo->screen_size = fbinfo->fix.smem_len;
   fbinfo->pseudo_palette = endeavour_pseudo_palette;
   fbinfo->fbops = &endeavour_fb_ops;
+  fbinfo->flags = FBINFO_VIRTFB | FBINFO_PARTIAL_PAN_OK | FBINFO_HWACCEL_COPYAREA | FBINFO_HWACCEL_FILLRECT | FBINFO_HWACCEL_XPAN | FBINFO_HWACCEL_YPAN | FBINFO_HWACCEL_YWRAP;
+
   int fbret = register_framebuffer(fbinfo);
   if (fbret < 0) {
-    printk("Failed to register framebuffer");
+    dev_err(&pdev->dev, "Failed to register framebuffer");
     return fbret;
   }
 

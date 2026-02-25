@@ -135,6 +135,23 @@ static inline struct DisplaySize display_get_size(int fd) {
   return s;
 }
 
+enum DMA_OPCODE {
+  DMA_READ = 0,
+  DMA_WRITE = 1,
+  DMA_READ_SYNC = 2,
+  DMA_WRITE_SYNC = 3,
+  DMA_SET = 4,
+  DMA_COPY = 5
+};
+
+#define DMA_CMD_HI(opcode, b_from, b_to) (((opcode)<<26) | ((b_from)<<13) | ((b_to)&0x1fff))
+#define DMA_BUFFER_SIZE (8192 - 128)
+
+static inline int display_dma(int fd, unsigned cmd_addr, unsigned cmd_count, unsigned wait_completion) {
+  struct { unsigned cmd_addr, cmd_count, sync; } v = {cmd_addr, cmd_count, wait_completion};
+  return ioctl(fd, 0xaab, &v);
+}
+
 #define DISPLAY_CFG_TEXT_ON     1
 #define DISPLAY_CFG_GRAPHIC_ON  2
 #define DISPLAY_CFG_RGB565      0  // default
