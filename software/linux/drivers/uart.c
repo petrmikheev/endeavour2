@@ -68,7 +68,7 @@ static void endeavour_uart_set_termios(struct uart_port *port, struct ktermios *
   if (new->c_cflag & CSTOPB) new_cfg |= CFG_CSTOPB;
   if (new->c_cflag & PARENB) new_cfg |= CFG_PARITY_EN;
   if (new->c_cflag & PARODD) new_cfg |= CFG_PARITY_ODD;
-  dev_info(port->dev, "set_termios %s CFG=0x%x\n", port->name, new_cfg);
+  //dev_info(port->dev, "set_termios %s CFG=0x%x\n", port->name, new_cfg);
 
   //unsigned long flags;
   //uart_port_lock_irqsave(port, &flags);
@@ -96,8 +96,7 @@ static void endeavour_uart_timer(struct timer_list *t)
 }
 
 static int endeavour_uart_startup(struct uart_port *port) {
-  // TODO use UART interrupt
-  dev_info(port->dev, "startup RX timer\n");
+  //dev_info(port->dev, "startup RX timer\n");
   struct endeavour_uart_data *data = to_data(port);
   timer_setup(&data->timer, endeavour_uart_timer, 0);
   mod_timer(&data->timer, jiffies + uart_poll_timeout(port));
@@ -105,7 +104,7 @@ static int endeavour_uart_startup(struct uart_port *port) {
 }
 
 static void endeavour_uart_shutdown(struct uart_port *port) {
-  dev_info(port->dev, "shutdown RX timer\n");
+  //dev_info(port->dev, "shutdown RX timer\n");
   struct endeavour_uart_data *data = to_data(port);
   timer_shutdown(&data->timer);
 }
