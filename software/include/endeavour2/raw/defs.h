@@ -78,9 +78,11 @@ enum DMA_OPCODE {
   DMA_READ_SYNC = 2,
   DMA_WRITE_SYNC = 3,
   DMA_SET = 4,
-  DMA_COPY = 5
+  DMA_COPY = 5,
+  DMA_MIXRGB = 32
 };
 
+#define DMA_CMD_LO(b_arg2, b_arg1) (((b_arg2)<<13) | (b_arg1))
 #define DMA_CMD_HI(opcode, b_from, b_to) (((opcode)<<26) | ((b_from)<<13) | ((b_to)&0x1fff))
 #define DMA_BUFFER_SIZE (8192 - 128)
 

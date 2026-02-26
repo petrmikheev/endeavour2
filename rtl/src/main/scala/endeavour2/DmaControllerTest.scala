@@ -63,10 +63,22 @@ object DmaControllerTest extends App {
       mem.setBigInt(i, BigInt("1234000056780000", 16) + (BigInt(i)<<32) + i)
     }*/
 
-    mem.setBigInt(16, cmd(DmaOpcode.SET, 0, 4096, 0x444))
+    for (i <- 0 until 4096) {
+      mem.setBigInt(i, BigInt("FF00FF", 16) + (BigInt(i)<<32))
+    }
+    for (i <- 4096 until 8192) {
+      mem.setBigInt(i, BigInt("FF00FF00000000", 16) + i)
+    }
+
+    mem.setBigInt(8192 + 0, cmd(DmaOpcode.READ, 128, 256, 0))
+    mem.setBigInt(8192 + 1, cmd(DmaOpcode.READ_SYNC, 256, 384, 4096*8))
+    mem.setBigInt(8192 + 2, cmd(DmaOpcode.COPY, 384, 512, 128))
+    mem.setBigInt(8192 + 3, cmd(DmaOpcode.MIXRGB, 0, 128, (384 << 13) | 256))
+    mem.setBigInt(8192 + 4, cmd(DmaOpcode.WRITE, 0, 128, 0))
+    /*mem.setBigInt(16, cmd(DmaOpcode.SET, 0, 4096, 0x444))
     for (i <- 0 until 16) {
       mem.setBigInt(16 + i + 1, cmd(DmaOpcode.WRITE, 0, 4096, 0x80000000L + 65536 + i * 4096))
-    }
+    }*/
 
     /*mem.setBigInt(16, cmd(DmaOpcode.READ, 128, 256, 1024))
     mem.setBigInt(17, cmd(DmaOpcode.READ_SYNC, 1024, 2048, 0))
@@ -78,8 +90,8 @@ object DmaControllerTest extends App {
     mem.setBigInt(16 + 39, cmd(DmaOpcode.WRITE_SYNC, 1024, 2048, 1024))*/
 
     dut.clockDomain.waitSampling(5)
-    apbWrite(0, 128L) // command addr
-    apbWrite(4, 17 /*40*/)    // command count; start
+    apbWrite(0, 8192 * 8) // command addr
+    apbWrite(4, 5 /*40*/)    // command count; start
     apbWrite(8, 1)    // enable interrupt
 
     waitUntil(dut.io.interrupt.toBoolean)
@@ -89,7 +101,7 @@ object DmaControllerTest extends App {
     }*/
 
     for (i <- 0 until 16) {
-      println(f"${i*8} ${mem.getBigInt(65536/8 + 0x7000/8-4 + i).toString(16)}")
+      println(f"${i*8} ${mem.getBigInt(i).toString(16)}")
     }
 
     apbWrite(8, 0)

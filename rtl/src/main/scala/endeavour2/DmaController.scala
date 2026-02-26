@@ -15,6 +15,7 @@ object DmaOpcode {
   val WRITE_SYNC = 3
   val SET = 4
   val COPY = 5
+  val MIXRGB = 32
 }
 
 class DmaController extends Component {
@@ -45,7 +46,8 @@ class DmaController extends Component {
   val buffer = Mem(Bits(64 bits), wordCount = 1024)
 
   val argAddrS = Stream(UInt(10 bits))
-  val argDataS = Flow(Bits(64 bits))
+  val argDataS = Flow(Bits(128 bits))
+  val arg2Buf = Reg(Bits(64 bits))
   val writeResS = Flow(new Bundle {
     val addr = UInt(10 bits)
     val data = Bits(64 bits)
@@ -54,10 +56,20 @@ class DmaController extends Component {
   val fetchAddr = UInt(10 bits)
   val fetchS = Stream(Bits(64 bits))
 
-  val argAddr, resAddr = Reg(UInt(10 bits))
-  when (argAddrS.fire) { argAddr := argAddr + 1 }
+  val arg1Addr, arg2Addr, resAddr = Reg(UInt(10 bits))
+  val arg2Turn = Reg(Bool())
+  val has_arg2 = Bool()
+  when (argAddrS.fire) {
+    when (arg2Turn) {
+      arg2Addr := arg2Addr + 1
+      arg2Turn := False
+    } otherwise {
+      arg1Addr := arg1Addr + 1
+      arg2Turn := has_arg2
+    }
+  }
   when (writeResS.fire) { resAddr := resAddr + 1 }
-  argAddrS.payload := argAddr
+  argAddrS.payload := Mux(arg2Turn, arg2Addr, arg1Addr)
   writeResS.payload.addr := resAddr
 
   val bufPort1 = new Area {
@@ -68,9 +80,11 @@ class DmaController extends Component {
     val mask = RegNext(writeResS.payload.mask)
     val rdata = buffer.readWriteSync(addr, wdata, en, writeEn, mask)
     val rdataFire = RegNext(RegNext(argAddrS.fire))
+    val rdataArg2 = RegNext(RegNext(arg2Turn))
     argAddrS.ready := ~writeResS.valid
-    argDataS.payload := rdata
-    argDataS.valid := rdataFire
+    when (rdataFire) { arg2Buf := rdata }
+    argDataS.payload := arg2Buf ## rdata
+    argDataS.valid := rdataFire & ~rdataArg2
     fetchS.valid := RegNext(RegNext(~writeResS.valid & ~argAddrS.valid & fetchS.ready))
     fetchS.payload := rdata
   }
@@ -194,6 +208,8 @@ class DmaController extends Component {
     val b_from = instr(57 downto 45).asUInt
     val b_to = instr(44 downto 32).asUInt
     val b_arg = instr(12 downto 0).asUInt - b_from(2 downto 0)
+    val b_arg2 = instr(25 downto 13).asUInt
+    has_arg2 := opcode(5)
     val d32 = instr(31 downto 0)
 
     val shift = Reg(UInt(3 bits))
@@ -201,6 +217,7 @@ class DmaController extends Component {
     val wmask_first = Reg(Bits(8 bits))
     val wmask_last = Reg(Bits(8 bits))
     val cmdSet = Reg(Bool())
+    val cmdMixrgb = Reg(Bool())
   }
 
   // *** Pipeline
@@ -215,13 +232,16 @@ class DmaController extends Component {
   val LAST = Payload(Bool())
   val DUMMY = Payload(Bool())
   val RAW_ARG = Payload(Bits(64 bits))
+  val ARG1 = Payload(Bits(64 bits))
+  val ARG2 = Payload(Bits(64 bits))
   val SHIFTED = Payload(Bits(64 bits))
   val RES = Payload(Bits(64 bits))
 
   argAddrS.valid := runPipeline
   val N0 = new bldr.Node {
     valid := (argDataS.valid | I.cmdSet) & runPipeline
-    RAW_ARG := Mux(I.cmdSet, I.d32 #* 2, argDataS.payload)
+    RAW_ARG := Mux(I.cmdSet, I.d32 #* 2, argDataS.payload(63 downto 0))
+    ARG2 := argDataS.payload(127 downto 64)
     FIRST := first
     when (isFiring) { first := False }
   }
@@ -238,11 +258,24 @@ class DmaController extends Component {
     }
   }
 
-  val Nr = new bldr.Node {
+  val Narg = new bldr.Node {
     for (i <- 0 to 7) {
-      RES(i*8 + 7 downto i*8) := Mux(I.shift_mask(i), SHIFTED(i*8 + 7 downto i*8), Nbuf(SHIFTED)(i*8 + 7 downto i*8))
+      ARG1(i*8 + 7 downto i*8) := Mux(I.shift_mask(i), SHIFTED(i*8 + 7 downto i*8), Nbuf(SHIFTED)(i*8 + 7 downto i*8))
     }
-    ready := Nbuf.valid
+  }
+
+  val Nr = new bldr.Node {
+    when (I.cmdMixrgb) {
+      for (i <- 0 to 3) {
+        val b = i * 16
+        RES((b+ 4) downto (b+ 0)) := ((ARG1((b+ 4) downto (b+ 0)).asUInt +^ ARG2((b+ 4) downto (b+ 0)).asUInt) >> 1).asBits;
+        RES((b+10) downto (b+ 5)) := ((ARG1((b+10) downto (b+ 5)).asUInt +^ ARG2((b+10) downto (b+ 5)).asUInt) >> 1).asBits;
+        RES((b+15) downto (b+11)) := ((ARG1((b+15) downto (b+11)).asUInt +^ ARG2((b+15) downto (b+11)).asUInt) >> 1).asBits;
+      }
+    } otherwise {
+      RES := ARG1
+    }
+    ready := Narg.valid
     writeResS.data := RES
     writeResS.mask := Mux(FIRST, I.wmask_first, B(0xff)) & Mux(LAST, I.wmask_last, B(0xff))
     writeResS.valid := isFiring & ~DUMMY
@@ -316,8 +349,11 @@ class DmaController extends Component {
         I.wmask_first := B(0xff)|<< I.b_from(2 downto 0)
         I.wmask_last := B(0xff) |>> (U(0, 3 bits) - I.b_to(2 downto 0))
         I.cmdSet := I.opcode === DmaOpcode.SET
+        I.cmdMixrgb := I.opcode === DmaOpcode.MIXRGB
         resAddr := I.b_from(12 downto 3)
-        argAddr := I.b_arg(12 downto 3)
+        arg1Addr := I.b_arg(12 downto 3)
+        arg2Addr := I.b_arg2(12 downto 3)
+        arg2Turn := has_arg2
         work_counter := (I.b_to + 7)(12 downto 3) - I.b_from(12 downto 3)
         when (I.opcode === M"0000--") {
           when (mem_counter === 0 & ~d_last) { goto(MemOp) }
