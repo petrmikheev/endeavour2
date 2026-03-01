@@ -9,6 +9,14 @@ import vexiiriscv.compat.MultiPortWritesSymplifier
 import vexiiriscv.riscv.{IntRegFile, RS1, RS2, Riscv}
 import vexiiriscv.execute._
 
+/* Usage in C:
+static unsigned mixrgb(unsigned a, unsigned b) {
+    unsigned result;
+    asm(".insn r 0x0b, 0, 0, %0, %1, %2" : "=r" (result) : "r" (a), "r" (b));
+    return result;
+}
+*/
+
 object CustomInstructionsPlugin{
   val MIXRGB = IntRegFile.TypeR(M"0000000----------000-----0001011")
 }

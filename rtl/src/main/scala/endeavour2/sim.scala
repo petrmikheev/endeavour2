@@ -78,7 +78,7 @@ object EndeavourSocSim extends App {
     probe.autoRegions()
 
     val mem = dut.iram.thread.logic.mem
-    FileUtil.loadToMem(mem, 0x8000l, "../software/raw_examples/sim_dma.bin")
+    FileUtil.loadToMem(mem, 0x8000l, "../software/raw_examples/test_dma.bin")
     //FileUtil.loadToMem(mem, 0x8000l, "/tmp/endeavour2.dtb")
     //FileUtil.loadToMem(mem, 0x2000000l, "../../endeavour2-ext/linux-kernel/arch/riscv/boot/Image")
 

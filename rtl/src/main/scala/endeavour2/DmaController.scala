@@ -15,6 +15,14 @@ object DmaOpcode {
   val WRITE_SYNC = 3
   val SET = 4
   val COPY = 5
+
+  // TODO
+  /*val LOADTEX = 7
+  val TEX1R2 = 8
+  val TEX1R4 = 9
+  val TEX2R2 = 10
+  val TEX2R4 = 11*/
+
   val MIXRGB = 32
 }
 
@@ -106,7 +114,7 @@ class DmaController extends Component {
     val wdata = RegNext(tlDataInS.payload.data)
     val en = RegNext(tlDataInS.valid | tlDataOutS.ready)
     val writeEn = RegNext(tlDataInS.valid)
-    val rdata = buffer.readWriteSync(addr, wdata, en, writeEn)
+    val rdata = buffer.readWriteSync(addr, wdata, en, writeEn, B(0xff))
     tlDataOutS.payload := rdata
     tlDataOutS.valid := tlDataOutValid(0)
     when (tlDataOutS.fire) { tlDataOutAddr := tlDataOutAddr + 1 }
@@ -223,65 +231,62 @@ class DmaController extends Component {
   // *** Pipeline
 
   val runPipeline = False
+  argAddrS.valid := runPipeline
   val work_counter = Reg(UInt(10 bits))
   val first = Reg(Bool())
 
-  val bldr = new NodesBuilder()
+  val pip = new StageCtrlPipeline
 
-  val FIRST = Payload(Bool())
+  val N0 = pip.ctrl(0)
+  N0.up.valid := (argDataS.valid | I.cmdSet) & runPipeline
+  when (N0.up.isFiring) { first := False }
+
+  val RAW_SARG = N0.insert(Mux(I.cmdSet, I.d32 #* 2, argDataS.payload(63 downto 0)))
+  val FARG = N0.insert(argDataS.payload(127 downto 64))
+  val FIRST = N0.insert(first)
+
   val LAST = Payload(Bool())
   val DUMMY = Payload(Bool())
-  val RAW_ARG = Payload(Bits(64 bits))
-  val ARG1 = Payload(Bits(64 bits))
-  val ARG2 = Payload(Bits(64 bits))
+  val SARG = Payload(Bits(64 bits))
   val SHIFTED = Payload(Bits(64 bits))
   val RES = Payload(Bits(64 bits))
 
-  argAddrS.valid := runPipeline
-  val N0 = new bldr.Node {
-    valid := (argDataS.valid | I.cmdSet) & runPipeline
-    RAW_ARG := Mux(I.cmdSet, I.d32 #* 2, argDataS.payload(63 downto 0))
-    ARG2 := argDataS.payload(127 downto 64)
-    FIRST := first
-    when (isFiring) { first := False }
+  val Ns = new pip.Ctrl(1) {
+    SHIFTED := RAW_SARG.rotateRight(I.shift<<3)
   }
 
-  val Ns = new bldr.Node {
-    SHIFTED := RAW_ARG.rotateRight(I.shift<<3)
-  }
-
-  val Nbuf = new bldr.Node {
+  val Nbuf = new pip.Ctrl(2) {
     LAST := work_counter === 1
     DUMMY := work_counter === 0
-    when (isFiring & ~DUMMY) {
+    when (up.isFiring & ~DUMMY) {
       work_counter := work_counter - 1
     }
+    haltWhen(~Ns.up.isValid)
+    throwWhen(~runPipeline)
   }
 
-  val Narg = new bldr.Node {
+  val Nr = new pip.Ctrl(3) {
     for (i <- 0 to 7) {
-      ARG1(i*8 + 7 downto i*8) := Mux(I.shift_mask(i), SHIFTED(i*8 + 7 downto i*8), Nbuf(SHIFTED)(i*8 + 7 downto i*8))
+      SARG(i*8 + 7 downto i*8) := Mux(I.shift_mask(i), SHIFTED(i*8 + 7 downto i*8), Nbuf(SHIFTED)(i*8 + 7 downto i*8))
     }
-  }
-
-  val Nr = new bldr.Node {
+    val last : Bool = LAST
+    val isFiring = up.isFiring
     when (I.cmdMixrgb) {
       for (i <- 0 to 3) {
         val b = i * 16
-        RES((b+ 4) downto (b+ 0)) := ((ARG1((b+ 4) downto (b+ 0)).asUInt +^ ARG2((b+ 4) downto (b+ 0)).asUInt) >> 1).asBits;
-        RES((b+10) downto (b+ 5)) := ((ARG1((b+10) downto (b+ 5)).asUInt +^ ARG2((b+10) downto (b+ 5)).asUInt) >> 1).asBits;
-        RES((b+15) downto (b+11)) := ((ARG1((b+15) downto (b+11)).asUInt +^ ARG2((b+15) downto (b+11)).asUInt) >> 1).asBits;
+        RES((b+ 4) downto (b+ 0)) := ((SARG((b+ 4) downto (b+ 0)).asUInt +^ FARG((b+ 4) downto (b+ 0)).asUInt) >> 1).asBits;
+        RES((b+10) downto (b+ 5)) := ((SARG((b+10) downto (b+ 5)).asUInt +^ FARG((b+10) downto (b+ 5)).asUInt) >> 1).asBits;
+        RES((b+15) downto (b+11)) := ((SARG((b+15) downto (b+11)).asUInt +^ FARG((b+15) downto (b+11)).asUInt) >> 1).asBits;
       }
     } otherwise {
-      RES := ARG1
+      RES := SARG
     }
-    ready := Narg.valid
     writeResS.data := RES
-    writeResS.mask := Mux(FIRST, I.wmask_first, B(0xff)) & Mux(LAST, I.wmask_last, B(0xff))
+    writeResS.payload.mask := Mux(FIRST, I.wmask_first, B(0xff)) & Mux(LAST, I.wmask_last, B(0xff))
     writeResS.valid := isFiring & ~DUMMY
   }
 
-  bldr.genStagedPipeline()
+  pip.build()
 
   // *** Command FSM
 
@@ -345,9 +350,9 @@ class DmaController extends Component {
     val Parse : State = new State {
       whenIsActive {
         I.shift := Mux(I.opcode === DmaOpcode.SET, U(0, 3 bits), I.b_arg(2 downto 0))
-        I.shift_mask := B(0xff) |>> I.b_arg(2 downto 0)
-        I.wmask_first := B(0xff)|<< I.b_from(2 downto 0)
-        I.wmask_last := B(0xff) |>> (U(0, 3 bits) - I.b_to(2 downto 0))
+        I.shift_mask  := B(0xff) |>> I.b_arg(2 downto 0)
+        I.wmask_first := B(0xff) |<< I.b_from(2 downto 0)
+        I.wmask_last  := B(0xff) |>> (U(0, 3 bits) - I.b_to(2 downto 0))
         I.cmdSet := I.opcode === DmaOpcode.SET
         I.cmdMixrgb := I.opcode === DmaOpcode.MIXRGB
         resAddr := I.b_from(12 downto 3)
@@ -366,7 +371,7 @@ class DmaController extends Component {
       onEntry { first := True }
       whenIsActive {
         runPipeline := True
-        when (Nr.isFiring & Nr(LAST)) { goto(Fetch) }
+        when (Nr.isFiring & Nr.last) { goto(Fetch) }
       }
     }
     val MemOp : State = new State {

@@ -15,7 +15,7 @@ generate:
 
 .PHONY: runsim
 runsim:
-	sbt 'runMain endeavour2.EndeavourSocSim'
+	sbt -J-Xmx8G 'runMain endeavour2.EndeavourSocSim'
 
 .PHONY: build_2a
 build_2a:

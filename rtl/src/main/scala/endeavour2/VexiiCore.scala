@@ -2,6 +2,7 @@ package endeavour2
 
 import spinal.core._
 import spinal.lib._
+import spinal.lib.misc.plugin.Hostable
 import spinal.lib.com.jtag.JtagTapInstructionCtrl
 import spinal.lib.cpu.riscv.debug.DebugTransportModuleParameter
 import spinal.lib.bus.tilelink
@@ -9,7 +10,7 @@ import spinal.lib.bus.tilelink.fabric.Node
 
 import vexiiriscv.VexiiRiscv
 import vexiiriscv.ParamSimple
-import vexiiriscv.execute.IntAluPlugin
+import vexiiriscv.execute.{IntAluPlugin,ZbbMinMaxPlugin}
 import vexiiriscv.misc.EmbeddedRiscvJtag
 import vexiiriscv.soc.TilelinkVexiiRiscvFiber
 
@@ -141,14 +142,15 @@ class VexiiCore(val param: ParamSimple, resetVector: Long, hartId: Int = 0, jtag
       noTapCd = ClockDomain(jtagTck)
     )
   }
-  val custom_instrs = ArrayBuffer[CustomInstructionsPlugin]()
+  /*val custom_instrs = ArrayBuffer[Hostable]()
   plugins.foreach{
     case p : IntAluPlugin => {
       custom_instrs += new CustomInstructionsPlugin(p.layer, p.aluAt, p.formatAt)
+      custom_instrs += new ZbbMinMaxPlugin(p.layer, p.aluAt, p.formatAt)
     }
     case _ =>
   }
-  plugins ++= custom_instrs
+  plugins ++= custom_instrs*/
   val tlcore = new TilelinkVexiiRiscvFiber(plugins)
   tlcore.priv match {
     case Some(priv) => new Area {

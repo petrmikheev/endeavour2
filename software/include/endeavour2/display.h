@@ -145,9 +145,29 @@ enum DMA_OPCODE {
   DMA_MIXRGB = 32
 };
 
-#define DMA_CMD_LO(b_arg2, b_arg1) (((b_arg2)<<13) | (b_arg1))
+#define DMA_CMD_LO(b_farg, b_sarg) (((b_farg)<<13) | (b_sarg))
 #define DMA_CMD_HI(opcode, b_from, b_to) (((opcode)<<26) | ((b_from)<<13) | ((b_to)&0x1fff))
 #define DMA_BUFFER_SIZE (8192 - 128)
+
+#define DMA_PROGRAM_START(ADDR) \
+    volatile struct { unsigned lo, hi; } *cmd_start = (void*)ADDR, *cmd = (void*)ADDR;
+
+#define DMA_PROGRAM_OP0(OPCODE, FROM, TO, CONST) \
+    cmd->lo = CONST;                             \
+    cmd->hi = DMA_CMD_HI(OPCODE, FROM, TO);      \
+    cmd++;
+
+#define DMA_PROGRAM_OP1(OPCODE, FROM, TO, SARG) \
+    cmd->lo = SARG;                             \
+    cmd->hi = DMA_CMD_HI(OPCODE, FROM, TO);     \
+    cmd++;
+
+#define DMA_PROGRAM_OP2(OPCODE, FROM, TO, FARG, SARG) \
+    cmd->lo = ((FARG) << 13) | (SARG);                \
+    cmd->hi = DMA_CMD_HI(OPCODE, FROM, TO);           \
+    cmd++;
+
+#define DMA_PROGRAM_END(CNT) CNT = cmd - cmd_start;
 
 static inline int display_dma(int fd, unsigned cmd_addr, unsigned cmd_count, unsigned wait_completion) {
   struct { unsigned cmd_addr, cmd_count, sync; } v = {cmd_addr, cmd_count, wait_completion};

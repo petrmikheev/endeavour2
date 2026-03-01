@@ -4,7 +4,6 @@ import java.nio.file.{Files, Paths}
 import scala.collection.mutable.ListBuffer
 
 import spinal.core._
-import spinal.core.internals.{MemTopology, PhaseContext, PhaseNetlist}
 import spinal.lib._
 import spinal.lib.bus.amba3.apb._
 import spinal.lib.bus.amba4.axi._
@@ -586,33 +585,12 @@ class EndeavourSoc(coresParams: List[ParamSimple],
   io.ddr_tac_shift_sel := 4
 }
 
-object blackboxPolicy extends MemBlackboxingPolicy{
-  override def translationInterest(topology: MemTopology): Boolean = {
-    if(topology.readWriteSync.size > 1) return false
-    if(topology.writes.exists(e => e.mask != null && e.getSymbolWidth == 8) && topology.mem.initialContent == null) return true
-    if (topology.readWriteSync.exists(e => e.mask != null && e.getSymbolWidth == 8) && topology.mem.initialContent == null) return true
-    if (topology.readsAsync.size != 0 && topology.mem.initialContent == null) return true
-    false
-  }
-
-  override def onUnblackboxable(topology: MemTopology, who: Any, message: String): Unit = generateUnblackboxableError(topology, who, message)
-}
-
 object EndeavourSoc {
   def main(args: Array[String]): Unit = {
     val bootRomContent = Files.readAllBytes(Paths.get("../software/bios/microloader.bin"))
     val sc = SpinalConfig(mode=Verilog, targetDirectory="verilog")
-    sc.addStandardMemBlackboxing(blackboxPolicy)
-    sc.memBlackBoxers += new PhaseNetlist {
-      override def impl(pc: PhaseContext) = {
-        pc.walkComponents{
-          case bb: Ram_1w_1rs => bb.setInlineVerilog(Ram_1w_1rs.efinix)
-          case bb: Ram_1w_1ra => bb.setInlineVerilog(Ram_1w_1ra.efinix)
-          case _ =>
-        }
-      }
-    }
-    sc.generate(new EndeavourSoc(//endeavour2aEspHack=true,
+    MemBlackboxing.addMemBlackboxing(sc)
+    sc.generate(new EndeavourSoc(endeavour2aEspHack=true,
         //coresParams=List(Core.small(withCaches=false)), internalRam=true, ramSize=65536, withL2=false,
         //coresParams=List(Core.small(withCaches=true)),
         //coresParams=List(Core.medium()),
