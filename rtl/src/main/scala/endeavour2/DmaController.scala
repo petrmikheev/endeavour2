@@ -16,12 +16,9 @@ object DmaOpcode {
   val SET = 4
   val COPY = 5
 
-  // TODO
-  /*val LOADTEX = 7
-  val TEX1R2 = 8
-  val TEX1R4 = 9
-  val TEX2R2 = 10
-  val TEX2R4 = 11*/
+  val LOADMAP = 7
+  val MAP1R2 = 8
+  val MAP1R4 = 9
 
   val MIXRGB = 32
 }
@@ -49,6 +46,32 @@ class DmaController extends Component {
     val interrupt = out Bool()
   }
 
+  // *** Map buffer
+
+  val map_buffer = Mem(Bits(32 bits), wordCount = 1024)
+
+  val mapAddrS = Flow(new Bundle {
+    val addr1 = UInt(10 bits)
+    val addr2 = UInt(10 bits)
+  })
+  val mapReadS = Flow(new Bundle {
+    val data1 = Bits(32 bits)
+    val data2 = Bits(32 bits)
+  })
+  val mapWriteS = Flow(Bits(64 bits))
+  val mapWriteAddr = Reg(UInt(9 bits))
+
+  mapReadS.data1 := map_buffer.readWriteSync(
+      Mux(mapWriteS.valid, (mapWriteAddr ## B"0").asUInt, mapAddrS.addr1),
+      mapWriteS.payload(31 downto 0),
+      mapWriteS.valid|mapAddrS.valid, mapWriteS.valid)
+  mapReadS.data2 := map_buffer.readWriteSync(
+      Mux(mapWriteS.valid, (mapWriteAddr ## B"1").asUInt, mapAddrS.addr2),
+      mapWriteS.payload(63 downto 32),
+      mapWriteS.valid|mapAddrS.valid, mapWriteS.valid)
+  mapReadS.valid := RegNext(mapAddrS.valid)
+  when (mapWriteS.valid) { mapWriteAddr := mapWriteAddr + 1 }
+
   // *** Buffer
 
   val buffer = Mem(Bits(64 bits), wordCount = 1024)
@@ -65,6 +88,8 @@ class DmaController extends Component {
   val fetchS = Stream(Bits(64 bits))
 
   val arg1Addr, arg2Addr, resAddr = Reg(UInt(10 bits))
+  val arg1RepeatCounter = Reg(UInt(2 bits))
+  val arg1Step = Reg(UInt(3 bits))
   val arg2Turn = Reg(Bool())
   val has_arg2 = Bool()
   when (argAddrS.fire) {
@@ -72,7 +97,9 @@ class DmaController extends Component {
       arg2Addr := arg2Addr + 1
       arg2Turn := False
     } otherwise {
-      arg1Addr := arg1Addr + 1
+      val next = (arg1Addr ## arg1RepeatCounter).asUInt + arg1Step
+      arg1Addr := next(11 downto 2)
+      arg1RepeatCounter := next(1 downto 0)
       arg2Turn := has_arg2
     }
   }
@@ -226,6 +253,9 @@ class DmaController extends Component {
     val wmask_last = Reg(Bits(8 bits))
     val cmdSet = Reg(Bool())
     val cmdMixrgb = Reg(Bool())
+    val cmdLoadMap = Reg(Bool())
+    val cmdMap = Reg(Bool())
+    val cmdMap2 = Reg(Bool())
   }
 
   // *** Pipeline
@@ -239,38 +269,64 @@ class DmaController extends Component {
 
   val N0 = pip.ctrl(0)
   N0.up.valid := (argDataS.valid | I.cmdSet) & runPipeline
-  when (N0.up.isFiring) { first := False }
 
   val RAW_SARG = N0.insert(Mux(I.cmdSet, I.d32 #* 2, argDataS.payload(63 downto 0)))
   val FARG = N0.insert(argDataS.payload(127 downto 64))
-  val FIRST = N0.insert(first)
 
+  val FIRST = Payload(Bool())
   val LAST = Payload(Bool())
   val DUMMY = Payload(Bool())
   val SARG = Payload(Bits(64 bits))
   val SHIFTED = Payload(Bits(64 bits))
-  val RES = Payload(Bits(64 bits))
 
   val Ns = new pip.Ctrl(1) {
     SHIFTED := RAW_SARG.rotateRight(I.shift<<3)
+    val mapIndexShift = Reg(UInt(2 bits))
+    when (~runPipeline) {
+      mapIndexShift := 0
+    } elsewhen (isValid) {
+      mapIndexShift := mapIndexShift + 1
+    }
+    val mapIndices = (RAW_SARG >> (mapIndexShift<<4))(15 downto 0)
+    mapAddrS.addr1 := RegNextWhen((I.b_arg2(11 downto 10) ## mapIndices(7 downto 0)).asUInt, isValid)
+    mapAddrS.addr2 := RegNextWhen((I.b_arg2(11 downto 10) ## mapIndices(15 downto 8)).asUInt, isValid)
+    mapAddrS.valid := I.cmdMap
   }
 
   val Nbuf = new pip.Ctrl(2) {
-    LAST := work_counter === 1
-    DUMMY := work_counter === 0
-    when (up.isFiring & ~DUMMY) {
-      work_counter := work_counter - 1
-    }
-    haltWhen(~Ns.up.isValid)
+    haltWhen(~Ns.up.isValid & ~I.cmdMap)
     throwWhen(~runPipeline)
   }
 
-  val Nr = new pip.Ctrl(3) {
+  val Ncalc = new pip.Ctrl(3) {
+    FIRST := first
+    LAST := work_counter === 1
+    DUMMY := work_counter === 0
+    when (down.isFiring & ~DUMMY) {
+      work_counter := work_counter - 1
+      first := False
+    }
+    val odd = Reg(Bool())
+    when (isValid) {
+      odd := ~odd;
+    } elsewhen (~runPipeline) {
+      odd := True
+    }
+    throwWhen(I.cmdMap2 & odd)
+    val map4_data = mapReadS.data2 ## mapReadS.data1
+    val map2_data = mapReadS.data2(15 downto 0) ## mapReadS.data1(15 downto 0)
+    val map_data_buf = RegNextWhen(map2_data, isValid)
+    val MAP_RES = insert(Mux(I.cmdMap2, map2_data ## map_data_buf, map4_data))
+
     for (i <- 0 to 7) {
       SARG(i*8 + 7 downto i*8) := Mux(I.shift_mask(i), SHIFTED(i*8 + 7 downto i*8), Nbuf(SHIFTED)(i*8 + 7 downto i*8))
     }
+  }
+
+  val Nr = new pip.Ctrl(4) {
     val last : Bool = LAST
     val isFiring = up.isFiring
+    val RES = Payload(Bits(64 bits))
     when (I.cmdMixrgb) {
       for (i <- 0 to 3) {
         val b = i * 16
@@ -278,13 +334,17 @@ class DmaController extends Component {
         RES((b+10) downto (b+ 5)) := ((SARG((b+10) downto (b+ 5)).asUInt +^ FARG((b+10) downto (b+ 5)).asUInt) >> 1).asBits;
         RES((b+15) downto (b+11)) := ((SARG((b+15) downto (b+11)).asUInt +^ FARG((b+15) downto (b+11)).asUInt) >> 1).asBits;
       }
+    } elsewhen (I.cmdMap) {
+      RES := Ncalc.MAP_RES
     } otherwise {
       RES := SARG
     }
     writeResS.data := RES
     writeResS.payload.mask := Mux(FIRST, I.wmask_first, B(0xff)) & Mux(LAST, I.wmask_last, B(0xff))
-    writeResS.valid := isFiring & ~DUMMY
+    writeResS.valid := isFiring & ~DUMMY & ~I.cmdLoadMap
   }
+  mapWriteS.payload := RegNext(Nr(SARG))
+  mapWriteS.valid := RegNext(Nr.isFiring & ~Nr(DUMMY) & I.cmdLoadMap)
 
   pip.build()
 
@@ -355,10 +415,17 @@ class DmaController extends Component {
         I.wmask_last  := B(0xff) |>> (U(0, 3 bits) - I.b_to(2 downto 0))
         I.cmdSet := I.opcode === DmaOpcode.SET
         I.cmdMixrgb := I.opcode === DmaOpcode.MIXRGB
+        I.cmdLoadMap := I.opcode === DmaOpcode.LOADMAP
+        val cmdMap = I.opcode(5 downto 3) === B"001"  // MAP2 or MAP4
+        I.cmdMap := cmdMap
+        I.cmdMap2 := I.opcode === DmaOpcode.MAP1R2
         resAddr := I.b_from(12 downto 3)
         arg1Addr := I.b_arg(12 downto 3)
         arg2Addr := I.b_arg2(12 downto 3)
         arg2Turn := has_arg2
+        arg1RepeatCounter := 0
+        arg1Step := Mux(cmdMap, U"001", U"100")
+        mapWriteAddr := I.b_from(11 downto 3)
         work_counter := (I.b_to + 7)(12 downto 3) - I.b_from(12 downto 3)
         when (I.opcode === M"0000--") {
           when (mem_counter === 0 & ~d_last) { goto(MemOp) }

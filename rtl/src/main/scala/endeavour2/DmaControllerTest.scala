@@ -99,11 +99,21 @@ object DmaControllerTest extends App {
       mem.setBigInt(cmdPos + 1, cmd(DmaOpcode.MIXRGB, 2, 640*2-2, (2 << 13) | 4))
       mem.setBigInt(cmdPos + 2, cmd(DmaOpcode.WRITE_SYNC, 0, 640*2, 0))
       runDma(3)
-      for (i <- 0 until 16) {
-        val v = mem.getBigInt(i)
-        println(f"${i*8} ${v.toString(16)}")
-        // TODO assert v == expected
+      def mixrgb(x: Int, y: Int) : BigInt = {
+        val b = ((x & 0x1f) + (y & 0x1f)) / 2
+        val g = (((x>>5) & 0x3f) + ((y>>5) & 0x3f)) / 2
+        val r = (((x>>11) & 0x1f) + ((y>>11) & 0x1f)) / 2
+        BigInt((r<<11) | (g<<5) | b)
       }
+      for (i <- 0 until 159) {
+        val expected = (mixrgb(i*4+2,i*4+4)<<48) + (BigInt(i*4+2)<<32) + (mixrgb(i*4+2,i*4)<<16) + (BigInt(i*4)<<0)
+        val v = mem.getBigInt(i)
+        assert(v == expected, f"wrong result in Shifted MIXRGB at ${i*8}: ${v.toString(16)} != ${expected.toString(16)}")
+        //println(f"${i*8} ${v.toString(16)}")
+      }
+      val expected = (BigInt(159*4+2)<<48) + (BigInt(159*4+2)<<32) + (mixrgb(159*4+2,159*4)<<16) + (BigInt(159*4)<<0)
+      val v = mem.getBigInt(159)
+      assert(v == expected, f"wrong result in Shifted MIXRGB at ${159*8}: ${v.toString(16)} != ${expected.toString(16)}")
     }
 
     {  // Set
@@ -114,34 +124,50 @@ object DmaControllerTest extends App {
       mem.setBigInt(cmdPos + 4, cmd(DmaOpcode.SET, 33, 39, 0x88888888L))
       mem.setBigInt(cmdPos + 5, cmd(DmaOpcode.WRITE, 0, 128, 0))
       runDma(6)
-      for (i <- 0 until 16) {
+      assert(mem.getBigInt(0) == BigInt("ddaaaaccccaaaaaa", 16), "wrong result in SET")
+      assert(mem.getBigInt(1) == BigInt("aaaaaaaaaaaaaadd", 16), "wrong result in SET")
+      assert(mem.getBigInt(2) == BigInt("aaaaaaaaaaaaaaaa", 16), "wrong result in SET")
+      assert(mem.getBigInt(4) == BigInt("aa888888888888aa", 16), "wrong result in SET")
+      assert(mem.getBigInt(8) == BigInt("aaaaaaaaaaaaffff", 16), "wrong result in SET")
+      //for (i <- 0 until 16) {
+      //  val v = mem.getBigInt(i)
+      //  println(f"${i*8} ${v.toString(16)}")
+      //}
+    }
+
+    {  // MAP
+      for (i <- 0 until 128) {
+        mem.setBigInt(i, BigInt(f"aa00${i*2+1}%02xbbaa00${i*2}%02xbb", 16))
+      }
+      mem.setBigInt(128, BigInt("0706050403020100", 16))
+      mem.setBigInt(129, BigInt("0f0e0d0c0b0a0908", 16))
+      mem.setBigInt(130, BigInt("1716151413121110", 16))
+      mem.setBigInt(131, BigInt("1f1e1d1c1b1a1918", 16))
+      mem.setBigInt(132, BigInt("2726252423222120", 16))
+      mem.setBigInt(133, BigInt("2f2e2d2c2b2a2928", 16))
+      mem.setBigInt(134, BigInt("3736353433323130", 16))
+      mem.setBigInt(135, BigInt("3f3e3d3c3b3a3938", 16))
+      mem.setBigInt(cmdPos + 0, cmd(DmaOpcode.READ_SYNC, 1024, 2048, 0))
+      mem.setBigInt(cmdPos + 1, cmd(DmaOpcode.READ_SYNC, 64, 128, 1024))
+      mem.setBigInt(cmdPos + 2, cmd(DmaOpcode.LOADMAP, 3072, 4096, 1024))
+      mem.setBigInt(cmdPos + 3, cmd(DmaOpcode.MAP1R4, 1024, 1024+256, (3072<<13) | 64))
+      mem.setBigInt(cmdPos + 4, cmd(DmaOpcode.MAP1R2, 2048, 2048+128, (3072<<13) | 64))
+      mem.setBigInt(cmdPos + 5, cmd(DmaOpcode.WRITE, 1024, 1024+256, 0))
+      mem.setBigInt(cmdPos + 6, cmd(DmaOpcode.WRITE, 2048, 2048+128, 256))
+      runDma(7)
+      for (i <- 0 until 32) {
+        val expected = BigInt(f"aa00${i*2+1}%02xbbaa00${i*2}%02xbb", 16)
         val v = mem.getBigInt(i)
-        println(f"${i*8} ${v.toString(16)}")
-        // TODO assert v == expected
+        assert(v == expected, "wrong result in MAP1R4")
+        //println(f"${i*8} ${v.toString(16)}")
+      }
+      for (i <- 0 until 16) {
+        val expected = BigInt(f"${i*4+3}%02xbb${i*4+2}%02xbb${i*4+1}%02xbb${i*4}%02xbb", 16)
+        val v = mem.getBigInt(32+i)
+        assert(v == expected, "wrong result in MAP1R2")
+        //println(f"${(i+32)*8} ${v.toString(16)}")
       }
     }
-
-    /*mem.setBigInt(16, cmd(DmaOpcode.SET, 0, 4096, 0x444))
-    for (i <- 0 until 16) {
-      mem.setBigInt(16 + i + 1, cmd(DmaOpcode.WRITE, 0, 4096, 0x80000000L + 65536 + i * 4096))
-    }*/
-
-    /*mem.setBigInt(16, cmd(DmaOpcode.READ, 128, 256, 1024))
-    mem.setBigInt(17, cmd(DmaOpcode.READ_SYNC, 1024, 2048, 0))
-    mem.setBigInt(18, cmd(DmaOpcode.COPY, 1030, 1024+128-1, 128))
-    mem.setBigInt(19, cmd(DmaOpcode.SET, 1024+256, 1024+256+63, 0x87654321L))
-    for (i <- 4 to 38) {
-      mem.setBigInt(16 + i, cmd(DmaOpcode.SET, 1400+i, 1400+i+1, 0x01010101L * i))
-    }
-    mem.setBigInt(16 + 39, cmd(DmaOpcode.WRITE_SYNC, 1024, 2048, 1024))*/
-
-    /*for (i <- (128-8) until (128+64)) {
-      println(f"${i*8} ${mem.getBigInt(i).toString(16)}")
-    }*/
-
-    /*for (i <- 0 until 16) {
-      println(f"${i*8} ${mem.getBigInt(i).toString(16)}")
-    }*/
 
     dut.clockDomain.waitSampling(50)
 

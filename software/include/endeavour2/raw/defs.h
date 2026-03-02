@@ -79,6 +79,9 @@ enum DMA_OPCODE {
   DMA_WRITE_SYNC = 3,
   DMA_SET = 4,
   DMA_COPY = 5,
+  DMA_LOADMAP = 7,
+  DMA_MAP1R2 = 8,
+  DMA_MAP1R4 = 9,
   DMA_MIXRGB = 32
 };
 
