@@ -96,7 +96,7 @@ int parse_input_events(int fd, char* buf, int max_size) {
       super = ev->value;
       continue;
     }
-    if (super && ev->code == 15 && ev->value == 0) {  // super + tab
+    if ((super|ctrl) && ev->code == 15 && ev->value == 0) {  // super+tab OR ctrl+tab
       textwm_set_enabled(textwm_disabled);
       continue;
     }
