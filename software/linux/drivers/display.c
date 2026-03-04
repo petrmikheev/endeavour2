@@ -215,17 +215,17 @@ static struct EndeavourVideoMode* endeavour_find_video_mode(int x, int y) {
 static int endeavour_fb_check_var(struct fb_var_screeninfo* var, struct fb_info* _) {
   //printk("endeavour_fb_check_var %dx%d\n", var->xres, var->yres);
   if (var->xres_virtual > 2048 || var->yres_virtual > 2048) {
-    printk("endeavour_fb_check_var: unsupported xres_virtual,yres_virtual\n");
+    //printk("endeavour_fb_check_var: unsupported xres_virtual,yres_virtual\n");
     return -EINVAL;
   }
   var->xres_virtual = 2048;
   var->yres_virtual = 2048;
   if (var->xres > var->xres_virtual || var->yres > var->yres_virtual || !endeavour_find_video_mode(var->xres, var->yres)) {
-    printk("endeavour_fb_check_var: unsupported mode %ux%u\n", var->xres, var->yres);
+    //printk("endeavour_fb_check_var: unsupported mode %ux%u\n", var->xres, var->yres);
     return -EINVAL;
   }
   if (var->bits_per_pixel != 16) {
-    printk("endeavour_fb_check_var: unsupported bits_per_pixel: %d\n", var->bits_per_pixel);
+    //printk("endeavour_fb_check_var: unsupported bits_per_pixel: %d\n", var->bits_per_pixel);
     return -EINVAL;
   }
   var->red.offset = 11;
