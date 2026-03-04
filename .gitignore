@@ -17,6 +17,7 @@ rtl/simWorkspace
 software/.clangd
 software/bios/ter*
 software/buildroot/ter*
+software/buildroot/xdriver-endeavour2-fbdev/e2fbdev_drv.so
 software/bios/charmap.S
 software/textwm2/textwm2
 ~*

@@ -1,0 +1,5 @@
+CompileFlags:
+  Add: [-I/home/petya/endeavour2/software/include,
+        -I/home/petya/endeavour2-ext/buildroot-2025.02/output/staging/usr/include,
+        -I/home/petya/endeavour2-ext/buildroot-2025.02/output/staging/usr/include/xorg,
+        -I/home/petya/endeavour2-ext/buildroot-2025.02/output/staging/usr/include/pixman-1]

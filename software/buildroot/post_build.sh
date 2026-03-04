@@ -10,11 +10,13 @@ mkdir -p $ROOTFS/etc/X11
 cp $SCRIPT_DIR/{inittab,fstab} $ROOTFS/etc/
 cp $SCRIPT_DIR/../textwm2/S*textwm $ROOTFS/etc/init.d/
 cp $SCRIPT_DIR/xorg.conf $ROOTFS/etc/X11/xorg.conf
+cp $SCRIPT_DIR/xdriver-endeavour2-fbdev/e2fbdev_drv.so $ROOTFS/usr/lib/xorg/modules/drivers/
 
 # disable unnecessary daemons
 [ -f $ROOTFS/etc/init.d/S50crond ] && mv $ROOTFS/etc/init.d/S50crond $ROOTFS/etc/init.d/_S50crond
 [ -f $ROOTFS/etc/init.d/S90nodm ] && mv $ROOTFS/etc/init.d/S90nodm $ROOTFS/etc/init.d/_S90nodm
 [ -f $ROOTFS/etc/init.d/S95mpd ] && mv $ROOTFS/etc/init.d/S95mpd $ROOTFS/etc/init.d/_S95mpd
+[ -f $ROOTFS/etc/init.d/S99xdm ] && mv $ROOTFS/etc/init.d/S99xdm $ROOTFS/etc/init.d/_S99xdm
 
 if [ ! -e $ROOTFS/bin/man ] ; then
     ln -s busybox $ROOTFS/bin/man
@@ -66,3 +68,9 @@ mkdir -p $ROOTFS/usr/share/groff/1.22.4/font
 cp -r $GROFF/font/{devascii,devutf8} $ROOTFS/usr/share/groff/1.22.4/font/
 cp -r $GROFF/tmac $ROOTFS/usr/share/groff/1.22.4/tmac
 sed -i 's/.mso man.local/.\\"msi man.local/g' $ROOTFS/usr/share/groff/1.22.4/tmac/an-old.tmac
+
+# TODO copy esp32 driver and probe it in netword initd script
+#   cp /home/petya/esp-hosted/esp_hosted_ng/host/esp32_spi.ko $ROOTFS/lib/modules/$(uname -r)/drivers/
+#   depmod -a
+#   modprobe esp32_spi
+#   or insmod $path
