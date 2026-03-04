@@ -590,7 +590,7 @@ object EndeavourSoc {
     val bootRomContent = Files.readAllBytes(Paths.get("../software/bios/microloader.bin"))
     val sc = SpinalConfig(mode=Verilog, targetDirectory="verilog")
     MemBlackboxing.addMemBlackboxing(sc)
-    sc.generate(new EndeavourSoc(endeavour2aEspHack=true,
+    sc.generate(new EndeavourSoc(//endeavour2aEspHack=true,
         //coresParams=List(Core.small(withCaches=false)), internalRam=true, ramSize=65536, withL2=false,
         //coresParams=List(Core.small(withCaches=true)),
         //coresParams=List(Core.medium()),
