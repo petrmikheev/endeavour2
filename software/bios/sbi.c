@@ -59,6 +59,7 @@ struct sbiret sbi_handler(unsigned arg, unsigned arg2, unsigned arg3, int fn_id,
   }
   // Note: SBI_EXT_TIMER is handled in asm.S
   if (ext_id == SBI_EXT_RESET) {
+    epd_clear();
     if (arg == 0) {
       printf("[SBI] Shutdown\n");
       set_video_mode(0, 0);

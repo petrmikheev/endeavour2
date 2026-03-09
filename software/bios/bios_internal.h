@@ -42,6 +42,7 @@ void init_display();
 void set_dvi_frequency(unsigned freq);
 int set_video_mode(enum VideoModeId modeid, const struct VideoMode* mode);
 void show_logo(unsigned* base_ptr, int line, int column);
+int print_display_info();
 
 void init_sdcard();
 unsigned get_sdcard_rca();
@@ -57,5 +58,19 @@ void run_in_supervisor_mode(void* addr, unsigned long arg);
 
 unsigned get_seconds_since_2000();
 void set_seconds_since_2000(unsigned seconds);
+
+int print_battery_status();
+
+#define EPD_SIZE_X 400
+#define EPD_SIZE_Y 300
+#define EPD_IMAGE_SIZE (EPD_SIZE_X * EPD_SIZE_Y / 8)
+extern char* epd_image;
+
+int epd_is_initialized();
+int epd_init();
+int epd_clear();
+int epd_full_update();
+int epd_fast_update();
+void epd_show_console(int scroll_up, int scroll_right, int fast_update);
 
 #endif  // BIOS_INTERNAL_H

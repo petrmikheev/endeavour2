@@ -24,13 +24,13 @@ void dummy_mul_float_384kflop(float* data, float v);
 static void print_mem_bench_res(const char* bench_name, unsigned start_time) {
   unsigned time = time_100nsec() - start_time;
   unsigned speed = 1000000000 / time;
-  printf("\t%-35s: %u.%02u MB/s\n", bench_name, speed/100, speed%100);
+  printf("\t%-28s: %u.%02u MB/s\n", bench_name, speed/100, speed%100);
 }
 
 static void print_fpu_bench_res(const char* bench_name, unsigned start_time) {
   unsigned time = time_100nsec() - start_time;
   unsigned kflops = (384u * 1024u * 10000u) / time;
-  printf("\t%-35s: %u.%03u MFLOPS\n", bench_name, kflops / 1000, kflops % 1000);
+  printf("\t%-28s: %u.%03u MFLOPS\n", bench_name, kflops / 1000, kflops % 1000);
 }
 
 static void test_memset(const unsigned* data, unsigned v) {

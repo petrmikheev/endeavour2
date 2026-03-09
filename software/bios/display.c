@@ -109,6 +109,50 @@ void display_putchar(unsigned c) {
   }
 }
 
+static unsigned char mirror_byte(unsigned char b) {
+  unsigned char inv = 0;
+  for (int i = 0; i < 8; ++i) {
+    inv = (inv << 1) | (b&1);
+    b = b >> 1;
+  }
+  return inv;
+}
+
+void epd_show_console(int scroll_up, int scroll_right, int fast_update) {
+  if (!cursor_ptr) return;
+
+  for (int i = 0; i < EPD_IMAGE_SIZE; ++i) epd_image[i] = 0;
+
+  unsigned* last_line = (void*)((unsigned)cursor_ptr & ~(TEXT_LINE_SIZE - 1));
+  for (int y = 0; y < 300; ++y) {
+    char* dst_line = epd_image + (300-1-y) * 50;
+    int ybit = (y + 4) & 15;
+    unsigned* src_line = cursor_offset(last_line, -18 - scroll_up + (y + 4) / 16, scroll_right);
+    for (int char_x = 0; char_x < 50; ++char_x) {
+      unsigned char b;
+      int w = src_line[char_x];
+      if (w >= 0) {  // normal char
+        unsigned c = w & 0xff;
+        if (c < 32 || c >= 127) continue;
+        b = ((char*)charmap)[(c - 32) * 16 + ybit];
+      } else {  // 4-color mode
+        unsigned c = (ybit & 8) ? ((w>>8)&0xff) : (w&0xff);
+        if (c < 0xf0) continue;
+        // `c` was printed by show_logo()
+        char* logo_ptr = (char*)logo + (c-0xf0) * 16 + (ybit & 7) * 2;
+        char color_bit0 = logo_ptr[0];
+        char color_bit1 = logo_ptr[1];
+        b = color_bit0 ^ (color_bit1 & (ybit&1 ? 0xaa : 0x55));
+      }
+      dst_line[50 - 1 - char_x] = mirror_byte(b);
+    }
+  }
+  if (fast_update)
+    epd_fast_update();
+  else
+    epd_full_update();
+}
+
 static const char SI5351A_p10_17[] = {0x10, 0x4c, 0x8c, 0x8c, 0x8c, 0x8c, 0x8c, 0x8c, 0x8c};
 
 void set_dvi_frequency(unsigned freq) {
@@ -223,4 +267,37 @@ int set_video_mode(enum VideoModeId modeid, const struct VideoMode* mode) {
   volatile unsigned* dst = (unsigned*)&VIDEO_REGS->mode;
   for (int i = 0; i < sizeof(struct VideoMode)/4; ++i) dst[i] = src[i];
   return 0;
+}
+
+int print_display_info() {
+  char edid[128];
+  edid[0] = 0;
+  int err = i2c_write(I2C_ADDR_EDID, 1, edid);
+  err |= i2c_read(I2C_ADDR_EDID, 128, edid);
+  if (err) {
+    return err;
+  }
+  unsigned size_x = edid[21];
+  unsigned size_y = edid[22];
+  unsigned pixels_x = 0, pixels_y = 0;
+  char name[14];
+  name[0] = 0;
+  for (int i = 0; i < 4; i++) {
+    char* descr = edid + 54 + (i * 18);
+    if (descr[0] == 0 && descr[1] == 0 && descr[2] == 0 && descr[3] == 0xfc) {  // monitor name
+      for (int j = 0; j < 13; j++) {
+        char c = descr[5 + j];
+        if (c == 0x0a) {
+          name[j] = 0;
+          break;
+        }
+        name[j] = c;
+      }
+      name[13] = 0;
+    } else if (descr[0] != 0 || descr[1] != 0) {  // modeline
+      pixels_x = ((descr[4] & 0xf0) << 4) | descr[2];
+      pixels_y = ((descr[7] & 0xf0) << 4) | descr[5];
+    }
+  }
+  printf("Display: %s, %ux%u cm, %ux%u pixels\n", name, size_x, size_y, pixels_x, pixels_y);
 }

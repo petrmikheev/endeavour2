@@ -10,6 +10,8 @@
 // 1536 KB - 1564 KB    : EXT2 buffer
 // 1568 KB - 1572 KB    : console script buffer
 // 1572 KB - 1604 KB    : DTB buffer
+// 1760 KB - 1776 KB    : EPD image
+// 1776 KB - 1792 KB    : EPD old image
 // 1792 KB - 2048 KB    : display buffer, text
 // 2048 MB - 6368 MB    : display buffer, graphic
 //    7 MB -    8 MB    : memory benchmark, page2
@@ -47,6 +49,23 @@ void print_cpu_info() {
     if (features & CPU_FEATURES_SSTC) printf(", sstc");
     printf(", %u MHz\n", BOARD_REGS->cpu_frequency / 1000000);
   }
+}
+
+int print_battery_status() {
+  char buf[2];
+  i2c_read(I2C_ADDR_MCP3021, 2, buf);
+  unsigned v = ((((unsigned)buf[0] << 8) + buf[1]) >> 2) * 500 / 1023;
+  int percent;
+  if (v > 380) {
+    percent = 95 + (v - 380) / 5;
+  } else if (v > 300) {
+    percent = 5 + (v - 340) * 9 / 4;
+  } else {
+    percent = (v - 300) / 8;
+  }
+  if (percent > 100) percent = 100;
+  if (percent < 0) percent = 0;
+  printf("Battery: %d%% (%u.%02uV)\n", percent, v / 100, v % 100);
 }
 
 void autoboot() {
@@ -100,6 +119,9 @@ int main() {
       beep(1000, 300, 6);
     }
   }
+
+  print_battery_status();
+  print_display_info();
 
   init_sdcard();
   if (get_sdcard_sector_count() > 0 && ram_size >= (2<<20)) {

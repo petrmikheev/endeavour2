@@ -20,7 +20,41 @@ static void blink_set(int v) {
   *cursor_ptr = TEXT_BG(fg) | TEXT_FG(bg) | (c & 0x8080ffff);
 }
 
+static int show_on_epd = 0;
+static int epd_update_pending;
+static int epd_scroll;
+static unsigned last_process_time;
+
+static unsigned last_board_keys_time = 0;
+
+static void process_board_keys() {
+  int keys = GPIO_REGS->data_in & (GPIO_KEY0|GPIO_KEY1|GPIO_KEY2);
+  if (keys == 0) return;
+  if (time_100nsec() - last_board_keys_time > 200000) {
+    if (keys & GPIO_KEY0) {
+      epd_scroll -= 5;
+      if (epd_scroll < 0) epd_scroll = 0;
+    }
+    if (keys & GPIO_KEY1) epd_scroll += 5;
+    if (keys & GPIO_KEY2) {
+      show_on_epd = !show_on_epd;
+      if (show_on_epd) {
+        epd_scroll = 0;
+        epd_show_console(0, 0, /*fast=*/0);
+      } else {
+        epd_clear();
+      }
+    } else if (show_on_epd) {
+      epd_show_console(epd_scroll, 0, /*fast=*/1);
+    }
+    epd_update_pending = 0;
+  }
+  last_board_keys_time = time_100nsec();
+}
+
 static void process(int c) {
+  last_process_time = time_100nsec();
+  epd_update_pending = 1;
   blink_set(0);
   if (c == '\r') c = '\n';
   if (c == '\b' && state.size > 0) {
@@ -57,11 +91,15 @@ static struct KeyboardReport last_kb;
 
 void readline(const char* prompt, char* buffer, unsigned max_size) {
   printf(prompt);
+  epd_scroll = 0;
+  if (show_on_epd) epd_show_console(0, 0, 1);
+  epd_update_pending = 0;
   state.buffer = buffer;
   state.size = 0;
   state.max_size = max_size;
   state.finished = 0;
   while (1) {
+    process_board_keys();
     int c;
     while ((c = UART_REGS->rx) >= 0) {
       if (c > 255) {
@@ -77,6 +115,10 @@ void readline(const char* prompt, char* buffer, unsigned max_size) {
     if (time_100nsec() - last_kb_time < 200000) continue;  // max every 20ms
     last_kb_time = time_100nsec();
     blink_set((last_kb_time >> 22) & 1);
+    if (show_on_epd && epd_update_pending && last_kb_time - last_process_time > 20000000) {  // update epd only if there is no input for last 2s
+      epd_show_console(epd_scroll, 0, 1);
+      epd_update_pending = 0;
+    }
     struct KeyboardReport kb;
     if (get_keyboard_report(&kb) != 0) continue;
     int all_same = 1;

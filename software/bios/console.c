@@ -325,6 +325,10 @@ static int cmd_cat(const char* args) {
 
 int cmd_date(const char* args);  // implemented in time.c
 
+static int cmd_battery(const char* args) {
+  print_battery_status();
+}
+
 static int wait_spi_busy() {
   unsigned start = time_100nsec();
   while (1) {
@@ -412,6 +416,7 @@ static const struct ConsoleCommand commands[] = {
   {cmd_crc32,      "crc32",       "addr size [expected]",    "calculate crc32 of data in RAM"},
   {cmd_flash_bios, "flash_bios",  "addr crc32",              "write BIOS image (32 KB) from given address in RAM to SPI flash"},
   {cmd_date,       "date",        "[new_date]",              "print or set date and time"},
+  {cmd_battery,    "battery",     "",                        "print battery status"},
   {cmd_display,    "display",     "WIDTHxHEIGHT",            "set display resolution; supports custom mode, e.g.: \"display custom 25175000 640 656 752 800 480 490 492 525\""},
   {cmd_textstyle,  "textstyle",   "fg bg",                   "set text style; fg and bg are colors in hex format RRGGBBAA; alpha range is from 0 (transparent) to 64"},
   {cmd_disk,       "disk",        "sd/sd1/sd2/sd3/sd4",      "select sdcard partition for file access (only EXT2 supported)"},
