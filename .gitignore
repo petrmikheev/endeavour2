@@ -27,3 +27,4 @@ software/textwm2/textwm2
 *.mem
 *.elf
 *.o
+*.FCBak
