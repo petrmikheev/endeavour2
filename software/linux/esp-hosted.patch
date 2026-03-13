@@ -1,0 +1,142 @@
+From 7560e39347d59e5fbfc4e3cca5ab75b90c326a0b Mon Sep 17 00:00:00 2001
+From: Petr Mikheev <ptmikheev@gmail.com>
+Date: Fri, 13 Mar 2026 12:41:26 +0100
+Subject: [PATCH] endeavour2b tweaks
+
+---
+ .gitignore                       | 11 +++++++++++
+ esp_hosted_ng/host/compile.sh    |  3 +++
+ esp_hosted_ng/host/main.c        | 10 ++++++----
+ esp_hosted_ng/host/spi/esp_spi.c |  9 +++++----
+ esp_hosted_ng/host/spi/esp_spi.h |  4 ++--
+ 5 files changed, 27 insertions(+), 10 deletions(-)
+ create mode 100755 esp_hosted_ng/host/compile.sh
+
+diff --git a/.gitignore b/.gitignore
+index bac606b..2e4e094 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -14,3 +14,14 @@ esp_hosted_ng/esp/esp_driver/cmake_install.cmake
+ esp_hosted_ng/esp/esp_driver/network_adapter/build
+ esp_hosted_ng/esp/esp_driver/network_adapter/sdkconfig
+ esp_hosted_ng/esp/esp_driver/network_adapter/sdkconfig.old
++
++esp_hosted_ng/esp/esp_driver/esp-idf
++*.o
++*.dwo
++.cache
++.*.cmd
++esp_hosted_ng/host/Module.symvers
++esp_hosted_ng/host/esp32_spi.ko
++esp_hosted_ng/host/esp32_spi.mod
++esp_hosted_ng/host/esp32_spi.mod.c
++esp_hosted_ng/host/modules.order
+diff --git a/esp_hosted_ng/host/compile.sh b/esp_hosted_ng/host/compile.sh
+new file mode 100755
+index 0000000..dcbfb0e
+--- /dev/null
++++ b/esp_hosted_ng/host/compile.sh
+@@ -0,0 +1,3 @@
++#!/bin/bash
++
++make ARCH=riscv CROSS_COMPILE=${HOME}/endeavour2-ext/rv32gc-linux-toolchain/bin/riscv32-unknown-linux-gnu- KERNEL=${HOME}/endeavour2-ext/linux-kernel -j12 target=spi
+diff --git a/esp_hosted_ng/host/main.c b/esp_hosted_ng/host/main.c
+index 7b4264a..7c354bc 100644
+--- a/esp_hosted_ng/host/main.c
++++ b/esp_hosted_ng/host/main.c
+@@ -32,7 +32,7 @@
+ #define RELEASE_VERSION PROJECT_NAME "-" STRINGIFY(PROJECT_VERSION_MAJOR_1) "." STRINGIFY(PROJECT_VERSION_MAJOR_2) "." STRINGIFY(PROJECT_VERSION_MINOR) "." STRINGIFY(PROJECT_REVISION_PATCH_1) "." STRINGIFY(PROJECT_REVISION_PATCH_2)
+ 
+ static char *ota_file = NULL;
+-static int resetpin = HOST_GPIO_PIN_INVALID;
++static int resetpin = (512+23); // HOST_GPIO_PIN_INVALID;
+ static u32 clockspeed = 0;
+ extern u8 ap_bssid[MAC_ADDR_LEN];
+ extern volatile u8 host_sleep;
+@@ -42,8 +42,8 @@ int log_level = ESP_INFO;
+ char version_str[VERSION_BUFFER_SIZE];
+ 
+ 
+-module_param(resetpin, int, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+-MODULE_PARM_DESC(resetpin, "Host's GPIO pin number which is connected to ESP32's EN to reset ESP32 device");
++//module_param(resetpin, int, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
++//MODULE_PARM_DESC(resetpin, "Host's GPIO pin number which is connected to ESP32's EN to reset ESP32 device");
+ 
+ module_param(clockspeed, uint, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+ MODULE_PARM_DESC(clockspeed, "Hosts clock speed in MHz");
+@@ -1083,10 +1083,12 @@ static void esp_reset(void)
+ 
+ 			/* HOST's resetpin set to LOW */
+ 			gpio_set_value(resetpin, 0);
++			gpio_set_value(512+24, 1); // spi boot
+ 			udelay(200);
+ 
+ 			/* HOST's resetpin set to INPUT */
+-			gpio_direction_input(resetpin);
++			//gpio_direction_input(resetpin);
++			gpio_set_value(resetpin, 1);
+ 
+ 			esp_dbg("Triggering ESP reset.\n");
+ 		}
+diff --git a/esp_hosted_ng/host/spi/esp_spi.c b/esp_hosted_ng/host/spi/esp_spi.c
+index 51544a5..24fdff5 100644
+--- a/esp_hosted_ng/host/spi/esp_spi.c
++++ b/esp_hosted_ng/host/spi/esp_spi.c
+@@ -18,12 +18,12 @@
+ #include "esp_utils.h"
+ #include "esp_cfg80211.h"
+ 
+-#define SPI_INITIAL_CLK_MHZ     10
++#define SPI_INITIAL_CLK_MHZ     30 //10
+ #define TX_MAX_PENDING_COUNT    100
+ #define TX_RESUME_THRESHOLD     (TX_MAX_PENDING_COUNT/5)
+ 
+ extern u32 raw_tp_mode;
+-uint8_t g_spi_mode = SPI_MODE_2;
++uint8_t g_spi_mode = SPI_MODE_3;
+ static struct sk_buff *read_packet(struct esp_adapter *adapter);
+ static int write_packet(struct esp_adapter *adapter, struct sk_buff *skb);
+ static void spi_exit(void);
+@@ -506,7 +506,7 @@ static int spi_dev_init(int spi_clk_mhz)
+ 		esp_err("Failed to set GPIO direction of Data ready pin\n");
+ 		return status;
+ 	}
+-
++	open_data_path();
+ 	status = request_irq(SPI_DATA_READY_IRQ, spi_data_ready_interrupt_handler,
+ 			IRQF_SHARED | IRQF_TRIGGER_RISING,
+ 			"ESP_SPI_DATA_READY", spi_context.esp_spi_dev);
+@@ -514,12 +514,13 @@ static int spi_dev_init(int spi_clk_mhz)
+ 		gpio_free(HANDSHAKE_PIN);
+ 		free_irq(SPI_IRQ, spi_context.esp_spi_dev);
+ 		gpio_free(SPI_DATA_READY_PIN);
++		close_data_path();
+ 		esp_err("Failed to request IRQ for Data ready pin, err:%d\n", status);
+ 		return status;
+ 	}
+ 	set_bit(ESP_SPI_GPIO_DR_IRQ_DONE, &spi_context.spi_flags);
+ 
+-	open_data_path();
++	//open_data_path();
+ 
+ 	return 0;
+ }
+diff --git a/esp_hosted_ng/host/spi/esp_spi.h b/esp_hosted_ng/host/spi/esp_spi.h
+index 7ce272c..6f21b17 100644
+--- a/esp_hosted_ng/host/spi/esp_spi.h
++++ b/esp_hosted_ng/host/spi/esp_spi.h
+@@ -9,9 +9,9 @@
+ 
+ #include "esp.h"
+ 
+-#define HANDSHAKE_PIN           22
++#define HANDSHAKE_PIN           (512+22) //22
+ #define SPI_IRQ                 gpio_to_irq(HANDSHAKE_PIN)
+-#define SPI_DATA_READY_PIN      27
++#define SPI_DATA_READY_PIN      (512+27) //27
+ #define SPI_DATA_READY_IRQ      gpio_to_irq(SPI_DATA_READY_PIN)
+ #define SPI_BUF_SIZE            1600
+ 
+-- 
+2.43.0
+
