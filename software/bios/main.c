@@ -101,6 +101,7 @@ int main() {
   unsigned ram_size = BOARD_REGS->ram_size;
   if (!skip_non_essential && ram_size >= (8<<20)) {
     init_display();
+    if (BOARD_REGS->dvi_pixel_frequency < 20000000) beep(333, 300, 6);
   }
 
   printf(
@@ -134,7 +135,7 @@ int main() {
   }
   if (!skip_non_essential) init_usb_keyboard();
 
-  if ((GPIO_REGS->data_in & GPIO_BOOT_EN) && !(GPIO_REGS->data_in & GPIO_KEY1) && is_ext2_reader_initialized()) autoboot();
+  if ((GPIO_REGS->data_in & GPIO_BOOT_EN) && !(GPIO_REGS->data_in & GPIO_KEY1) && is_ext2_reader_initialized() && BOARD_REGS->dvi_pixel_frequency >= 20000000) autoboot();
 
   run_console();
   while(1);

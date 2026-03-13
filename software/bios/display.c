@@ -59,9 +59,14 @@ void show_logo(unsigned* base_ptr, int line, int column) {
 extern const unsigned charmap[94*4];
 extern unsigned text_style;
 
-void init_display() {
-  set_video_mode(VIDEO_MODE_640x480, 0);
+static char si5351_status() {
+  char v = 0;
+  i2c_write(I2C_ADDR_SI5351A, 1, &v);
+  i2c_read(I2C_ADDR_SI5351A, 1, &v);
+  return v;
+}
 
+void init_display() {
   text_style = DEFAULT_TEXT_STYLE;
   VIDEO_REGS->regIndex = VIDEO_COLORMAP(0);
   VIDEO_REGS->regValue = COLORMAP_TEXT_COLOR(0, 0, 0) | COLORMAP_TEXT_ALPHA(0);  // black background
@@ -82,6 +87,22 @@ void init_display() {
   VIDEO_REGS->textOffset = 0;
   register_logo();
   VIDEO_REGS->cfg = VIDEO_TEXT_ON | VIDEO_FONT_HEIGHT(16);
+
+  char pll_status = si5351_status();
+  if (pll_status & 0x80) {
+    wait(1000000);
+    pll_status = si5351_status();
+  }
+  if (pll_status & 0x80) return;  // pll is not functioning
+  set_video_mode(VIDEO_MODE_640x480, 0);
+  wait(1000000);
+  if ((si5351_status() & 0x20) || BOARD_REGS->dvi_pixel_frequency < 20000000) {
+    // PLL failure. Probably registers have junk after power on. An attempt to cleanup.
+    i2c_set_reg(I2C_ADDR_SI5351A, 3, 0xff);
+    for (int i=4;i<=255;++i) i2c_set_reg(I2C_ADDR_SI5351A, i, 0x0);
+    set_video_mode(VIDEO_MODE_640x480, 0);
+    wait(1000000);
+  }
 }
 
 void display_putchar(unsigned c) {

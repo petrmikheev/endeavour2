@@ -12,7 +12,7 @@ struct {
 int blink_state = 0;
 
 static void blink_set(int v) {
-  if (blink_state == v) return;
+  if (blink_state == v || !cursor_ptr) return;
   blink_state = v;
   unsigned c = *cursor_ptr;
   unsigned bg = (c >> 24) & 127;
