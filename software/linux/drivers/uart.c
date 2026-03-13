@@ -43,8 +43,8 @@ static struct uart_driver endeavour_uart_driver = {
   .cons = &endeavour_console,
 };
 
-static void endeavour_uart_stop_tx(struct uart_port *port) { dev_err(port->dev, "stop_tx unimplemented\n"); }
-static void endeavour_uart_stop_rx(struct uart_port *port) { dev_err(port->dev, "stop_rx unimplemented\n"); }
+static void endeavour_uart_stop_tx(struct uart_port *port) { /*dev_err(port->dev, "stop_tx unimplemented\n");*/ }
+static void endeavour_uart_stop_rx(struct uart_port *port) { /*dev_err(port->dev, "stop_rx unimplemented\n");*/ }
 
 static void endeavour_uart_putchar(struct uart_port *port, unsigned char ch) {
   while ((int)ioread32(port->membase + REG_TX) < 0)
