@@ -10,6 +10,8 @@ hello_world.bin : hello_world.c
 esp_bridge.bin: esp_bridge.c
 esp_boot_bridge.bin: esp_boot_bridge.c
 test_esp.bin: test_esp.c
+test_dma.bin: test_dma.c
+read_edid.bin: read_edid.c
 
 %.elf : %.c
 	${TOOLCHAIN}gcc ${OPTIONS} start.S $< -o $@

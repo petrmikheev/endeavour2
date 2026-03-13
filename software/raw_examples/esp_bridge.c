@@ -6,7 +6,7 @@
 // 4. `./run.sh esp_bridge.bin`
 // 5. `cd /path/to/some_esp_idf_project`
 // 6. `idf.py build` (see esp idf docs)
-// 7. `cd build && python -m esptool --chip esp32c3 -b 115200 --before default_reset --after hard_reset write_flash "@flash_args"`
+// 7. `cd build && python -m esptool --port /dev/ttyUSB0 --chip esp32c3 -b 115200 --before default_reset --after hard_reset write_flash "@flash_args"`
 // 8. when flashing is finished rerun `~/endeavour2/scripts/setup_uart.sh`
 // 9. press USER KEY 1 on the board to close the bridge; then if will dump to stdout (listen /dev/ttyUSB0 to see it) log of all transmitted data.
 
@@ -23,9 +23,10 @@ int main() {
   char* data_ptr = data;
 
   UART_REGS->cfg = UART_BAUD_RATE(115200) | UART_CSTOPB;
-  BOARD_REGS->esp32_cfg = BOARD_ESP32_EN;
+  GPIO_REGS->data_clear = GPIO_ESP32_SPI_BOOT;
+  GPIO_REGS->data_set = GPIO_ESP32_EN;
   while (1) {
-    if (BOARD_REGS->keys & 2) break;
+    if (GPIO_REGS->data_in & GPIO_KEY1) break;
     int c = UART_REGS->rx;
     int ec = ESP32_UART_REGS->rx;
     if (c & 0x200) {
@@ -92,7 +93,7 @@ int main() {
   }
   printf("\n");
 
-  BOARD_REGS->esp32_cfg = 0;
+  GPIO_REGS->data_clear = GPIO_ESP32_EN;
   printf("\nUART bridge closed\n");
   return 0;
 }
