@@ -1,12 +1,12 @@
 Endeavour2
 ==========
 
-<img width=800 src="doc/images/board.jpg">
+<img width=800 src="doc/images/bios.jpg">
 
-It is second generation of my FPGA board.
+This is the second generation of my FPGA board.
 Comparing to [endeavour1](https://github.com/petrmikheev/endeavour) it is 4 times faster and has 8x more memory.
 
-The goal is the same as on the previous iteration -- to make a DIY computer based on FPGA. It should support display, keyboard, should be able to run Linux, should have on-device compiler toolchain, and ideally should be able to render some 3D graphic.
+The goal was the same as on the previous iteration -- to make a DIY computer based on FPGA. It should support display, keyboard, should be able to run Linux, should have on-device compiler toolchain, and ideally should be able to render some 3D graphic. It was fully achieved -- I have even managed to connect my board to WiFi and play Quake2 in multiplayer.
 
 The project includes several parts:
 
@@ -16,26 +16,28 @@ The project includes several parts:
 - Linux drivers for custom peripherals.
 - Custom window manager and TTY implementation.
 
-Note: it is a hobby project made just for fun. It does not have much practical use. I don't expect a lot of interest in reusing my code -- at least because using it requires manual soldering. But if for some reason somebody wants to make a copy of this FPGA board -- let me know, I might add a bit more documentation and refactor ugly parts of the code.
+Note: This is a hobby project created just for fun. It doesn't have much practical use. However, if for some reason somebody wants to make a copy of this FPGA board, please let me know. I might add a bit more documentation.
 
 License: GPL-3.0 (except of footprints in hardware/endeavour2.pretty and Dhrystone benchmark in software/bios/dhrystone)
 
 ## Hardware
 
-<img width=800 src="doc/images/blueprint.png">
+<img width=800 src="doc/images/blueprint_2b.png">
 
 Main changes comparing to [endeavour1](https://github.com/petrmikheev/endeavour):
 
 - This time I took a chance with BGA (Ball Grid Array) chips, and surprisingly soldering was not as hard as I expected.
-- Using Efinix FPGA [Ti60F256](https://www.efinixinc.com/shop/ti60.php) with 60K logic cells and 256 1024x10b memory blocks. VexiiRiscv runs on this chip at frequency 220 MHz -- quite a lot for FPGA, especially in comparison to 60 MHz which I previously got with Intel Max10.
-- 1GB DDR3 RAM IM8G16D3FFBG (against 128MB DDR1 in endeavour1). I planned to use it with Efinix DDR3 Soft Controller Core at 400 MHz frequency (i.e. 800 MT/s, max theoretical throughput 1.6 GB/s), but on high load there were memory errors. Still don't understand why -- either I did PCB routing incorrectly, or maybe the hardcoded DDR timings in the Soft Controller are not compatible with memory chip I use. However reducing frequency from 400 MHz to 333 MHz fixed the problem. At 333 MHz max potential throughput is 1.33 GB/s. In practice in benchmarks I get about 850-900 MB/s at best.
+- Using Efinix FPGA [Ti60F256](https://www.efinixinc.com/shop/ti60.php) with 60K logic cells and 256 1024x10b memory blocks. VexiiRiscv runs on this chip at frequency 207 MHz -- quite a lot for FPGA, especially in comparison to 60 MHz which I previously got with Altera Max10.
+- 1GB DDR3 RAM IM8G16D3FFBG (against 128MB DDR1 in endeavour1). I use Efinix DDR3 Soft Controller Core. Using DDR3-400 mode, 800 MT/s, max theoretical throughput 1.6 GB/s. In practice in benchmarks I get up to 1.1 GB/s.
 - Implemented SD Card voltage switch 3.3V/1.8V. In theory it allows to use UHS-1 cards in SDR104 mode (up to 100 MB/s), but for some cards writes failed at this speed, so I use SDR50 (46 MB/s in benchmark).
-- Added specialized TMDS encoder TFP410 (in endeavour1 video output was driven directly by FPGA pins which provided not enough current and caused green artifacts in some cases). Now all display modes with pixel rate up to 165 MHz are supported.
-- Added current limiting scheme to USB ports. Now USB hotplug can not cause device reset!
-- Added real time clock with a battery in order not to appear in 1970 every time I start linux.
-- Added ESP32 module. Plan to connect it to WiFi and use as a modem via serial port. Not tested yet.
+- Added a specialized TMDS encoder TFP410 (in endeavour1 video output was driven directly by FPGA pins which provided not enough current and caused green artifacts in some cases). Now all display modes with pixel rate up to 165 MHz are supported.
+- More capacitors and a current limiting scheme on USB ports. USB hotplug can not cause device reset anymore!
+- Added a real time clock in order not to appear in 1970 every time I start linux.
+- Added ESP32 module as a WiFi adapter. `wget` shows download speed 926 KB/s.
+- Added 2000mAh LiPo battery. 
+- Added 4.2'' E-Ink display.
 
-[KiCad project](hardware/board_2a), [gerber files](hardware/board_2a/production/endeavour2.zip).
+[KiCad project](hardware/board_2b), [gerber files](hardware/board_2b/production/endeavour2.zip).
 
 **PCB production details ([JLCPCB](https://jlcpcb.com/capabilities/pcb-capabilities))**
 
@@ -43,6 +45,12 @@ Main changes comparing to [endeavour1](https://github.com/petrmikheev/endeavour)
 - Stackup: JLC06161H-3313
 - Min via hole/diameter: 0.2/0.35mm
 - Via covering: epoxy filled & capped
+
+---
+
+<img width=800 src="doc/images/boards.jpg">
+
+Endeavour2a (above) and Endeavour2b (below).
 
 ## RTL
 
@@ -55,9 +63,28 @@ Used IP cores:
 - [ZipCPU/sdspi SD-Card controller](https://github.com/ZipCPU/sdspi).
 - [Efinix DDR3 Soft Controller Core](https://www.efinixinc.com/support/ip/ddr3-controller.php) (source not available, can be used only with Efinix FPGAs).
 
-All the other components are designed from scratch. Most notably video controller (has independent text and graphic layers with transparency support) and peripheral controllers.
+All the other components are designed from scratch. Peripheral controllers are specialized for my hardware. Video controller and DMA controller are more or less generic and can be reused in other projects.
 
 [SpinalHDL](https://github.com/SpinalHDL/SpinalHDL) is being used to bring this all together.
+
+### Video controller
+
+- Has idependent text and graphic layers with transparency support.
+- Configurable video timings.
+- Supports both vertical (with wraparound) and horizontal panning.
+- Graphic layer uses RGB565 format.
+- Text layer has configurable charmap with 480 entries - e.g. ASCII + bold + italic variations + pseudographics can be loaded at once. Supports bitmap fonts with sizes from 8x8 to 8x16. Supports special 4-color symbols mode (used to render Endeavour logo, see screenshots below).
+- APB3 control interface, Tilelink DMA interface.
+- Implemented in verilog. [source](rtl/verilog/video_controller.v)
+- There is [linux driver](software/linux/drivers/display.c). See usage in [include/endeavour2/display.h](software/include/endeavour2/display.h).
+
+### DMA controller
+
+- Can execute multiple memory operations by a single batch request from CPU (needed e.g. for hardware-accelerated window move in X11 since each line requires separate copying).
+- Supports unaligned memset and memcpy (also essential for window move).
+- Supports some graphics-related instructions: batched RGB565 mixing and palette mapping. So it is kind of a very primitive 2D GPU. I used it to speedup rendering in Quake2.
+- APB3 control interface, Tilelink DMA interface.
+- Implemented in SpinalHDL. [source](rtl/src/main/scala/endeavour2/DmaController.scala)
 
 ## Software
 
@@ -65,13 +92,15 @@ All the other components are designed from scratch. Most notably video controlle
 
 Firmware. Initialization, benchmarks, sbi, bootloader, etc. Loaded on boot from SPI flash or via UART.
 
+<img width=800 src="doc/images/benchmark.jpg">
+
 BIOS console allows to either boot OS (switches to supervisor mode), or inspect files (only EXT2 supported) and run binaries in machine mode.
 
 BIOS provides API: [bios.h](software/include/endeavour2/raw/bios.h)
 
 Example that uses this API: [hello_world.c](software/raw_examples/hello_world.c)
 
-<img width=800 src="doc/images/bios.jpg">
+<img width=800 src="doc/images/hello_world.jpg">
 
 ### [software/textwm2](software/textwm2)
 
@@ -81,16 +110,56 @@ Text-layer window manager and TTY implementation.
 
 ---
 
+**wget 926 KB/s**, ESP32 as WiFi/BT adapter.
+
+<img width=800 src="doc/images/internet.jpg">
+
+### [software/linux](software/linux)
+
+Linux kernel config and drivers.
+
+### [software/buildroot](software/buildroot)
+
+Buildroot config and a few related scripts.
+
+### [xdriver-endeavour2-fbdev](software/buildroot/xdriver-endeavour2-fbdev)
+
+X11 driver which uses DMA controller when moving windows.
+
+<img width=800 src="doc/images/xorg.jpg">
+
+### [quake2sdl.patch](software/buildroot/quake2sdl.patch)
+
+<img width=800 src="doc/images/quake2.jpg">
+
+Patch for [quake2sdl](https://github.com/shamazmazum/quake2sdl).
+
+- Using DMA controller for hardware-accelerated mapping from 256 colors to RGB565, and bilinear upscaling.
+- Migrated from SDL audio to a custom endeavour2 driver with lower overhead (overhead of ALSA subsystem was quite significant).
+- Downgraded from SDL2 to SDL1 (so it can run without X11).
+
+Average FPS 12.2 on demo1 map with resolution 640x360 and bilinear upscaling to 1280x720.
+
+### A few more screenshots
+
 <img width=800 src="doc/images/result.jpg">
 
 ---
 
-<img width=800 src="doc/images/xorg.jpg">
-
----
+**DOOM**
 
 <img width=800 src="doc/images/doom.jpg">
 
 ---
 
+**Quake 1**
+
+<img width=800 src="doc/images/quake1.jpg">
+
+---
+
+**Heroes2**
+
 <img width=800 src="doc/images/fheroes2.jpg">
+
+---

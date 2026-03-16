@@ -303,8 +303,20 @@ struct EndeavourVideo {
 #define GRAPHIC_BUFFER_SIZE 0x800000 // 8MB
 #define GRAPHIC_LINE_SIZE     4096   // 4KB
 
+// R, G, B in range 0-255.
+// RGB565 takes 5 most significant bits of R, B, and 6 bits of G. Returns 16 bit color.
+#define RGB565(R, G, B) ((unsigned short)((((R)>>3)<<11) | (((G)>>2)<<5) | ((B)>>3)))
+
+#define TEXT_FOUR_COLOR_FLAG (1<<31)
 #define TEXT_BG(X) ((X)<<24)
 #define TEXT_FG(X) ((X)<<16)
+
+// char format in text buffer
+// bit  31 30 ... 24    23   22 ... 16 15 ... 8  7  ... 0
+//       0 <bg style>    X  <fg style> XXXXXX <char code>     - normal mode
+//       1 <bg style>    X  <fg style> <code_l>  <code_h>     - 4-color mode
+// in 4-color mode charmap entries <256+code_l> and <256+code_h> are used together.
+// colors are <bg style>, <bg style + 1>, <fg style>, <fg style + 1>
 
 // VIDEO_REG_INDEX
 #define VIDEO_COLORMAP(X) (X)  // RGBA (8, 8, 8, 7); bit 7 unused; X in range [0, 127]
