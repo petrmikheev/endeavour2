@@ -52,6 +52,25 @@ Main changes comparing to [endeavour1](https://github.com/petrmikheev/endeavour)
 
 Endeavour2a (above) and Endeavour2b (below).
 
+### Known design errors
+
+In Endeavour2a:
+
+- D+ and D- lines on USB-C port A are accidentally swapped, so port A can be used only as a power source. There are two USB-C ports because I was not sure that USB connection to PC will give enough power, and added a second USB-C for a power adapter. It turned out to be unnecessary, so in Endeavour2b the second port is removed.
+- ESP32 connection scheme includes not all the pins which are needed for [ESP-Hosted-NG](https://github.com/espressif/esp-hosted/blob/master/esp_hosted_ng/README.md) firmware. I tried to remap some pins, but it caused extra delays and SPI transfers didn't work properly. So Endeavour2a has no WiFi. Fixed in Endeavour2b.
+
+In Endeavour2b:
+
+- Using same DC-DC converters as in Endeavour2a (TPS562211) to generate 0.95V, 1.35V, 1.8V. I forgot that it requires input power at least 4.2V and can work from USB (which was the case in Endeavour2a), but not from a battery pack. So the device can use battery power only when the battery is fully charged. Will be fixed in Endeavour2c.
+
+### 3d printed case
+
+<img width=800 src="doc/images/case.jpg">
+
+---
+
+<img width=800 src="doc/images/eink.jpg">
+
 ## RTL
 
 <img width=800 src="doc/images/soc.png">
@@ -63,7 +82,8 @@ Used IP cores:
 - [ZipCPU/sdspi SD-Card controller](https://github.com/ZipCPU/sdspi).
 - [Efinix DDR3 Soft Controller Core](https://www.efinixinc.com/support/ip/ddr3-controller.php) (source not available, can be used only with Efinix FPGAs).
 
-All the other components are designed from scratch. Peripheral controllers are specialized for my hardware. Video controller and DMA controller are more or less generic and can be reused in other projects.
+All the other components are designed from scratch.
+DDR3 Tilelink adapter, UART controller, I2C controller, audio controller, SPI controllers (SPI FLASH, ESP32 SPI, and E2417 SPI interfaces have different requirements, so I end up with 3 different SPI controllers optimized for specific use cases), etc. Most notable are video controller and DMA controller.
 
 [SpinalHDL](https://github.com/SpinalHDL/SpinalHDL) is being used to bring this all together.
 
@@ -73,7 +93,7 @@ All the other components are designed from scratch. Peripheral controllers are s
 - Configurable video timings.
 - Supports both vertical (with wraparound) and horizontal panning.
 - Graphic layer uses RGB565 format.
-- Text layer has configurable charmap with 480 entries - e.g. ASCII + bold + italic variations + pseudographics can be loaded at once. Supports bitmap fonts with sizes from 8x8 to 8x16. Supports special 4-color symbols mode (used to render Endeavour logo, see screenshots below).
+- Text layer has configurable charmap with 480 entries - e.g. ASCII + bold + italic variations + pseudographics can be loaded at the same time. Supports bitmap fonts with sizes from 8x8 to 8x16. Supports special 4-color symbols mode (used to render Endeavour logo, see screenshots below).
 - APB3 control interface, Tilelink DMA interface.
 - Implemented in verilog. [source](rtl/verilog/video_controller.v)
 - There is [linux driver](software/linux/drivers/display.c). See usage in [include/endeavour2/display.h](software/include/endeavour2/display.h).
