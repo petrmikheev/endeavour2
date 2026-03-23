@@ -18,6 +18,8 @@ The project includes several parts:
 
 Note: This is a hobby project created just for fun. It doesn't have much practical use. However, if for some reason somebody wants to make a copy of this FPGA board, please let me know. I might add a bit more documentation.
 
+Here's a story about how I worked on the project: **[https://blog.mikhe.ch/quake2-on-fpga](https://blog.mikhe.ch/quake2-on-fpga)**.
+
 License: GPL-3.0 (except of footprints in hardware/endeavour2.pretty and Dhrystone benchmark in software/bios/dhrystone)
 
 ## Hardware
