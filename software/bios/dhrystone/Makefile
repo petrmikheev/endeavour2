@@ -1,9 +1,9 @@
-
-TOOLCHAIN=../../../../endeavour-tools/rv32imac-linux-toolchain/bin/riscv32-unknown-linux-gnu-
+TOOLCHAIN=../../../../endeavour2-ext/rv32gc-linux-toolchain/bin/riscv32-unknown-linux-gnu-
 
 OPTIONS=-march=rv32imc_zicsr_zifencei_zicbop -mabi=ilp32 -nostdlib -ffreestanding
 OPTIONS+= -fno-zero-initialized-in-bss -I../../include -I. -T dhrystone.lds
 OPTIONS+= -fomit-frame-pointer -fno-exceptions -fno-asynchronous-unwind-tables -fno-unwind-tables
+OPTIONS+= -std=gnu89
 
 dhrystone.bin: dhrystone.elf
 	${TOOLCHAIN}objcopy -O binary dhrystone.elf dhrystone.bin

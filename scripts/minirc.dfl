@@ -3,3 +3,4 @@ pu port             /dev/ttyUSB0
 pu parity           E
 pu backspace        BS
 pu rtscts           No
+pu addcarreturn     Yes

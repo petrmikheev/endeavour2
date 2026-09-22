@@ -58,7 +58,7 @@ static int cmd_memtest(const char* args) {
   return CMD_OK;
 }
 
-static int cmd_benchmark() {
+static int cmd_benchmark(const char*) {
   run_benchmarks();
   return CMD_OK;
 }
@@ -404,7 +404,7 @@ struct ConsoleCommand {
   const char* description;
 };
 
-static int cmd_help();
+static int cmd_help(const char*);
 
 static const struct ConsoleCommand commands[] = {
   {cmd_help,       "help",        "",                        "show help"},
@@ -434,7 +434,7 @@ static const struct ConsoleCommand commands[] = {
   {0}
 };
 
-static int cmd_help() {
+static int cmd_help(const char*) {
   int max_spec_len = 0;
   for (const struct ConsoleCommand* cmd = commands; cmd->handler; cmd++) {
     int len = strlen(cmd->name) + 1 + strlen(cmd->arg_spec);
