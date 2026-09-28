@@ -68,16 +68,19 @@ static struct completion dma_ready;
 static int dma_irq;
 
 static irqreturn_t dma_irq_handler(int irq, void *dev_id) {
-  dma_regs->int_stat = 0;
+  writel(0, &dma_regs->int_stat);
   complete(&dma_ready);
   return IRQ_HANDLED;
 }
 
 static void wait_dma_ready(void) {
-  while (!dma_regs->int_stat) {
+  while (!readl(&dma_regs->int_stat)) {
     reinit_completion(&dma_ready);
-    dma_regs->int_stat = 1;
-    wait_for_completion(&dma_ready);
+    writel(1, &dma_regs->int_stat);
+    if (0 == wait_for_completion_timeout(&dma_ready, msecs_to_jiffies(1000))) {
+      pr_err("endeavour2 wait_dma timeout");
+      writel(0, &dma_regs->int_stat);
+    }
   }
 }
 
